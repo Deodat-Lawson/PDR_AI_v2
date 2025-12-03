@@ -11,13 +11,15 @@ import type {
 } from "../types";
 import { ANALYSIS_TYPES } from "../types";
 import { groupContentFromChunks } from "../utils/content";
+import { createChunkBatches } from "../utils/batching";
 import { extractReferences, deduplicateReferences } from "./referenceExtractor";
 import { findSuggestedCompanyDocuments } from "./documentMatcher";
 import pLimit from "p-limit";
-const { db } = await import("../../../../server/db/index");
-const { document } = await import("~/server/db/schema");
-const { and, eq, ne } = await import("drizzle-orm");
+import { db } from "~/server/db/index";
+import { document } from "~/server/db/schema";
+import { and, eq, ne } from "drizzle-orm";
 import stringSimilarity from 'string-similarity-js';
+import { ANALYSIS_BATCH_CONFIG } from "~/lib/constants";
 
 async function withRetry<T>(
     operation: () => Promise<T>,
@@ -118,8 +120,18 @@ function createAnalysisPrompt(
 async function performWebSearch(query: string, maxResults = 5): Promise<SearchResult[]> {
     try {
         const searchTool = new DuckDuckGoSearch({ maxResults });
-        const result = await searchTool.invoke(query) as string;
-        const parsed = JSON.parse(result) as SearchResult[];
+        const result = await searchTool.invoke(query) as SearchResult[];
+        
+        let parsed: SearchResult[];
+        if (typeof result === 'string') {
+            parsed = JSON.parse(result) as SearchResult[];
+        } else if (Array.isArray(result)) {
+            parsed = result;
+        } else {
+            console.warn("Unexpected search result format:", typeof result);
+            return [];
+        }
+        
         return parsed;
     } catch (error) {
         console.error("Web search error:", error);
@@ -137,7 +149,7 @@ export async function callAIAnalysis(
 
     const chat = new ChatOpenAI({
         openAIApiKey: process.env.OPENAI_API_KEY,
-        modelName: "gpt-4.1",
+        modelName: "gpt-5.1",
         temperature: 0.3,
     });
 
@@ -145,8 +157,9 @@ export async function callAIAnalysis(
         name: "analysis_result"
     });
 
+    let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
     const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => {
+        timeoutHandle = setTimeout(() => {
             reject(new Error(`AI analysis timed out after ${timeoutMs}ms`));
         }, timeoutMs);
     });
@@ -167,20 +180,46 @@ export async function callAIAnalysis(
             missingDocuments: [],
             recommendations: []
         };
+    } finally {
+        if (timeoutHandle) {
+            clearTimeout(timeoutHandle);
+        }
     }
 }
 
+
+export type AnalysisRunStats = {
+    aiCalls: number;
+    batches: number;
+    averageBatchSize: number;
+    averageChunkLength: number;
+    totalChunks: number;
+};
+
+export type AnalyzeDocumentChunksResponse = {
+    result: PredictiveAnalysisResult;
+    stats: AnalysisRunStats;
+};
 
 export async function analyzeDocumentChunks(
     allChunks: PdfChunk[],
     specification: AnalysisSpecification,
     timeoutMs = 30000,
-    maxConcurrency = 20
-): Promise<PredictiveAnalysisResult> {
-    const limit = pLimit(maxConcurrency);
+    maxConcurrency = ANALYSIS_BATCH_CONFIG.MAX_CONCURRENCY
+): Promise<AnalyzeDocumentChunksResponse> {
+    const batches = createChunkBatches(allChunks, {
+        maxChunksPerCall: ANALYSIS_BATCH_CONFIG.MAX_CHUNKS_PER_CALL,
+        maxCharactersPerCall: ANALYSIS_BATCH_CONFIG.MAX_CHARACTERS_PER_CALL
+    });
 
-    const chunkPromises = allChunks.map(chunk =>
-        limit(() => callAIAnalysis([chunk], specification, timeoutMs))
+    const safeConcurrency = Math.max(
+        1,
+        Math.min(maxConcurrency, ANALYSIS_BATCH_CONFIG.MAX_CONCURRENCY)
+    );
+    const limit = pLimit(safeConcurrency);
+
+    const chunkPromises = batches.map(batch =>
+        limit(() => callAIAnalysis(batch, specification, timeoutMs))
     );
 
     try {
@@ -199,7 +238,19 @@ export async function analyzeDocumentChunks(
             await enhanceWithWebSearch(combinedResult, specification);
         }
 
-        return combinedResult;
+        const totalCharacters = allChunks.reduce((sum, chunk) => sum + (chunk.content?.length ?? 0), 0);
+        const stats: AnalysisRunStats = {
+            aiCalls: batches.length,
+            batches: batches.length,
+            averageBatchSize: batches.length > 0 ? allChunks.length / batches.length : allChunks.length,
+            averageChunkLength: allChunks.length > 0 ? totalCharacters / allChunks.length : 0,
+            totalChunks: allChunks.length
+        };
+
+        return {
+            result: combinedResult,
+            stats
+        };
     } catch (error) {
         console.error("Batch analysis error:", error);
         throw error;

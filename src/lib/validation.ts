@@ -65,19 +65,47 @@ export const PredictiveAnalysisSchema = z.object({
   forceRefresh: data.forceRefresh ?? false,
 }));
 
+const aiPersonaOptions = ["general", "learning-coach", "financial-expert", "legal-expert", "math-reasoning"] as const;
+
 export const QuestionSchema = z.object({
   documentId: z.number().int().positive().optional(),
   companyId: z.number().int().positive().optional(),
-  question: z.string().min(1, "Question is required").max(2000, "Question is too long"),
+  question: z.string().min(1, "Question is required"),
   style: z.enum(["concise", "detailed", "academic", "bullet-points"]).optional(),
   searchScope: z.enum(["document", "company"]).optional(),
+  enableWebSearch: z.preprocess(
+    (value) => {
+      if (value === undefined || value === null || value === "") return undefined;
+      if (typeof value === "string") return value === "true" || value === "1";
+      if (typeof value === "number") return value === 1;
+      return Boolean(value);
+    },
+    z.boolean().optional()
+  ),
+  aiPersona: z.enum(aiPersonaOptions).optional(),
+  conversationHistory: z.string().optional(),
 }).transform((data) => ({
   documentId: data.documentId,
   companyId: data.companyId,
   question: data.question,
   style: data.style ?? "concise" as const,
   searchScope: data.searchScope ?? "document" as const,
+  enableWebSearch: data.enableWebSearch ?? false,
+  aiPersona: data.aiPersona ?? "general",
+  conversationHistory: data.conversationHistory,
 }));
+
+export const ChatHistoryAddSchema = z.object({
+  documentId: z.number().int().positive("Document ID must be a positive integer"),
+  question: z.string().min(1, "Question is required"),
+  documentTitle: z.string().min(1, "Document title is required"),
+  response: z.string().min(1, "Response is required"),
+  pages: z.array(z.number().int().positive()).optional(),
+});
+
+export const ChatHistoryFetchSchema = z.object({
+  documentId: z.number().int().positive("Document ID must be a positive integer"),
+});
 
 export const DeleteDocumentSchema = z.object({
   docId: z.string().min(1, "Document ID is required"),

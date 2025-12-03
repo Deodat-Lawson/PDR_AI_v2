@@ -3,6 +3,7 @@
 import React from "react";
 import { Clock, ChevronDown, ChevronUp } from "lucide-react";
 import dayjs from "dayjs";
+import MarkdownMessage from "~/app/_components/MarkdownMessage";
 
 /**
  * Shared interface for QA history entries.
@@ -90,16 +91,19 @@ const QAHistory: React.FC<QAHistoryProps> = ({
 
                     {expandedItems.has(item.id) && (
                         <div className="mt-3 pl-8">
-                            <div className="text-gray-700 dark:text-gray-300 mb-2">{item.response}</div>
+                            <MarkdownMessage
+                                content={item.response}
+                                className="text-gray-700 dark:text-gray-300 mb-2 text-sm leading-relaxed"
+                            />
                             {item.pages.length > 0 && (
                                 <div className="mt-2">
                                     <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
                                         Reference Pages:
                                     </p>
                                     <div className="flex flex-wrap gap-2">
-                                        {item.pages.map((page) => (
+                                        {item.pages.map((page, idx) => (
                                             <button
-                                                key={page}
+                                                key={`${item.id}-page-${page}-${idx}`}
                                                 onClick={() => setPdfPageNumber(page)}
                                                 className="inline-block bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 px-2 py-1 rounded-md text-sm hover:bg-purple-200 dark:hover:bg-purple-900/70 transition-colors"
                                             >
