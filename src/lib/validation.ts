@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
+import { sanitizeString, sanitizeUrl, sanitizeSearchQuery } from "./sanitizer";
 
 export const createErrorResponse = (message: string, status = 400) => {
   return NextResponse.json(
@@ -70,7 +71,7 @@ const aiPersonaOptions = ["general", "learning-coach", "financial-expert", "lega
 export const QuestionSchema = z.object({
   documentId: z.number().int().positive().optional(),
   companyId: z.number().int().positive().optional(),
-  question: z.string().min(1, "Question is required"),
+  question: z.string().min(1, "Question is required").transform(val => sanitizeSearchQuery(val)),
   style: z.enum(["concise", "detailed", "academic", "bullet-points"]).optional(),
   searchScope: z.enum(["document", "company"]).optional(),
   enableWebSearch: z.preprocess(
@@ -83,7 +84,7 @@ export const QuestionSchema = z.object({
     z.boolean().optional()
   ),
   aiPersona: z.enum(aiPersonaOptions).optional(),
-  conversationHistory: z.string().optional(),
+  conversationHistory: z.string().optional().transform(val => val ? sanitizeString(val, { maxLength: 50000 }) : undefined),
 }).transform((data) => ({
   documentId: data.documentId,
   companyId: data.companyId,
@@ -97,9 +98,9 @@ export const QuestionSchema = z.object({
 
 export const ChatHistoryAddSchema = z.object({
   documentId: z.number().int().positive("Document ID must be a positive integer"),
-  question: z.string().min(1, "Question is required"),
-  documentTitle: z.string().min(1, "Document title is required"),
-  response: z.string().min(1, "Response is required"),
+  question: z.string().min(1, "Question is required").transform(val => sanitizeString(val, { maxLength: 2000 })),
+  documentTitle: z.string().min(1, "Document title is required").transform(val => sanitizeString(val, { maxLength: 256 })),
+  response: z.string().min(1, "Response is required").transform(val => sanitizeString(val, { maxLength: 50000 })),
   pages: z.array(z.number().int().positive()).optional(),
 });
 
@@ -112,7 +113,7 @@ export const DeleteDocumentSchema = z.object({
 });
 
 export const CategorySchema = z.object({
-  name: z.string().min(1, "Category name is required").max(256, "Category name is too long"),
+  name: z.string().min(1, "Category name is required").max(256, "Category name is too long").transform(val => sanitizeString(val, { maxLength: 256 })),
   companyId: z.string().min(1, "Company ID is required"),
 });
 
@@ -123,14 +124,18 @@ export const ApproveEmployeeSchema = z.object({
 
 export const UploadDocumentSchema = z.object({
   userId: z.string().min(1, "User ID is required").max(256, "User ID is too long").trim(),
-  documentName: z.string().min(1, "Document name is required").max(256, "Document name is too long").trim(),
-  documentUrl: z.string().url("Document URL must be a valid URL").max(2048, "Document URL is too long").trim(),
-  documentCategory: z.string().min(1, "Document category is required").max(256, "Document category is too long").trim(),
+  documentName: z.string().min(1, "Document name is required").max(256, "Document name is too long").trim().transform(val => sanitizeString(val, { maxLength: 256 })),
+  documentUrl: z.string().url("Document URL must be a valid URL").max(2048, "Document URL is too long").trim().transform(val => {
+    const sanitized = sanitizeUrl(val);
+    if (!sanitized) throw new Error("Invalid or unsafe URL");
+    return sanitized;
+  }),
+  documentCategory: z.string().min(1, "Document category is required").max(256, "Document category is too long").trim().transform(val => sanitizeString(val, { maxLength: 256 })),
   enableOCR: z.boolean().optional(),
 });
 
 export const UpdateCompanySchema = z.object({
-  name: z.string().min(1, "Company name is required").max(256, "Company name is too long").trim(),
+  name: z.string().min(1, "Company name is required").max(256, "Company name is too long").trim().transform(val => sanitizeString(val, { maxLength: 256 })),
   employerPasskey: z.string().min(1, "Employer passkey is required").max(256, "Employer passkey is too long").trim(),
   employeePasskey: z.string().min(1, "Employee passkey is required").max(256, "Employee passkey is too long").trim(),
   numberOfEmployees: z
