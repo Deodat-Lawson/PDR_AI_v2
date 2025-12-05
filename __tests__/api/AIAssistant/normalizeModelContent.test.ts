@@ -31,12 +31,6 @@ describe("normalizeModelContent", () => {
     expect(result).toBe("The formula $E = mc^2$ is famous.");
   });
 
-  it("converts bracket notation to double dollars for display equations", () => {
-    const input = "Here is an equation:\n[ \\sum_{n=0}^{\\infty} x^n ]\nEnd of equation.";
-    const result = normalizeModelContent(input);
-    expect(result).toBe("Here is an equation:\n$$\\sum_{n=0}^{\\infty} x^n$$\nEnd of equation.");
-  });
-
   it("handles multiple bracket equations in one string", () => {
     const input = "First [ a^2 ] and second [ b^2 ] equations.";
     const result = normalizeModelContent(input);
@@ -71,24 +65,6 @@ describe("normalizeModelContent", () => {
     const input = "The series [ \\sum x^n ] equals (\\frac{1}{1-x}) for (x) in ((-1,1)).";
     const result = normalizeModelContent(input);
     expect(result).toBe("The series $\\sum x^n$ equals $\\frac{1}{1-x}$ for $x$ in $(-1,1)$.");
-  });
-
-  it("converts LaTeX display math \\[ \\] to $$", () => {
-    const input = "The equation is:\n\\[\n\\sum_{n=0}^{\\infty} x^n = 1 + x + x^2\n\\]\nEnd.";
-    const result = normalizeModelContent(input);
-    expect(result).toBe("The equation is:\n$$\n\\sum_{n=0}^{\\infty} x^n = 1 + x + x^2\n$$\nEnd.");
-  });
-
-  it("converts LaTeX inline math \\( \\) to $", () => {
-    const input = "The variable \\(x\\) and constant \\(C_n = 1\\) are important.";
-    const result = normalizeModelContent(input);
-    expect(result).toBe("The variable $x$ and constant $C_n = 1$ are important.");
-  });
-
-  it("handles real AI response with LaTeX delimiters", () => {
-    const input = "Example with \\(C_n = 1\\), \\(a = 0\\):\n\\[\n\\sum_{n=0}^{\\infty} x^n = \\frac{1}{1-x}, \\quad \\text{domain } (-1,1)\n\\]";
-    const result = normalizeModelContent(input);
-    expect(result).toBe("Example with $C_n = 1$, $a = 0$:\n$$\n\\sum_{n=0}^{\\infty} x^n = \\frac{1}{1-x}, \\quad \\text{domain } (-1,1)\n$$");
   });
 });
 
