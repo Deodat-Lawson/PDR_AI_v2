@@ -3,6 +3,7 @@ import { Brain, Send, ThumbsUp, ThumbsDown, Plus, Search, ExternalLink } from 'l
 import { useAgentChatbot, type Message } from '../hooks/useAgentChatbot';
 import MarkdownMessage from "~/app/_components/MarkdownMessage";
 import clsx from 'clsx';
+import { logger } from '~/lib/logger';
 
 interface AgentChatInterfaceProps {
   chatId: string;
@@ -59,7 +60,9 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
             if (welcomeMsg) {
               setMessages([welcomeMsg]);
             }
-          }).catch(console.error);
+          }).catch((err) => {
+            logger.error('Failed to send welcome message', { chatId, aiPersona }, err);
+          });
         }
       };
       void loadAndCheckWelcome();
@@ -168,9 +171,12 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
           aiPersona: aiPersona, // Include AI persona for learning coach mode
         };
 
-        // Console log web search status
-        console.log('🔍 Frontend: enableWebSearch =', enableWebSearch, 'type:', typeof enableWebSearch);
-        console.log('📤 Frontend: Sending requestBody with enableWebSearch:', requestBody.enableWebSearch);
+        // Log web search status for debugging
+        logger.debug('Web search status', {
+          enableWebSearch,
+          enableWebSearchType: typeof enableWebSearch,
+          requestBodyWebSearch: requestBody.enableWebSearch
+        });
 
         if (searchScope === "document" && selectedDocId) {
           requestBody.documentId = selectedDocId;
@@ -216,7 +222,7 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
           }
         }
       } catch (err) {
-        console.error('AI service error:', err);
+        logger.error('AI service error', { chatId, documentId: selectedDocId, companyId }, err);
         // Send error message
         const errorResponse = await sendMessage({
           chatId,
@@ -229,7 +235,7 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
         }
       }
     } catch (err) {
-      console.error('Failed to send message:', err);
+      logger.error('Failed to send message', { chatId, input: input.substring(0, 50) }, err);
     } finally {
       setIsSubmitting(false);
     }
