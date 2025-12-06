@@ -21,6 +21,8 @@ import {
     predictiveAnalysisRequests
 } from "~/server/metrics/registry";
 import { validateRequestBody, PredictiveAnalysisSchema } from "~/lib/validation";
+import { withRateLimit } from "~/lib/rate-limit-middleware";
+import { RateLimitPresets } from "~/lib/rate-limiter";
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -97,14 +99,17 @@ async function getDocumentDetails(documentId: number) : Promise<DocumentDetails 
 }
 
 export async function POST(request: Request) {
-    const endTimer = predictiveAnalysisDuration.startTimer();
-    let cachedLabel: "true" | "false" = "false";
-    const recordResult = (result: "success" | "error") => {
-        predictiveAnalysisRequests.inc({ result, cached: cachedLabel });
-        endTimer({ result, cached: cachedLabel });
-    };
+    // Apply rate limiting: 20 requests per 15 minutes for predictive analysis
+    // This is a compute-intensive AI operation
+    return withRateLimit(request, RateLimitPresets.strict, async () => {
+        const endTimer = predictiveAnalysisDuration.startTimer();
+        let cachedLabel: "true" | "false" = "false";
+        const recordResult = (result: "success" | "error") => {
+            predictiveAnalysisRequests.inc({ result, cached: cachedLabel });
+            endTimer({ result, cached: cachedLabel });
+        };
 
-    try {
+        try {
         const validation = await validateRequestBody(request, PredictiveAnalysisSchema);
         if (!validation.success) {
             recordResult("error");
@@ -298,14 +303,15 @@ export async function POST(request: Request) {
             }
         }
 
-        recordResult("error");
+            recordResult("error");
 
-        return NextResponse.json({
-            success: false,
-            error: process.env.NODE_ENV === 'development' ? String(error) : undefined,
-            message,
-            errorType,
-            timestamp: new Date().toISOString()
-        }, { status });
-    }
+            return NextResponse.json({
+                success: false,
+                error: process.env.NODE_ENV === 'development' ? String(error) : undefined,
+                message,
+                errorType,
+                timestamp: new Date().toISOString()
+            }, { status });
+        }
+    });
 }

@@ -15,6 +15,8 @@ import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import { OpenAIEmbeddings } from "@langchain/openai";
 import type { Document } from "langchain/document";
 import { processPDFWithOCR } from "../services/ocrService";
+import { withRateLimit } from "~/lib/rate-limit-middleware";
+import { RateLimitPresets } from "~/lib/rate-limiter";
 
 interface PDFMetadata {
     loc?: {
@@ -35,9 +37,12 @@ const TEMP_FILE_PREFIX = "pdr-ai-upload-";
 const DATALAB_API_KEY = process.env.DATALAB_API_KEY ?? undefined;
 
 export async function POST(request: Request) {
-    let tempFilePath: string | null = null;
+    // Apply rate limiting: 20 requests per 15 minutes for document upload
+    // This is an expensive operation with OCR and embeddings
+    return withRateLimit(request, RateLimitPresets.strict, async () => {
+        let tempFilePath: string | null = null;
 
-    try {
+        try {
         const validation = await validateRequestBody(request, UploadDocumentSchema);
         if (!validation.success) {
             return validation.response;
@@ -231,15 +236,16 @@ export async function POST(request: Request) {
                 ? error.message
                 : "An unexpected error occurred while processing the document upload.";
 
-        console.error("Upload document error:", error);
-        return NextResponse.json({ error: message }, { status });
-    } finally {
-        if (tempFilePath) {
-            await fs.unlink(tempFilePath).catch((cleanupError) => {
-                console.warn(`Failed to clean up temporary file ${tempFilePath}:`, cleanupError);
-            });
+            console.error("Upload document error:", error);
+            return NextResponse.json({ error: message }, { status });
+        } finally {
+            if (tempFilePath) {
+                await fs.unlink(tempFilePath).catch((cleanupError) => {
+                    console.warn(`Failed to clean up temporary file ${tempFilePath}:`, cleanupError);
+                });
+            }
         }
-    }
+    });
 }
 
 /**

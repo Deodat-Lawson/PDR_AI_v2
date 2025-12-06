@@ -19,6 +19,8 @@ import { users, document } from "~/server/db/schema";
 import { performTavilySearch, type WebSearchResult } from "./services/tavilySearch";
 import { executeWebSearchAgent } from "./services/webSearchAgent";
 import normalizeModelContent from "./normalizeModelContent";
+import { withRateLimit } from "~/lib/rate-limit-middleware";
+import { RateLimitPresets } from "~/lib/rate-limiter";
 
 
 export const runtime = 'nodejs';
@@ -111,16 +113,19 @@ const qaAnnOptimizer = new ANNOptimizer({
 const COMPANY_SCOPE_ROLES = new Set(["employer", "owner"]);
 
 export async function POST(request: Request) {
-    const startTime = Date.now();
-    const endTimer = qaRequestDuration.startTimer();
-    let retrievalMethod = "not_started";
+    // Apply rate limiting: 20 requests per 15 minutes for AI chat
+    // This is an expensive operation that calls OpenAI APIs
+    return withRateLimit(request, RateLimitPresets.strict, async () => {
+        const startTime = Date.now();
+        const endTimer = qaRequestDuration.startTimer();
+        let retrievalMethod = "not_started";
 
-    const recordResult = (result: "success" | "error" | "empty") => {
-        qaRequestCounter.inc({ result, retrieval: retrievalMethod });
-        endTimer({ result, retrieval: retrievalMethod });
-    };
+        const recordResult = (result: "success" | "error" | "empty") => {
+            qaRequestCounter.inc({ result, retrieval: retrievalMethod });
+            endTimer({ result, retrieval: retrievalMethod });
+        };
 
-    try {
+        try {
         const validation = await validateRequestBody(request, QuestionSchema);
         if (!validation.success) {
             recordResult("error");
@@ -577,16 +582,17 @@ The user enabled web search, but no relevant results were found for this query. 
             } : undefined
         });
 
-    } catch (error) {
-        console.error("❌ [Q&A-ANN] Error in Q&A processing:", error);
-        recordResult("error");
-        return NextResponse.json(
-            { 
-                success: false, 
-                error: "An error occurred while processing your question.",
-                details: error instanceof Error ? error.message : "Unknown error"
-            },
-            { status: 500 }
-        );
-    }
+        } catch (error) {
+            console.error("❌ [Q&A-ANN] Error in Q&A processing:", error);
+            recordResult("error");
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: "An error occurred while processing your question.",
+                    details: error instanceof Error ? error.message : "Unknown error"
+                },
+                { status: 500 }
+            );
+        }
+    });
 }
