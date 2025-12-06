@@ -161,31 +161,43 @@ export const DocumentContent: React.FC<DocumentContentProps> = ({
   const [aiPersona, setAiPersona] = useState<AiPersona>('general');
   const [showExpertiseModal, setShowExpertiseModal] = useState(false);
   const [pendingChatTitle, setPendingChatTitle] = useState('');
+  const prevSelectedDocIdRef = useRef<number | null>(null);
   
-      // Load messages and chat settings when chat is selected
-      useEffect(() => {
-        if (currentChatId && queryMode === 'chat') {
-          void getMessages(currentChatId).then((_msgs) => {
-            // Messages are handled by AgentChatInterface component
-          }).catch(console.error);
-          
-          // Load chat settings from database
-          void getChat(currentChatId).then((chatData) => {
-            if (chatData && typeof chatData === 'object' && 'chat' in chatData && chatData.chat) {
-              const chat = chatData.chat as { aiStyle?: string; aiPersona?: string };
-              if (chat.aiStyle) {
-                setAiStyle(chat.aiStyle);
-                console.log('🔄 Restored style from database:', chat.aiStyle);
-              }
-              if (chat.aiPersona) {
-                setAiPersona(chat.aiPersona as AiPersona);
-                console.log('🔄 Restored persona from database:', chat.aiPersona);
-              }
-            }
-          }).catch(console.error);
+  // Reset chat when selected document is deleted (changes from a document to null)
+  // This ensures the chat interface works properly after document deletion
+  useEffect(() => {
+    const currentDocId = selectedDoc?.id ?? null;
+    // Only reset if we had a document selected before and now it's null (deleted)
+    if (prevSelectedDocIdRef.current !== null && currentDocId === null) {
+      setCurrentChatId(null);
+    }
+    prevSelectedDocIdRef.current = currentDocId;
+  }, [selectedDoc]);
+
+  // Load messages and chat settings when chat is selected
+  useEffect(() => {
+    if (currentChatId && queryMode === 'chat') {
+      void getMessages(currentChatId).then((_msgs) => {
+        // Messages are handled by AgentChatInterface component
+      }).catch(console.error);
+      
+      // Load chat settings from database
+      void getChat(currentChatId).then((chatData) => {
+        if (chatData && typeof chatData === 'object' && 'chat' in chatData && chatData.chat) {
+          const chat = chatData.chat as { aiStyle?: string; aiPersona?: string };
+          if (chat.aiStyle) {
+            setAiStyle(chat.aiStyle);
+            console.log('🔄 Restored style from database:', chat.aiStyle);
+          }
+          if (chat.aiPersona) {
+            setAiPersona(chat.aiPersona as AiPersona);
+            console.log('🔄 Restored persona from database:', chat.aiPersona);
+          }
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-      }, [currentChatId, queryMode]);
+      }).catch(console.error);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentChatId, queryMode]);
 
   // States for resizable sidebars
   const [rightSidebarWidth, setRightSidebarWidth] = useState(400);
