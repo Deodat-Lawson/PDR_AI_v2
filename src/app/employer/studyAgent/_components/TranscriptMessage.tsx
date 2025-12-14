@@ -1,13 +1,18 @@
-import { Message } from "../App";
+import { Message, Document } from "../page";
 import { User, Volume2, FileText } from "lucide-react";
 
 interface TranscriptMessageProps {
   message: Message;
   lightMode?: boolean;
+  documents?: Document[];
 }
 
-export function TranscriptMessage({ message, lightMode = false }: TranscriptMessageProps) {
+export function TranscriptMessage({ message, lightMode = false, documents = [] }: TranscriptMessageProps) {
   const isUser = message.role === "user";
+  const attachedDoc = message.attachedDocumentId 
+    ? documents.find(d => d.id === message.attachedDocumentId)
+    : null;
+  const pdfUrl = message.attachedDocumentUrl || attachedDoc?.url;
 
   return (
     <div className={`flex items-start gap-3 ${isUser ? "flex-row-reverse" : ""}`}>
@@ -29,7 +34,7 @@ export function TranscriptMessage({ message, lightMode = false }: TranscriptMess
       </div>
 
       {/* Message Content */}
-      <div className="flex-1 max-w-[280px]">
+      <div className={`flex-1 ${pdfUrl ? "max-w-full" : "max-w-[280px]"}`}>
         {/* Voice indicator badge */}
         {message.isVoice && (
           <div
@@ -54,7 +59,34 @@ export function TranscriptMessage({ message, lightMode = false }: TranscriptMess
           <div className="whitespace-pre-wrap break-words text-sm leading-relaxed">
             {message.content}
           </div>
-          {message.attachedDocument && (
+          {pdfUrl && (
+            <div className={`mt-3 pt-3 ${
+              isUser
+                ? "border-t border-blue-400/30"
+                : lightMode
+                ? "border-t border-white/20"
+                : "border-t border-gray-300/50"
+            }`}>
+              <div className={`flex items-center gap-2 text-xs mb-2 ${
+                isUser
+                  ? "text-blue-100"
+                  : lightMode
+                  ? "text-white/80"
+                  : "text-gray-600"
+              }`}>
+                <FileText className="w-3 h-3" />
+                <span>{message.attachedDocument || attachedDoc?.name || "PDF"}</span>
+              </div>
+              <div className="rounded overflow-hidden bg-white/10 border border-white/20">
+                <iframe
+                  src={`${pdfUrl}#page=1`}
+                  className="w-full h-64 border-0"
+                  title={message.attachedDocument || "PDF Preview"}
+                />
+              </div>
+            </div>
+          )}
+          {message.attachedDocument && !pdfUrl && (
             <div
               className={`mt-2 pt-2 flex items-center gap-2 text-xs ${
                 isUser

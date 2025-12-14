@@ -14,7 +14,9 @@ export interface Message {
   content: string;
   ttsContent?: string; // Text with emotion tags for TTS
   timestamp: Date;
-  attachedDocument?: string;
+  attachedDocument?: string; // Document name
+  attachedDocumentId?: string; // Document ID
+  attachedDocumentUrl?: string; // Document URL for PDF display
   isVoice?: boolean;
   isPlaying?: boolean;
 }
@@ -305,6 +307,8 @@ export default function App() {
         content: `Let me pull up "${doc.name}" for us to review together. What specific part would you like to focus on?`,
         timestamp: new Date(),
         attachedDocument: doc.name,
+        attachedDocumentId: doc.id,
+        attachedDocumentUrl: doc.url,
         isVoice: true,
       };
       setMessages((prev) => [...prev, aiMessage]);
@@ -421,6 +425,7 @@ export default function App() {
           messages={messages}
           studyPlan={studyPlan}
           documents={documents}
+          selectedDocument={selectedDocument}
           onSendMessage={handleSendMessage}
           onEndCall={handleEndCall}
           onPullUpMaterial={handlePullUpMaterial}

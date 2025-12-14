@@ -1,8 +1,5 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
 import { Message, Document, StudyPlanItem } from "../page";
-import { Button } from "./ui/button";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
 import { BookOpen, CheckCircle2, Circle } from "lucide-react";
 import { VoiceChat } from "./VoiceChat";
 import { Badge } from "./ui/badge";
@@ -31,23 +28,12 @@ export function TeacherPanel({
 
   return (
     <div className="w-96 bg-white border-l border-gray-200 flex flex-col">
-      {/* Tabs */}
-      <Tabs defaultValue="chat" className="flex-1 flex flex-col">
-        <div className="border-b border-gray-200 px-4 pt-4">
-          <TabsList className="w-full grid grid-cols-2">
-            <TabsTrigger value="chat">Teacher Call</TabsTrigger>
-            <TabsTrigger value="plan">Study Plan</TabsTrigger>
-          </TabsList>
-        </div>
+      {/* Compact Voice Call Interface */}
+      <VoiceChat messages={messages} onSendMessage={onSendMessage} onEndCall={onEndCall} documents={documents} />
 
-        {/* Voice Chat Tab */}
-        <TabsContent value="chat" className="flex-1 flex flex-col m-0 data-[state=active]:flex">
-          <VoiceChat messages={messages} onSendMessage={onSendMessage} onEndCall={onEndCall} />
-        </TabsContent>
-
-        {/* Study Plan Tab */}
-        <TabsContent value="plan" className="flex-1 overflow-y-auto p-4 m-0 data-[state=active]:block">
-          <div className="mb-4">
+      {/* Study Plan Section */}
+      <div className="flex-1 overflow-y-auto p-4">
+        <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-lg">Your Study Plan</h3>
               <Badge variant="secondary">
@@ -113,14 +99,13 @@ export function TeacherPanel({
             ))}
           </div>
 
-          <div className="mt-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
-            <p className="text-sm text-purple-900">
-              <strong>Tip:</strong> Click on any material to view it, or ask your teacher
-              questions about your study plan in the chat.
-            </p>
-          </div>
-        </TabsContent>
-      </Tabs>
+        <div className="mt-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
+          <p className="text-sm text-purple-900">
+            <strong>Tip:</strong> Click on any material to view it, or ask your teacher
+            questions about your study plan in the chat.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

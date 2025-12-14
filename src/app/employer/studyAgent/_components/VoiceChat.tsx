@@ -1,17 +1,21 @@
 import { useState, useRef, useEffect } from "react";
-import { Message } from "../page";
-import { Mic, MicOff, PhoneOff, Volume2, VolumeX } from "lucide-react";
+import { Message, Document } from "../page";
+import { Mic, MicOff, PhoneOff, Volume2, VolumeX, FileText, MessageSquare, Maximize2 } from "lucide-react";
+import { Button } from "./ui/button";
+import { ExpandedVoiceCall } from "./ExpandedVoiceCall";
 
 interface VoiceChatProps {
   messages: Message[];
   onSendMessage: (content: string) => void;
   onEndCall?: () => void;
   isBuddy?: boolean;
+  documents?: Document[];
 }
 
 type CallState = "connected" | "listening" | "teacher-speaking";
 
-export function VoiceChat({ messages, onSendMessage, onEndCall, isBuddy = false }: VoiceChatProps) {
+export function VoiceChat({ messages, onSendMessage, onEndCall, isBuddy = false, documents = [] }: VoiceChatProps) {
+  const [showTranscript, setShowTranscript] = useState(false);
   const [callState, setCallState] = useState<CallState>("connected");
   const [isMuted, setIsMuted] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -555,180 +559,185 @@ export function VoiceChat({ messages, onSendMessage, onEndCall, isBuddy = false 
     };
   }, []);
 
+  const displayCallState = isPlayingAudio ? "speaking" : (callState === "teacher-speaking" ? "speaking" : callState);
+
   return (
-    <div className="flex-1 flex flex-col bg-gradient-to-br from-purple-600 via-purple-500 to-purple-600 relative overflow-hidden">
-      {/* Background pattern */}
-      <div className="absolute inset-0 opacity-10">
-        <div className="absolute inset-0" style={{
-          backgroundImage: "radial-gradient(circle at 2px 2px, white 1px, transparent 0)",
-          backgroundSize: "40px 40px"
-        }} />
-      </div>
-
-      {/* Top Bar */}
-      <div className="relative z-10 p-4 flex items-center justify-between text-white">
-        <div className="flex-1" />
-        <div className="text-center">
-          <div className="text-sm opacity-80">{isBuddy ? "AI Study Buddy" : "AI Teacher"}</div>
-          <div className="text-xs opacity-60 mt-0.5">{formatDuration(callDuration)}</div>
+    <>
+      <div className="bg-gradient-to-br from-purple-600 via-purple-500 to-purple-600 text-white p-4 relative overflow-hidden">
+        {/* Background pattern */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute inset-0" style={{
+            backgroundImage: "radial-gradient(circle at 2px 2px, white 1px, transparent 0)",
+            backgroundSize: "30px 30px"
+          }} />
         </div>
-        <div className="flex-1 flex justify-end">
-          {/* Empty space for layout balance */}
-        </div>
-      </div>
 
-      {/* Main Content Area */}
-      <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6">
-            {/* Teacher Avatar */}
-            <div className="relative mb-8">
-              <div className="w-32 h-32 rounded-full bg-white flex items-center justify-center shadow-2xl relative overflow-hidden">
+        <div className="relative z-10 space-y-4">
+          {/* Top Row - Avatar & Info */}
+          <div className="flex items-center gap-4">
+            {/* Avatar */}
+            <div className="relative">
+              <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center shadow-lg overflow-hidden">
                 <div className={`absolute inset-0 bg-gradient-to-br ${isBuddy ? "from-blue-200 to-blue-300" : "from-purple-200 to-purple-300"}`} />
-                <span className="relative z-10 text-5xl">{isBuddy ? "🤝" : "🎓"}</span>
+                <span className="relative z-10 text-3xl">{isBuddy ? "🤝" : "🎓"}</span>
               </div>
               
               {/* Animated ring when speaking */}
-              {callState === "teacher-speaking" && (
-                <>
-                  <div className="absolute inset-0 rounded-full border-4 border-white animate-ping opacity-75" />
-                  <div className="absolute inset-0 rounded-full border-4 border-white animate-pulse" />
-                </>
+              {displayCallState === "speaking" && (
+                <div className="absolute inset-0 rounded-full border-2 border-white animate-pulse" />
               )}
             </div>
 
-            {/* Teacher Name */}
-            <h2 className="text-white text-2xl mb-2">{isBuddy ? "AI Study Buddy" : "AI Teacher"}</h2>
-            <p className="text-white/80 text-sm mb-8">{isBuddy ? "Learning Companion" : "Teaching Assistant"}</p>
-
-            {/* Status Display */}
-            <div className="bg-white/20 backdrop-blur-md rounded-2xl px-6 py-4 mb-8 min-w-[280px] text-center">
-              {error && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-center gap-2 text-red-200">
-                    <span className="text-sm">⚠️ {error}</span>
-                  </div>
-                </div>
-              )}
-              
-              {callState === "listening" && isRecording && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-center gap-2 text-white">
-                    <Mic className="w-4 h-4 animate-pulse" />
-                    <span className="text-sm">Listening...</span>
-                  </div>
-                  {currentTranscript && (
-                    <div className="text-white text-sm mt-2 bg-white/10 rounded-lg px-3 py-2">
-                      "{currentTranscript}"
-                    </div>
-                  )}
-                </div>
-              )}
-              
-              {callState === "teacher-speaking" && (
-                <div className="flex items-center justify-center gap-2 text-white">
-                  {isLoadingAudio ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span className="text-sm">Generating audio...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Volume2 className="w-4 h-4 animate-pulse" />
-                      <span className="text-sm">{isBuddy ? "Study Buddy" : "Teacher"} is speaking...</span>
-                    </>
-                  )}
-                </div>
-              )}
-
-              {callState === "connected" && !isRecording && !error && (
-                <div className="text-white/80 text-sm">
-                  {continuousListening 
-                    ? "Ready to listen... (speak naturally)" 
-                    : "Click mic to resume listening"}
-                </div>
-              )}
+            {/* Info */}
+            <div className="flex-1 min-w-0">
+              <h3 className="text-lg">{isBuddy ? "AI Study Buddy" : "AI Teacher"}</h3>
+              <div className="flex items-center gap-2 text-sm text-white/80">
+                <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                <span>{formatDuration(callDuration)}</span>
+              </div>
             </div>
 
-            {/* Audio Visualizer */}
-            {(callState === "listening" || callState === "teacher-speaking") && (
-              <div className="flex items-center justify-center gap-1 h-16 mb-8">
-                {[...Array(25)].map((_, i) => (
-                  <div
-                    key={i}
-                    className={`w-1 rounded-full ${
-                      callState === "listening" ? "bg-blue-300" : "bg-white"
-                    }`}
-                    style={{
-                      height: `${Math.random() * 100}%`,
-                      animation: `pulse ${0.5 + Math.random() * 0.5}s ease-in-out infinite`,
-                      animationDelay: `${i * 0.05}s`,
-                    }}
-                  />
-                ))}
+            {/* Transcript Button */}
+            <button
+              onClick={() => setShowTranscript(true)}
+              className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-md flex items-center justify-center transition-all relative"
+              title={`${messages.length} messages`}
+            >
+              <MessageSquare className="w-4 h-4 text-white" />
+              {messages.length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  {messages.length}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {/* Status Indicator */}
+          <div className="bg-white/20 backdrop-blur-md rounded-lg px-4 py-2 text-center text-sm">
+            {error && (
+              <div className="flex items-center justify-center gap-2 text-red-200">
+                <span>⚠️ {error}</span>
               </div>
             )}
-      </div>
+            
+            {!error && displayCallState === "listening" && (
+              <div className="flex items-center justify-center gap-2">
+                <Mic className="w-4 h-4 animate-pulse" />
+                <span>Listening...</span>
+              </div>
+            )}
+            
+            {!error && displayCallState === "speaking" && (
+              <div className="flex items-center justify-center gap-2">
+                {isLoadingAudio ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Generating audio...</span>
+                  </>
+                ) : (
+                  <>
+                    <Volume2 className="w-4 h-4 animate-pulse" />
+                    <span>{isBuddy ? "Buddy" : "Teacher"} is speaking...</span>
+                  </>
+                )}
+              </div>
+            )}
 
-      {/* Bottom Controls */}
-      <div className="relative z-10 p-6 flex items-center justify-center gap-6">
-        {/* Mute Button */}
-        <button
-          onClick={() => setIsMuted(!isMuted)}
-          className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${
-            isMuted
-              ? "bg-red-500 hover:bg-red-600"
-              : "bg-white/20 hover:bg-white/30 backdrop-blur-md"
-          }`}
-        >
-          {isMuted ? (
-            <VolumeX className="w-6 h-6 text-white" />
-          ) : (
-            <Volume2 className="w-6 h-6 text-white" />
+            {!error && displayCallState === "connected" && !isRecording && (
+              <span className="text-white/90">
+                {continuousListening 
+                  ? "Ready to listen... (speak naturally)" 
+                  : "Click mic to start"}
+              </span>
+            )}
+          </div>
+
+          {/* Mini Audio Visualizer */}
+          {(displayCallState === "listening" || displayCallState === "speaking") && (
+            <div className="flex items-center justify-center gap-0.5 h-8">
+              {[...Array(15)].map((_, i) => (
+                <div
+                  key={i}
+                  className={`w-1 rounded-full ${
+                    displayCallState === "listening" ? "bg-blue-300" : "bg-white"
+                  }`}
+                  style={{
+                    height: `${Math.random() * 100}%`,
+                    animationName: "pulse",
+                    animationDuration: `${0.5 + Math.random() * 0.5}s`,
+                    animationTimingFunction: "ease-in-out",
+                    animationIterationCount: "infinite",
+                    animationDelay: `${i * 0.05}s`,
+                  }}
+                />
+              ))}
+            </div>
           )}
-        </button>
 
-        {/* Microphone Button - Toggle continuous listening */}
-        <button
-          onClick={handleMicPress}
-          disabled={isMuted}
-          className={`w-20 h-20 rounded-full flex items-center justify-center transition-all shadow-2xl ${
-            isRecording
-              ? "bg-blue-500 hover:bg-blue-600 scale-110"
-              : isMuted
-              ? "bg-gray-400 cursor-not-allowed"
-              : continuousListening
-              ? "bg-green-500 hover:bg-green-600"
-              : "bg-white hover:bg-gray-100 active:scale-95"
-          }`}
-          title={continuousListening ? "Click to stop listening" : "Click to start listening"}
-        >
-          {isRecording ? (
-            <MicOff className="w-8 h-8 text-white" />
-          ) : (
-            <Mic className={`w-8 h-8 ${isMuted ? "text-gray-600" : continuousListening ? "text-white" : "text-purple-600"}`} />
-          )}
-        </button>
+          {/* Controls */}
+          <div className="flex items-center justify-center gap-3">
+            {/* Mute */}
+            <button
+              onClick={() => setIsMuted(!isMuted)}
+              className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+                isMuted
+                  ? "bg-red-500 hover:bg-red-600"
+                  : "bg-white/20 hover:bg-white/30 backdrop-blur-md"
+              }`}
+            >
+              {isMuted ? (
+                <VolumeX className="w-4 h-4 text-white" />
+              ) : (
+                <Volume2 className="w-4 h-4 text-white" />
+              )}
+            </button>
 
-        {/* End Call Button */}
-        <button
-          onClick={() => {
-            if (confirm("End your tutoring session?")) {
-              handleEndCall();
-            }
-          }}
-          className="w-14 h-14 rounded-full bg-red-500 hover:bg-red-600 flex items-center justify-center transition-all"
-        >
-          <PhoneOff className="w-6 h-6 text-white" />
-        </button>
+            {/* Microphone */}
+            <button
+              onClick={handleMicPress}
+              disabled={isMuted}
+              className={`w-14 h-14 rounded-full flex items-center justify-center transition-all shadow-lg ${
+                isRecording
+                  ? "bg-blue-500 hover:bg-blue-600 scale-110"
+                  : isMuted
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : continuousListening
+                  ? "bg-green-500 hover:bg-green-600"
+                  : "bg-white hover:bg-gray-100 active:scale-95"
+              }`}
+              title={continuousListening ? "Click to stop listening" : "Click to start listening"}
+            >
+              {isRecording ? (
+                <MicOff className="w-5 h-5 text-white" />
+              ) : (
+                <Mic className={`w-5 h-5 ${isMuted ? "text-gray-600" : continuousListening ? "text-white" : "text-purple-600"}`} />
+              )}
+            </button>
+
+            {/* End Call */}
+            <button
+              onClick={() => {
+                if (confirm("End your tutoring session?")) {
+                  handleEndCall();
+                }
+              }}
+              className="w-10 h-10 rounded-full bg-red-500 hover:bg-red-600 flex items-center justify-center transition-all"
+            >
+              <PhoneOff className="w-4 h-4 text-white" />
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Bottom hint */}
-      <div className="relative z-10 pb-4 text-center">
-        <p className="text-white/60 text-xs">
-          {continuousListening 
-            ? "Speak naturally - I'm listening automatically! Click mic to pause."
-            : "Click the microphone to resume listening"}
-        </p>
-      </div>
-    </div>
+      {/* Transcript Modal */}
+      {showTranscript && (
+        <ExpandedVoiceCall 
+          messages={messages}
+          isBuddy={isBuddy}
+          documents={documents}
+          onClose={() => setShowTranscript(false)}
+        />
+      )}
+    </>
   );
 }

@@ -2,8 +2,7 @@
 import { useState } from "react";
 import { Message, Document, StudyPlanItem } from "../page";
 import { Button } from "./ui/button";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
-import { BookOpen, CheckCircle2, Circle, Plus, Edit2, Trash2, X } from "lucide-react";
+import { BookOpen, CheckCircle2, Circle, Plus, Edit2, Trash2, FileText, ChevronLeft, ChevronRight } from "lucide-react";
 import { VoiceChat } from "./VoiceChat";
 import { Badge } from "./ui/badge";
 import { Input } from "./ui/input";
@@ -14,6 +13,7 @@ interface StudyBuddyPanelProps {
   messages: Message[];
   studyPlan: StudyPlanItem[];
   documents: Document[];
+  selectedDocument: Document | null;
   onSendMessage: (content: string) => void;
   onEndCall?: () => void;
   onPullUpMaterial: (docId: string) => void;
@@ -27,6 +27,7 @@ export function StudyBuddyPanel({
   messages,
   studyPlan,
   documents,
+  selectedDocument,
   onSendMessage,
   onEndCall,
   onPullUpMaterial,
@@ -37,11 +38,14 @@ export function StudyBuddyPanel({
 }: StudyBuddyPanelProps) {
   const [isCreating, setIsCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [pdfPageNumber, setPdfPageNumber] = useState(1);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
     materials: [] as string[],
   });
+
+  const getPdfSrcWithPage = (url: string, page: number) => `${url}#page=${page}`;
 
   const completedCount = studyPlan.filter((item) => item.completed).length;
   const totalCount = studyPlan.length;
@@ -93,22 +97,17 @@ export function StudyBuddyPanel({
 
   return (
     <div className="w-96 bg-white border-l border-gray-200 flex flex-col">
-      {/* Tabs */}
-      <Tabs defaultValue="chat" className="flex-1 flex flex-col">
-        <div className="border-b border-gray-200 px-4 pt-4">
-          <TabsList className="w-full grid grid-cols-2">
-            <TabsTrigger value="chat">Study Chat</TabsTrigger>
-            <TabsTrigger value="plan">Study Plan</TabsTrigger>
-          </TabsList>
-        </div>
+      {/* Compact Voice Call Interface */}
+      <VoiceChat 
+        messages={messages} 
+        onSendMessage={onSendMessage} 
+        onEndCall={onEndCall} 
+        isBuddy 
+        documents={documents} 
+      />
 
-        {/* Voice Chat Tab */}
-        <TabsContent value="chat" className="flex-1 flex flex-col m-0 data-[state=active]:flex">
-          <VoiceChat messages={messages} onSendMessage={onSendMessage} onEndCall={onEndCall} isBuddy />
-        </TabsContent>
-
-        {/* Study Plan Tab */}
-        <TabsContent value="plan" className="flex-1 overflow-y-auto p-4 m-0 data-[state=active]:block">
+      {/* Study Plan Section */}
+      <div className="flex-1 overflow-y-auto p-4">
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-lg">Your Study Plan</h3>
@@ -278,14 +277,13 @@ export function StudyBuddyPanel({
             </div>
           )}
 
-          <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <p className="text-sm text-blue-900">
-              <strong>Tip:</strong> Ask your study buddy for help organizing your goals
-              or breaking down complex topics!
-            </p>
-          </div>
-        </TabsContent>
-      </Tabs>
+        <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <p className="text-sm text-blue-900">
+            <strong>Tip:</strong> Ask your study buddy for help organizing your goals
+            or breaking down complex topics!
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
