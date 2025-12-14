@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Document, UserPreferences } from "../page";
+import type { Document, UserPreferences } from "../page";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -25,7 +25,7 @@ export function OnboardingScreen({ documents, onComplete, onUploadDocument }: On
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
   // Get unique categories/folders
-  const categories = ["all", ...new Set(documents.map(doc => doc.folder || "Uncategorized"))];
+  const categories = ["all", ...new Set(documents.map(doc => doc.folder ?? "Uncategorized"))];
 
   // Filter documents based on search and category
   const filteredDocuments = documents.filter((doc) => {
@@ -96,7 +96,7 @@ export function OnboardingScreen({ documents, onComplete, onUploadDocument }: On
             <h1 className="text-white text-3xl">AI Learning Assistant</h1>
           </div>
           <p className="text-white/80">
-            Let's set up your personalized learning experience
+            Let&apos;s set up your personalized learning experience
           </p>
         </div>
 

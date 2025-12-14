@@ -1,5 +1,5 @@
 "use client";
-import { Subject } from "../page";
+import type { Subject } from "../page";
 import { MessageCircle } from "lucide-react";
 import { Button } from "./ui/button";
 
@@ -42,7 +42,7 @@ const exampleQuestions: Record<Subject, string[]> = {
 };
 
 export function ExampleQuestions({ subject, onQuestionClick }: ExampleQuestionsProps) {
-  const questions = exampleQuestions[subject] || exampleQuestions.general;
+  const questions = exampleQuestions[subject] ?? exampleQuestions.general;
 
   return (
     <div className="bg-white rounded-2xl shadow-md p-6 border border-gray-200">

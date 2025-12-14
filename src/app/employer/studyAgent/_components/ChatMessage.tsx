@@ -1,5 +1,5 @@
 "use client";
-import { Message } from "../page";
+import { type Message } from "../page";
 import { User } from "lucide-react";
 
 interface ChatMessageProps {

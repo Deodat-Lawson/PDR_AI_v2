@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
-import { Document } from "../page";
-import { Search, Upload, ChevronDown, ChevronRight, FileText, Trash2, GraduationCap } from "lucide-react";
+import type { Document } from "../page";
+import { Search, Upload, ChevronDown, ChevronRight, FileText, GraduationCap } from "lucide-react";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 
@@ -36,8 +36,8 @@ export function Sidebar({
 
   // Group documents by folder
   const folders = documents.reduce((acc, doc) => {
-    const folder = doc.folder || "Uncategorized";
-    if (!acc[folder]) acc[folder] = [];
+    const folder = doc.folder ?? "Uncategorized";
+    acc[folder] ??= [];
     acc[folder].push(doc);
     return acc;
   }, {} as Record<string, Document[]>);

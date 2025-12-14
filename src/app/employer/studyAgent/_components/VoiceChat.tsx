@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import { Message, Document } from "../page";
-import { Mic, MicOff, PhoneOff, Volume2, VolumeX, FileText, MessageSquare, Maximize2 } from "lucide-react";
-import { Button } from "./ui/button";
+import type { Message, Document } from "../page";
+import { Mic, MicOff, PhoneOff, Volume2, VolumeX, MessageSquare } from "lucide-react";
 import { ExpandedVoiceCall } from "./ExpandedVoiceCall";
 
 interface VoiceChatProps {
@@ -19,7 +18,7 @@ export function VoiceChat({ messages, onSendMessage, onEndCall, isBuddy = false,
   const [callState, setCallState] = useState<CallState>("connected");
   const [isMuted, setIsMuted] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-  const [currentTranscript, setCurrentTranscript] = useState("");
+  const [, setCurrentTranscript] = useState("");
   const [callDuration, setCallDuration] = useState(0);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -109,8 +108,8 @@ export function VoiceChat({ messages, onSendMessage, onEndCall, isBuddy = false,
         throw new Error("Failed to transcribe audio");
       }
 
-      const data = await response.json();
-      const transcribedText = data.text || "";
+      const data = await response.json() as { text?: string };
+      const transcribedText: string = data.text ?? "";
       
       // Log the transcribed text
       console.log("🎤 [VoiceChat] Received transcription:");
@@ -127,7 +126,8 @@ export function VoiceChat({ messages, onSendMessage, onEndCall, isBuddy = false,
   // Real-time voice activity detection using Web Audio API
   const setupVoiceActivityDetection = (stream: MediaStream, mediaRecorder: MediaRecorder) => {
     // Create audio context for voice activity detection
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const audioContext = new AudioContextClass();
     audioContextRef.current = audioContext;
     
     const source = audioContext.createMediaStreamSource(stream);
@@ -201,6 +201,8 @@ export function VoiceChat({ messages, onSendMessage, onEndCall, isBuddy = false,
   };
 
   // Start continuous listening mode with real-time voice activity detection
+  // Note: Intentionally not using useCallback as the function needs current closure values
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const startContinuousListening = async () => {
     if (isMuted || isRecording || isProcessingRef.current || isPlayingAudio) {
       console.log("🎤 [VoiceChat] Cannot start listening:", {
@@ -265,21 +267,23 @@ export function VoiceChat({ messages, onSendMessage, onEndCall, isBuddy = false,
           try {
             const transcript = await processAudioForSTT(audioBlob);
             
-            if (transcript.trim() && transcript.trim().length >= MIN_SPEECH_LENGTH) {
+            if (transcript.trim().length >= MIN_SPEECH_LENGTH) {
+              const trimmedTranscript = transcript.trim();
               const finalTranscript = accumulatedTranscript 
-                ? `${accumulatedTranscript} ${transcript.trim()}`
-                : transcript.trim();
+                ? `${accumulatedTranscript} ${trimmedTranscript}`
+                : trimmedTranscript;
               
+              const messageToSend = finalTranscript.trim();
               console.log("📤 [VoiceChat] Sending message immediately after speech:");
-              console.log("   Message:", finalTranscript.trim());
-              console.log("   Length:", finalTranscript.trim().length, "characters");
+              console.log("   Message:", messageToSend);
+              console.log("   Length:", messageToSend.length, "characters");
               
               messageSent = true;
               accumulatedTranscript = "";
               setCurrentTranscript("");
               
               // Send the message immediately
-              onSendMessage(finalTranscript.trim());
+              onSendMessage(messageToSend);
               
               // Listening will resume automatically after AI responds (via audio.onended)
             } else {
@@ -320,9 +324,6 @@ export function VoiceChat({ messages, onSendMessage, onEndCall, isBuddy = false,
 
       // Start recording
       mediaRecorder.start();
-      
-      // Store interval reference for cleanup
-      (mediaRecorder as any).processInterval = null;
 
     } catch (error) {
       console.error("Error starting continuous listening:", error);
@@ -380,10 +381,11 @@ export function VoiceChat({ messages, onSendMessage, onEndCall, isBuddy = false,
       
       lastPlayedMessageId.current = lastMessage.id;
       // Use ttsContent if available (includes emotion tags), otherwise use content
-      const textToSpeak = lastMessage.ttsContent || lastMessage.content;
-      playTextToSpeech(textToSpeak);
+      const textToSpeak = lastMessage.ttsContent ?? lastMessage.content;
+      void playTextToSpeech(textToSpeak);
     }
-  }, [messages, isMuted, isPlayingAudio, continuousListening]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally omit isRecording and playTextToSpeech to avoid infinite loops
+  }, [messages, isMuted, isPlayingAudio]);
 
   // Auto-start continuous listening when component mounts or when appropriate
   useEffect(() => {
@@ -413,6 +415,7 @@ export function VoiceChat({ messages, onSendMessage, onEndCall, isBuddy = false,
       
       return () => clearTimeout(timer);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- startContinuousListening intentionally not wrapped in useCallback to avoid stale closures
   }, [messages.length, continuousListening, isMuted, isRecording, isPlayingAudio]);
 
   const playTextToSpeech = async (text: string) => {
@@ -462,8 +465,8 @@ export function VoiceChat({ messages, onSendMessage, onEndCall, isBuddy = false,
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
-        throw new Error(errorData.error || `Failed to generate speech: ${response.statusText}`);
+        const errorData = await response.json().catch(() => ({ error: "Unknown error" })) as { error?: string };
+        throw new Error(errorData.error ?? `Failed to generate speech: ${response.statusText}`);
       }
 
       const audioBlob = await response.blob();
@@ -489,7 +492,7 @@ export function VoiceChat({ messages, onSendMessage, onEndCall, isBuddy = false,
           console.log("🎤 [VoiceChat] AI finished speaking, auto-starting listening");
           setTimeout(() => {
             if (!isRecording && !isProcessingRef.current && !isPlayingAudio) {
-              startContinuousListening();
+              void startContinuousListening();
             }
           }, 500); // Small delay to ensure audio cleanup
         }
@@ -538,7 +541,7 @@ export function VoiceChat({ messages, onSendMessage, onEndCall, isBuddy = false,
       console.log("🎤 [VoiceChat] User resumed listening");
       setContinuousListening(true);
       if (!isPlayingAudio && !isProcessingRef.current) {
-        startContinuousListening();
+        void startContinuousListening();
       }
     }
   };
@@ -655,7 +658,7 @@ export function VoiceChat({ messages, onSendMessage, onEndCall, isBuddy = false,
           {/* Mini Audio Visualizer */}
           {(displayCallState === "listening" || displayCallState === "speaking") && (
             <div className="flex items-center justify-center gap-0.5 h-8">
-              {[...Array(15)].map((_, i) => (
+              {Array.from({ length: 15 }).map((_, i) => (
                 <div
                   key={i}
                   className={`w-1 rounded-full ${

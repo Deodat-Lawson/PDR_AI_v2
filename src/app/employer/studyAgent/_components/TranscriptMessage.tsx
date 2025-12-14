@@ -1,4 +1,4 @@
-import { Message, Document } from "../page";
+import type { Message, Document } from "../page";
 import { User, Volume2, FileText } from "lucide-react";
 
 interface TranscriptMessageProps {
@@ -12,7 +12,7 @@ export function TranscriptMessage({ message, lightMode = false, documents = [] }
   const attachedDoc = message.attachedDocumentId 
     ? documents.find(d => d.id === message.attachedDocumentId)
     : null;
-  const pdfUrl = message.attachedDocumentUrl || attachedDoc?.url;
+  const pdfUrl = message.attachedDocumentUrl ?? attachedDoc?.url;
 
   return (
     <div className={`flex items-start gap-3 ${isUser ? "flex-row-reverse" : ""}`}>
@@ -75,13 +75,13 @@ export function TranscriptMessage({ message, lightMode = false, documents = [] }
                   : "text-gray-600"
               }`}>
                 <FileText className="w-3 h-3" />
-                <span>{message.attachedDocument || attachedDoc?.name || "PDF"}</span>
+                <span>{message.attachedDocument ?? attachedDoc?.name ?? "PDF"}</span>
               </div>
               <div className="rounded overflow-hidden bg-white/10 border border-white/20">
                 <iframe
                   src={`${pdfUrl}#page=1`}
                   className="w-full h-64 border-0"
-                  title={message.attachedDocument || "PDF Preview"}
+                  title={message.attachedDocument ?? "PDF Preview"}
                 />
               </div>
             </div>

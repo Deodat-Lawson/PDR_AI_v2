@@ -1,5 +1,5 @@
 "use client";
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call */
+ 
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";

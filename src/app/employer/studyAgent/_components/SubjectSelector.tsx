@@ -1,5 +1,5 @@
 "use client";
-import { Subject } from "../page";
+import type { Subject } from "../page";
 import { Calculator, Microscope, BookOpen, Library, Sparkles } from "lucide-react";
 import { Button } from "./ui/button";
 
@@ -46,21 +46,21 @@ export function SubjectSelector({ selectedSubject, onSubjectChange }: SubjectSel
     <div className="bg-white rounded-2xl shadow-md p-6 border border-gray-200">
       <h2 className="text-lg mb-4">Select a Subject</h2>
       <div className="flex flex-wrap gap-3">
-        {subjects.map((subject) => {
-          const isSelected = selectedSubject === subject.id;
+        {subjects.map((subjectItem) => {
+          const isSelected = selectedSubject === subjectItem.id;
           return (
             <Button
-              key={subject.id}
-              onClick={() => onSubjectChange(subject.id)}
+              key={subjectItem.id}
+              onClick={() => onSubjectChange(subjectItem.id)}
               variant={isSelected ? "default" : "outline"}
               className={`flex items-center gap-2 ${
                 isSelected
-                  ? `bg-gradient-to-r ${subject.color} text-white hover:opacity-90 border-none`
+                  ? `bg-gradient-to-r ${subjectItem.color} text-white hover:opacity-90 border-none`
                   : "hover:border-gray-400"
               }`}
             >
-              {subject.icon}
-              {subject.name}
+              {subjectItem.icon}
+              {subjectItem.name}
             </Button>
           );
         })}

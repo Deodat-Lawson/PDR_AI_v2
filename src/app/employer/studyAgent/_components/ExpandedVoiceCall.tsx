@@ -1,5 +1,5 @@
 import { useRef, useEffect } from "react";
-import { Message, Document } from "../page";
+import { type Message, type Document } from "../page";
 import { Button } from "./ui/button";
 import { X } from "lucide-react";
 import { TranscriptMessage } from "./TranscriptMessage";

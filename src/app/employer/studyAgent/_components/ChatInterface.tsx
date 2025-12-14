@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
 import { Send, Loader2 } from "lucide-react";
-import { Message, Subject } from "../page";
+import { type Message, type Subject } from "../page";
 import { ChatMessage } from "./ChatMessage";
 
 interface ChatInterfaceProps {

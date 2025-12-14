@@ -215,9 +215,7 @@ function hasAnyEmotionTag(text: string): boolean {
 }
 
 function extractFirstEmotionTag(text: string): EmotionTag | null {
-  const m = text.match(
-    /^\s*\[(happy|sad|angry|fearful|surprised|disgusted|excited|calm)\]/i
-  );
+  const m = /^\s*\[(happy|sad|angry|fearful|surprised|disgusted|excited|calm)\]/i.exec(text);
   return m ? (m[1].toLowerCase() as EmotionTag) : null;
 }
 
@@ -243,7 +241,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body: StudyAgentChatRequest = await request.json();
+    const body = await request.json() as StudyAgentChatRequest;
     const {
       message,
       mode,
@@ -258,11 +256,11 @@ export async function POST(request: Request) {
     console.log("   Message:", message);
     console.log("   Mode:", mode);
     console.log("   Field of Study:", fieldOfStudy);
-    console.log("   Selected Documents:", selectedDocuments?.length || 0);
-    console.log("   Study Plan Items:", studyPlan?.length || 0);
+    console.log("   Selected Documents:", selectedDocuments?.length ?? 0);
+    console.log("   Study Plan Items:", studyPlan?.length ?? 0);
     console.log(
       "   Conversation History:",
-      conversationHistory?.length || 0,
+      conversationHistory?.length ?? 0,
       "messages"
     );
 
@@ -301,7 +299,7 @@ export async function POST(request: Request) {
 
     // Fetch document content if documents are selected
     let documentContent = "";
-    let documentTitles: string[] = [];
+    const documentTitles: string[] = [];
     
     if (selectedDocuments && selectedDocuments.length > 0) {
       try {
@@ -349,7 +347,7 @@ export async function POST(request: Request) {
               if (!docMap.has(chunk.documentId)) {
                 const doc = docs.find((d) => d.id === chunk.documentId);
                 docMap.set(chunk.documentId, {
-                  title: doc?.title || `Document ${chunk.documentId}`,
+                  title: doc?.title ?? `Document ${chunk.documentId}`,
                   chunks: [],
                 });
               }
@@ -358,7 +356,7 @@ export async function POST(request: Request) {
 
             // Create summaries (first 2000 chars of each document)
             const summaries: string[] = [];
-            for (const [docId, docData] of docMap.entries()) {
+            for (const [, docData] of docMap.entries()) {
               documentTitles.push(docData.title);
               const summary = docData.chunks.join("\n\n").substring(0, 2000);
               summaries.push(`\n\n--- ${docData.title} ---\n${summary}`);
@@ -390,7 +388,7 @@ export async function POST(request: Request) {
 You are the student's teacher... warm, patient, and clear.
 
 CONTEXT:
-- Field of study: ${fieldOfStudy || "the student's subject"}
+- Field of study: ${fieldOfStudy ?? "the student's subject"}
 - Study materials: ${docsInfo}
 ${documentContent ? `\n\nDOCUMENT CONTENT:\n${documentContent.substring(0, 3000)}` : ""}
 
@@ -413,7 +411,7 @@ Under 200 words.
 You are the student's teacher... warm, patient, and very clear... like a lecturer at a whiteboard.
 
 CONTEXT:
-- Field of study: ${fieldOfStudy || "the student's subject"}
+- Field of study: ${fieldOfStudy ?? "the student's subject"}
 - Study materials: ${docsInfo}
 - Research-like question: ${needsResearch ? "YES" : "NO"}
 ${documentContent ? `\n\nDOCUMENT CONTENT:\n${documentContent.substring(0, 4000)}` : ""}
@@ -441,7 +439,7 @@ Under 300 words.
 You are the student's study buddy... friendly, casual, and supportive.
 
 CONTEXT:
-- Field of study: ${fieldOfStudy || "the student's subject"}
+- Field of study: ${fieldOfStudy ?? "the student's subject"}
 - Study materials: ${docsInfo}
 - Study plan: ${summarizePlan(studyPlan)}
 ${documentContent ? `\n\nDOCUMENT CONTENT:\n${documentContent.substring(0, 3000)}` : ""}
@@ -465,7 +463,7 @@ Under 100 words.
 You are the student's study buddy... friendly, upbeat, and helpful.
 
 CONTEXT:
-- Field of study: ${fieldOfStudy || "the student's subject"}
+- Field of study: ${fieldOfStudy ?? "the student's subject"}
 - Study materials: ${docsInfo}
 - Study plan: ${summarizePlan(studyPlan)}
 - Research-like question: ${needsResearch ? "YES" : "NO"}
@@ -520,8 +518,9 @@ Under 50 words.
     console.log("🤖 [StudyAgent Chat API] Generating AI response...");
     const response = await chat.invoke(messages);
 
-    // Raw spoken script from model
-    const rawScript = (response.content ?? "").toString().trim();
+    // Raw spoken script from model - handle both string and array content
+    const content = response.content;
+    const rawScript = (typeof content === "string" ? content : Array.isArray(content) ? content.map(c => typeof c === "string" ? c : "").join("") : "").trim();
 
     // Ensure it ends with ellipses for slow TTS
     let scriptForTTS = ensureTrailingEllipses(rawScript);
@@ -560,7 +559,7 @@ Under 50 words.
     console.log("   Display Script:", displayScript);
     console.log("   Length:", scriptForTTS.length, "characters");
     console.log("   Mode:", mode);
-    console.log("   Emotion (metadata):", emotion || "unknown");
+    console.log("   Emotion (metadata):", emotion ?? "unknown");
 
     return NextResponse.json(
       {

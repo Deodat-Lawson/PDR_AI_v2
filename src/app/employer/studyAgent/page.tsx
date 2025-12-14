@@ -8,6 +8,8 @@ import { OnboardingScreen } from "./_components/OnboardingScreen";
 import { ConnectingScreen } from "./_components/ConnectingScreen";
 import { WhiteboardPanel } from "./_components/WhiteboardPanel";
 
+export type Subject = "general" | "math" | "science" | "history" | "literature";
+
 export interface Message {
   id: string;
   role: "user" | "teacher" | "buddy";
@@ -75,7 +77,7 @@ export default function App() {
           throw new Error("Failed to fetch documents");
         }
         
-        const data = await response.json();
+        const data = await response.json() as Document[];
         setDocuments(data);
         console.log(`📚 [StudyAgent] Loaded ${data.length} documents from database`);
       } catch (error) {
@@ -88,7 +90,7 @@ export default function App() {
       }
     };
 
-    fetchDocuments();
+    void fetchDocuments();
   }, []);
 
   const handleCompleteOnboarding = async (preferences: UserPreferences) => {
@@ -115,12 +117,15 @@ export default function App() {
 
     setAppState("connecting");
 
+    interface ChatResponse {
+      originalResponse?: string;
+      response?: string;
+      emotion?: string;
+      mode?: string;
+    }
+
     // Generate introduction via API
     try {
-      const selectedDocNames = preferences.selectedDocuments
-        .map(docId => documents.find(d => d.id === docId)?.name)
-        .filter(Boolean) as string[];
-
       const response = await fetch("/api/study-agent/chat", {
         method: "POST",
         headers: {
@@ -128,18 +133,18 @@ export default function App() {
         },
         body: JSON.stringify({
           message: "Please introduce yourself and discuss the study materials. Also mention that I can create a study plan.",
-          mode: preferences.mode || "teacher",
+          mode: preferences.mode ?? "teacher",
           fieldOfStudy: preferences.fieldOfStudy,
-          selectedDocuments: preferences.selectedDocuments || [],
+          selectedDocuments: preferences.selectedDocuments ?? [],
           studyPlan: initialPlan,
           conversationHistory: [],
         }),
       });
 
       if (response.ok) {
-        const data = await response.json();
-        const originalResponse = data.originalResponse || data.response || "Hello! I'm your AI study companion. Let's begin!";
-        const ttsResponse = data.response || originalResponse; // Includes emotion tags
+        const data = await response.json() as ChatResponse;
+        const originalResponse = data.originalResponse ?? data.response ?? "Hello! I'm your AI study companion. Let's begin!";
+        const ttsResponse = data.response ?? originalResponse; // Includes emotion tags
         
         const introductionMessage: Message = {
           id: "1",
@@ -200,11 +205,18 @@ export default function App() {
   };
 
   const handleSendMessage = async (content: string) => {
+    interface ChatResponse {
+      originalResponse?: string;
+      response?: string;
+      emotion?: string;
+      mode?: string;
+    }
+
     // Log the user message being sent
     console.log("💬 [StudyAgent] User message received:");
     console.log("   Content:", content);
     console.log("   Length:", content.length, "characters");
-    console.log("   Mode:", userPreferences?.mode || "teacher");
+    console.log("   Mode:", userPreferences?.mode ?? "teacher");
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -229,9 +241,9 @@ export default function App() {
         },
         body: JSON.stringify({
           message: content,
-          mode: userPreferences?.mode || "teacher",
+          mode: userPreferences?.mode ?? "teacher",
           fieldOfStudy: userPreferences?.fieldOfStudy,
-          selectedDocuments: userPreferences?.selectedDocuments || [],
+          selectedDocuments: userPreferences?.selectedDocuments ?? [],
           studyPlan: studyPlan,
           conversationHistory: currentMessages.slice(-5).map((msg) => ({
             role: msg.role,
@@ -244,18 +256,18 @@ export default function App() {
         throw new Error("Failed to get AI response");
       }
 
-      const data = await response.json();
+      const data = await response.json() as ChatResponse;
       // Use originalResponse for display (without emotion tags), responseWithEmotion for TTS
-      const aiResponse = data.originalResponse || data.response || "I'm sorry, I couldn't generate a response right now.";
-      const ttsResponse = data.response || aiResponse; // Includes emotion tags for TTS
+      const aiResponse = data.originalResponse ?? data.response ?? "I'm sorry, I couldn't generate a response right now.";
+      const ttsResponse = data.response ?? aiResponse; // Includes emotion tags for TTS
 
       // Log the AI response
       console.log("🤖 [StudyAgent] AI response received:");
       console.log("   Response (display):", aiResponse);
       console.log("   Response (TTS with emotion):", ttsResponse);
-      console.log("   Emotion:", data.emotion || "neutral");
+      console.log("   Emotion:", data.emotion ?? "neutral");
       console.log("   Length:", aiResponse.length, "characters");
-      console.log("   Mode:", data.mode || userPreferences?.mode);
+      console.log("   Mode:", data.mode ?? userPreferences?.mode);
 
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -269,7 +281,7 @@ export default function App() {
     } catch (error) {
       console.error("Error getting AI response:", error);
       // Fallback to mock response if API fails
-      const aiResponse = generateResponse(content, userPreferences?.mode || "teacher", selectedDocument, studyPlan);
+      const aiResponse = generateResponse(content, userPreferences?.mode ?? "teacher", selectedDocument, studyPlan);
       
       // Add emotion tag for fallback response (usually encouraging/calm)
       const ttsResponse = `[calm] ${aiResponse}`;
@@ -385,8 +397,8 @@ export default function App() {
   if (appState === "connecting") {
     return (
       <ConnectingScreen 
-        mode={userPreferences?.mode || "teacher"}
-        fieldOfStudy={userPreferences?.fieldOfStudy || ""}
+        mode={userPreferences?.mode ?? "teacher"}
+        fieldOfStudy={userPreferences?.fieldOfStudy ?? ""}
       />
     );
   }

@@ -1,8 +1,8 @@
 "use client";
 import { useRef, useState, useEffect } from "react";
-import { Document } from "../page";
+import type { Document } from "../page";
 import { Button } from "./ui/button";
-import { Eraser, Pen, Download, Trash2, Undo, Redo, Square, Circle, Type } from "lucide-react";
+import { Eraser, Pen, Download, Trash2, Undo, Redo } from "lucide-react";
 
 interface WhiteboardPanelProps {
   document: Document | null;
@@ -151,7 +151,7 @@ export function WhiteboardPanel({ document }: WhiteboardPanelProps) {
   const handleUndo = () => {
     if (historyStep > 0) {
       setHistoryStep(historyStep - 1);
-      setPaths(history[historyStep - 1] || []);
+      setPaths(history[historyStep - 1] ?? []);
     }
   };
 
@@ -174,7 +174,7 @@ export function WhiteboardPanel({ document }: WhiteboardPanelProps) {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const link = document.createElement("a");
+    const link = globalThis.document.createElement("a");
     link.download = "whiteboard.png";
     link.href = canvas.toDataURL();
     link.click();

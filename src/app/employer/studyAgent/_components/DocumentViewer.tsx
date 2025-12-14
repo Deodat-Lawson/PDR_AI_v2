@@ -1,5 +1,5 @@
 "use client";
-import { Document } from "../page";
+import { type Document } from "../page";
 import { FileText, Image as ImageIcon, FileType, ExternalLink, Download } from "lucide-react";
 
 interface DocumentViewerProps {
@@ -72,6 +72,7 @@ export function DocumentViewer({ document }: DocumentViewerProps) {
           <div className="flex-1 overflow-auto p-8 flex items-center justify-center">
             <div className="bg-white rounded-lg shadow-2xl p-4 max-w-4xl">
               {document.url ? (
+                // eslint-disable-next-line @next/next/no-img-element -- Using img for user-uploaded dynamic images
                 <img src={document.url} alt={document.name} className="w-full h-auto rounded" />
               ) : (
                 <div className="flex items-center justify-center p-12 text-gray-400">

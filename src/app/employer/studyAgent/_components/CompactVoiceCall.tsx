@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Mic, MicOff, PhoneOff, Volume2, VolumeX, Maximize2, MessageSquare } from "lucide-react";
 import { Button } from "./ui/button";
-import { Message } from "../page";
+import type { Message } from "../page";
 
 interface CompactVoiceCallProps {
   isBuddy?: boolean;
@@ -44,9 +44,9 @@ export function CompactVoiceCall({
   const callState = externalCallState 
     ? (externalCallState === "teacher-speaking" ? "speaking" : externalCallState)
     : internalCallState;
-  const isMuted = externalIsMuted !== undefined ? externalIsMuted : internalIsMuted;
-  const isRecording = externalIsRecording !== undefined ? externalIsRecording : internalIsRecording;
-  const isPlayingAudio = externalIsPlayingAudio || false;
+  const isMuted = externalIsMuted ?? internalIsMuted;
+  const isRecording = externalIsRecording ?? internalIsRecording;
+  const isPlayingAudio = externalIsPlayingAudio ?? false;
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -169,7 +169,7 @@ export function CompactVoiceCall({
         {/* Mini Audio Visualizer */}
         {(displayCallState === "listening" || displayCallState === "speaking") && (
           <div className="flex items-center justify-center gap-0.5 h-8">
-            {[...Array(15)].map((_, i) => (
+            {Array.from({ length: 15 }).map((_, i) => (
               <div
                 key={i}
                 className={`w-1 rounded-full ${

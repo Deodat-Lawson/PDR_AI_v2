@@ -1,8 +1,8 @@
 "use client";
 import { useState } from "react";
-import { Message, Document, StudyPlanItem } from "../page";
+import type { Message, Document, StudyPlanItem } from "../page";
 import { Button } from "./ui/button";
-import { BookOpen, CheckCircle2, Circle, Plus, Edit2, Trash2, FileText, ChevronLeft, ChevronRight } from "lucide-react";
+import { BookOpen, CheckCircle2, Circle, Plus, Edit2, Trash2 } from "lucide-react";
 import { VoiceChat } from "./VoiceChat";
 import { Badge } from "./ui/badge";
 import { Input } from "./ui/input";
@@ -27,7 +27,7 @@ export function StudyBuddyPanel({
   messages,
   studyPlan,
   documents,
-  selectedDocument,
+  selectedDocument: _selectedDocument,
   onSendMessage,
   onEndCall,
   onPullUpMaterial,
@@ -36,16 +36,14 @@ export function StudyBuddyPanel({
   onEditStudyItem,
   onDeleteStudyItem,
 }: StudyBuddyPanelProps) {
+  void _selectedDocument; // Unused but required by interface
   const [isCreating, setIsCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [pdfPageNumber, setPdfPageNumber] = useState(1);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
     materials: [] as string[],
   });
-
-  const getPdfSrcWithPage = (url: string, page: number) => `${url}#page=${page}`;
 
   const completedCount = studyPlan.filter((item) => item.completed).length;
   const totalCount = studyPlan.length;

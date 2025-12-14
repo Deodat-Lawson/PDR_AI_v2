@@ -21,7 +21,7 @@ const getElevenLabsClient = () => {
 
 // Default voice ID (Lily voice)
 // const DEFAULT_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "L1QogKoobNwLy4IaMsyA";
-const DEFAULT_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "qyFhaJEAwHR0eYLCmlUT";
+const DEFAULT_VOICE_ID = process.env.ELEVENLABS_VOICE_ID ?? "qyFhaJEAwHR0eYLCmlUT";
 
 interface TextToSpeechRequest {
   text: string;
@@ -44,20 +44,20 @@ export async function POST(request: Request) {
       );
     }
 
-    const body: TextToSpeechRequest = await request.json();
+    const body = await request.json() as TextToSpeechRequest;
     const { text, voiceId, modelId, stability, similarityBoost, style, useSpeakerBoost } = body;
 
     // Check for emotion tags in text (ElevenLabs format: [emotion])
-    const emotionTagMatch = text.match(/^\[(\w+)\]\s*(.+)$/);
-    const emotionTag = emotionTagMatch ? emotionTagMatch[1] : null;
-    const cleanText = emotionTagMatch && emotionTagMatch[2] ? emotionTagMatch[2] : text;
+    const emotionTagMatch = /^\[(\w+)\]\s*(.+)$/.exec(text);
+    const emotionTag = emotionTagMatch?.[1] ?? null;
+    const cleanText = emotionTagMatch?.[2] ?? text;
     
     // Log the text being converted to speech
     console.log("🔊 [Text-to-Speech API] Streaming text to speech:");
     console.log("   Text:", cleanText);
     console.log("   Length:", cleanText.length, "characters");
-    console.log("   Voice ID:", voiceId || DEFAULT_VOICE_ID);
-    console.log("   Model:", modelId || "eleven_v3");
+    console.log("   Voice ID:", voiceId ?? DEFAULT_VOICE_ID);
+    console.log("   Model:", modelId ?? "eleven_v3");
     if (emotionTag) {
       console.log("   🎭 Emotion tag detected:", emotionTag);
     }
@@ -70,10 +70,10 @@ export async function POST(request: Request) {
     }
 
     // Check API key and initialize client
-    let elevenLabsClient;
+    let elevenLabsClient: ElevenLabsClient;
     try {
       elevenLabsClient = getElevenLabsClient();
-    } catch (error) {
+    } catch {
       return NextResponse.json(
         { error: "ElevenLabs API key not configured" },
         { status: 500 }
@@ -81,9 +81,9 @@ export async function POST(request: Request) {
     }
 
     // Use default voice if not specified
-    const selectedVoiceId = voiceId || DEFAULT_VOICE_ID;
+    const selectedVoiceId = voiceId ?? DEFAULT_VOICE_ID;
     // Use streaming model (eleven_v3 supports streaming)
-    const selectedModelId = modelId || "eleven_v3"; // Streaming-capable model
+    const selectedModelId = modelId ?? "eleven_v3"; // Streaming-capable model
 
     console.log("🔊 [Text-to-Speech API] Starting streaming TTS...");
 
@@ -104,7 +104,7 @@ export async function POST(request: Request) {
       async start(controller) {
         try {
           // Process the audio stream chunk by chunk
-          for await (const chunk of audioStream as any) {
+          for await (const chunk of audioStream as AsyncIterable<Uint8Array | Buffer | ArrayBuffer>) {
             // Convert chunk to Uint8Array if needed
             // ElevenLabs stream returns Buffer or Uint8Array chunks
             let chunkData: Uint8Array;
@@ -117,7 +117,7 @@ export async function POST(request: Request) {
               chunkData = new Uint8Array(chunk);
             } else {
               // Try to convert to Uint8Array
-              chunkData = new Uint8Array(chunk as any);
+              chunkData = new Uint8Array(chunk as ArrayBuffer);
             }
             
             // Enqueue the chunk to the response stream

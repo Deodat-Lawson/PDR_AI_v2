@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import OpenAI from "openai";
-// @ts-ignore - formdata-node types may not be fully recognized
+// @ts-expect-error - formdata-node types may not be fully recognized
 import { File } from "formdata-node";
 
 /**
@@ -72,13 +72,13 @@ export async function POST(request: Request) {
 
     // Call OpenAI Whisper API
     const transcription = await openai.audio.transcriptions.create({
-      file: audioFileForOpenAI as any, // Type assertion for OpenAI SDK compatibility
+      file: audioFileForOpenAI as unknown as globalThis.File, // Type assertion for OpenAI SDK compatibility
       model: "whisper-1",
       language: "en",
       response_format: "text",
     });
 
-    const transcribedText = transcription as unknown as string;
+    const transcribedText = String(transcription);
     
     // Log the transcribed text
     console.log("🎤 [Speech-to-Text] Transcribed audio:");

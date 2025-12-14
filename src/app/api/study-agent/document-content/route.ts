@@ -16,8 +16,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { documentIds } = body;
+    const body = await request.json() as { documentIds?: unknown };
+    const { documentIds } = body as { documentIds?: (string | number)[] };
 
     if (!documentIds || !Array.isArray(documentIds) || documentIds.length === 0) {
       return NextResponse.json(
@@ -87,7 +87,7 @@ export async function POST(request: Request) {
       if (!documentContent[docId]) {
         const doc = docs.find((d) => d.id === chunk.documentId);
         documentContent[docId] = {
-          title: doc?.title || `Document ${docId}`,
+          title: doc?.title ?? `Document ${docId}`,
           chunks: [],
         };
       }

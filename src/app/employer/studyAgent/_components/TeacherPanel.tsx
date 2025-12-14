@@ -1,5 +1,5 @@
 "use client";
-import { Message, Document, StudyPlanItem } from "../page";
+import type { Message, Document, StudyPlanItem } from "../page";
 import { BookOpen, CheckCircle2, Circle } from "lucide-react";
 import { VoiceChat } from "./VoiceChat";
 import { Badge } from "./ui/badge";
