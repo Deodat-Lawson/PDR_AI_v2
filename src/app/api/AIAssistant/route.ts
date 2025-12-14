@@ -376,7 +376,7 @@ export async function POST(request: Request) {
 
         const chat = new ChatOpenAI({
             openAIApiKey: process.env.OPENAI_API_KEY,
-            modelName: "gpt-5.1",
+            modelName: "gpt-5.2",
             temperature: 0.7, // Increased for more natural, conversational responses
             timeout: 600000
         });

@@ -1,5 +1,4 @@
 "use client";
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call */
 
 import React, { useState, useEffect, useRef } from "react";
 import { Brain, Clock, FileSearch, AlertTriangle, CheckCircle, AlertCircle, RefreshCw, Check, ChevronLeft, ChevronRight, FileText } from "lucide-react";
@@ -181,7 +180,10 @@ export const DocumentContent: React.FC<DocumentContentProps> = ({
     if (currentChatId && queryMode === 'chat') {
       void getMessages(currentChatId).then((_msgs) => {
         // Messages are handled by AgentChatInterface component
-      }).catch(console.error);
+      }).catch((err: unknown) => {
+        // Normalize unknown error for safe logging
+        console.error(err instanceof Error ? err : new Error(String(err)));
+      });
       
       // Load chat settings from database
       void getChat(currentChatId).then((chatData) => {
@@ -196,7 +198,9 @@ export const DocumentContent: React.FC<DocumentContentProps> = ({
             console.log('🔄 Restored persona from database:', chat.aiPersona);
           }
         }
-      }).catch(console.error);
+      }).catch((err: unknown) => {
+        console.error(err instanceof Error ? err : new Error(String(err)));
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentChatId, queryMode]);

@@ -1,5 +1,4 @@
 "use client";
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call */
 
 import React from "react";
 import ReactMarkdown from "react-markdown";
