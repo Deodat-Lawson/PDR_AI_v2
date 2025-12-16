@@ -70,10 +70,10 @@ export async function POST(request: Request) {
     console.log("   Filename:", `audio.${extension}`);
 
     // Call OpenAI Whisper API
+
     const transcription = await openai.audio.transcriptions.create({
       file: audioFileForOpenAI as unknown as globalThis.File, // Type assertion for OpenAI SDK compatibility
-      model: "whisper-1",
-      language: "en",
+      model: "gpt-4o-transcribe",
       response_format: "text",
     });
 

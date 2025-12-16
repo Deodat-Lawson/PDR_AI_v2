@@ -418,6 +418,30 @@ export function VoiceChat({ messages, onSendMessage, onEndCall, isBuddy = false,
     // eslint-disable-next-line react-hooks/exhaustive-deps -- startContinuousListening intentionally not wrapped in useCallback to avoid stale closures
   }, [messages.length, continuousListening, isMuted, isRecording, isPlayingAudio]);
 
+  // Check if browser supports MediaSource with audio/mpeg (Firefox doesn't)
+  const useMediaSourceStreaming = (): boolean => {
+    if (typeof window === "undefined") return false;
+    
+    const ua = navigator.userAgent;
+    console.log("🔊 [VoiceChat] User agent:", ua);
+    const isFirefox = ua.includes("Firefox");
+    const isMac = ua.includes("Mac OS");
+    
+    // Firefox on macOS doesn't support audio/mpeg in MediaSource
+    if (isFirefox && isMac) {
+      console.log("🔊 [VoiceChat] Firefox/macOS detected - using blob playback");
+      return false;
+    }
+    
+    // Check if MediaSource supports audio/mpeg
+    if (typeof MediaSource !== "undefined" && MediaSource.isTypeSupported("audio/mpeg")) {
+      return true;
+    }
+    
+    console.log("🔊 [VoiceChat] MediaSource audio/mpeg not supported - using blob playback");
+    return false;
+  };
+
   const playTextToSpeech = async (text: string) => {
     if (!text || text.trim().length === 0) {
       return;
@@ -469,47 +493,106 @@ export function VoiceChat({ messages, onSendMessage, onEndCall, isBuddy = false,
         throw new Error(errorData.error ?? `Failed to generate speech: ${response.statusText}`);
       }
 
-      const audioBlob = await response.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
-      
-      const audio = new Audio(audioUrl);
-      audioRef.current = audio;
+      // Helper to set up common audio event handlers
+      const setupAudioHandlers = (audio: HTMLAudioElement, urlToRevoke: string) => {
+        audio.onloadeddata = () => {
+          setIsLoadingAudio(false);
+        };
 
-      audio.onloadeddata = () => {
-        setIsLoadingAudio(false);
+        audio.onended = () => {
+          console.log("🔊 [VoiceChat] Audio playback ended");
+          setIsPlayingAudio(false);
+          setIsLoadingAudio(false);
+          setCallState("connected");
+          URL.revokeObjectURL(urlToRevoke);
+          audioRef.current = null;
+          isGeneratingTTSRef.current = false;
+          
+          // Auto-start listening after AI finishes speaking
+          if (continuousListening && !isMuted && !isRecording) {
+            console.log("🎤 [VoiceChat] AI finished speaking, auto-starting listening");
+            setTimeout(() => {
+              if (!isRecording && !isProcessingRef.current && !isPlayingAudio) {
+                void startContinuousListening();
+              }
+            }, 500);
+          }
+        };
+
+        audio.onerror = (e) => {
+          console.error("❌ [VoiceChat] Audio playback error:", e);
+          setIsPlayingAudio(false);
+          setIsLoadingAudio(false);
+          setCallState("connected");
+          setError("Failed to play audio");
+          URL.revokeObjectURL(urlToRevoke);
+          audioRef.current = null;
+          isGeneratingTTSRef.current = false;
+        };
       };
 
-      audio.onended = () => {
-        setIsPlayingAudio(false);
-        setIsLoadingAudio(false);
-        setCallState("connected");
-        URL.revokeObjectURL(audioUrl);
-        audioRef.current = null;
-        isGeneratingTTSRef.current = false; // Allow new TTS requests
+      // Use MediaSource streaming if supported, otherwise fall back to blob
+      if (useMediaSourceStreaming()) {
+        console.log("🔊 [VoiceChat] Using MediaSource streaming");
+        // Play audio chunks as they stream in using MediaSource
+        const mediaSource = new MediaSource();
+        const audio = new Audio();
+        audioRef.current = audio;
         
-        // Auto-start listening after AI finishes speaking (if continuous listening is enabled and not already recording)
-        if (continuousListening && !isMuted && !isRecording) {
-          console.log("🎤 [VoiceChat] AI finished speaking, auto-starting listening");
-          setTimeout(() => {
-            if (!isRecording && !isProcessingRef.current && !isPlayingAudio) {
-              void startContinuousListening();
+        const mediaSourceUrl = URL.createObjectURL(mediaSource);
+        audio.src = mediaSourceUrl;
+        setupAudioHandlers(audio, mediaSourceUrl);
+
+        mediaSource.addEventListener("sourceopen", async () => {
+          try {
+            const sourceBuffer = mediaSource.addSourceBuffer("audio/mpeg");
+            const reader = response.body!.getReader();
+
+            const pump = async (): Promise<void> => {
+              const { done, value } = await reader.read();
+              if (done) {
+                if (mediaSource.readyState === "open") {
+                  mediaSource.endOfStream();
+                }
+                return;
+              }
+              
+              // Wait for buffer to be ready before appending
+              if (sourceBuffer.updating) {
+                await new Promise<void>(resolve => {
+                  sourceBuffer.addEventListener("updateend", () => resolve(), { once: true });
+                });
+              }
+              
+              sourceBuffer.appendBuffer(value);
+              await new Promise<void>(resolve => {
+                sourceBuffer.addEventListener("updateend", () => resolve(), { once: true });
+              });
+              return pump();
+            };
+
+            await pump();
+          } catch (err) {
+            console.error("❌ [VoiceChat] Error streaming audio:", err);
+            if (mediaSource.readyState === "open") {
+              mediaSource.endOfStream("decode");
             }
-          }, 500); // Small delay to ensure audio cleanup
-        }
-      };
+          }
+        });
 
-      audio.onerror = (e) => {
-        console.error("Audio playback error:", e);
-        setIsPlayingAudio(false);
-        setIsLoadingAudio(false);
-        setCallState("connected");
-        setError("Failed to play audio");
-        URL.revokeObjectURL(audioUrl);
-        audioRef.current = null;
-        isGeneratingTTSRef.current = false; // Allow new TTS requests
-      };
+        await audio.play();
+      } else {
+        // Fallback: Convert streamed response to blob and play
+        console.log("🔊 [VoiceChat] Using blob playback");
+        const audioBlob = await response.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+        
+        const audio = new Audio(audioUrl);
+        audioRef.current = audio;
+        setupAudioHandlers(audio, audioUrl);
 
-      await audio.play();
+        await audio.play();
+      }
     } catch (error) {
       console.error("Error playing audio:", error);
       setIsPlayingAudio(false);
