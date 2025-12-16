@@ -9,7 +9,7 @@ import styles from "../../../styles/Employee/DocumentViewer.module.css";
 import LoadingDoc from "~/app/employee/documents/loading-doc";
 import LoadingPage from "~/app/_components/loading";
 
-import { fetchWithRetries } from "./fetchWithRetries";
+import { fetchWithRetries } from "~/lib/fetchWithRetries";
 import { DocumentsSidebar } from "./DocumentsSidebar";
 import { DocumentContent } from "./DocumentContent";
 import { type QAHistoryEntry } from "~/app/employer/documents/ChatHistory";
