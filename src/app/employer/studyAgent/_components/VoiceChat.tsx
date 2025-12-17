@@ -44,8 +44,7 @@ function float32ToWav(samples: Float32Array, sampleRate = 16000): Blob {
   view.setUint32(40, samples.length * 2, true);
 
   let offset = 44;
-  for (let i = 0; i < samples.length; i++) {
-    const sample = samples[i] ?? 0;
+  for (const sample of samples) {
     const s = Math.max(-1, Math.min(1, sample));
     view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
     offset += 2;
@@ -95,19 +94,6 @@ export function VoiceChat({ messages, onSendMessage, onEndCall, isBuddy = false,
       isGeneratingTTSRef.current = false;
     }
   }, [isPlayingAudio]);
-
-  const handleToggleMute = useEffect(() => {
-    if (isMuted) {
-      vad.stop();
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
-    } else {
-      if (continuousListening && !isPlayingAudio && !isProcessingRef.current) {
-        void vad.start();
-      }
-    }
-  }, [isMuted]);
 
   // Process VAD audio and send to STT
   const processVadAudio = useCallback(async (audio: Float32Array) => {
@@ -189,6 +175,18 @@ export function VoiceChat({ messages, onSendMessage, onEndCall, isBuddy = false,
       }
     };
   }, []);
+
+  // Handle mute toggle
+  useEffect(() => {
+    if (isMuted) {
+      vad.stop();
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+    } else if (continuousListening && !isPlayingAudio && !isProcessingRef.current) {
+      void vad.start();
+    }
+  }, [isMuted, continuousListening, isPlayingAudio, vad]);
 
   // Play AI voice responses using ElevenLabs TTS v3
   useEffect(() => {

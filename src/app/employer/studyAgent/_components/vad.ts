@@ -43,7 +43,7 @@ export function useVAD(options: UseVADOptions = {}) {
     if (vadRef.current) {
       // Already initialized, just resume
       console.log("🎤 [VAD] Resuming existing VAD instance");
-      vadRef.current.start();
+      void Promise.resolve(vadRef.current.start());
       setIsRunning(true);
       return;
     }
@@ -72,7 +72,7 @@ export function useVAD(options: UseVADOptions = {}) {
         preSpeechPadMs,
       });
 
-      vadRef.current.start();
+      void Promise.resolve(vadRef.current.start());
       setIsRunning(true);
       console.log("✅ [VAD] Voice activity detection started");
     } catch (err) {
@@ -85,7 +85,7 @@ export function useVAD(options: UseVADOptions = {}) {
   const pause = useCallback(() => {
     if (vadRef.current) {
       console.log("🎤 [VAD] Pausing");
-      vadRef.current.pause();
+      void Promise.resolve(vadRef.current.pause());
       setIsRecording(false);
     }
   }, []);
@@ -93,7 +93,7 @@ export function useVAD(options: UseVADOptions = {}) {
   const resume = useCallback(() => {
     if (vadRef.current) {
       console.log("🎤 [VAD] Resuming");
-      vadRef.current.start();
+      void Promise.resolve(vadRef.current.start());
     }
   }, []);
 
@@ -101,10 +101,10 @@ export function useVAD(options: UseVADOptions = {}) {
     if (vadRef.current) {
       console.log("🎤 [VAD] Stopping voice activity detection...");
       try {
-        vadRef.current.pause();
-        vadRef.current.destroy();
-      } catch (e) {
-        console.warn("VAD cleanup warning:", e);
+        void Promise.resolve(vadRef.current.pause());
+        void Promise.resolve(vadRef.current.destroy());
+      } catch {
+        // Ignore cleanup errors
       }
       vadRef.current = null;
     }
@@ -117,9 +117,9 @@ export function useVAD(options: UseVADOptions = {}) {
     return () => {
       if (vadRef.current) {
         try {
-          vadRef.current.pause();
-          vadRef.current.destroy();
-        } catch (e) {
+          void Promise.resolve(vadRef.current.pause());
+          void Promise.resolve(vadRef.current.destroy());
+        } catch {
           // Ignore cleanup errors
         }
         vadRef.current = null;
