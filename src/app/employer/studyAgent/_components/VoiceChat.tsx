@@ -1,10 +1,8 @@
-"use client";
 
 import { useState, useRef, useEffect } from "react";
 import type { Message, Document } from "../page";
 import { Mic, MicOff, PhoneOff, Volume2, VolumeX, MessageSquare } from "lucide-react";
 import { ExpandedVoiceCall } from "./ExpandedVoiceCall";
-import type { MicVAD } from "@ricky0123/vad-web";
 
 interface VoiceChatProps {
   messages: Message[];
