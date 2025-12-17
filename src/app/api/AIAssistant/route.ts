@@ -14,6 +14,7 @@ import {
 } from "./services";
 import { validateRequestBody, QuestionSchema } from "~/lib/validation";
 import { auth } from "@clerk/nextjs/server";
+import { qaRequestCounter, qaRequestDuration } from "~/server/metrics/registry";
 import { users, document } from "~/server/db/schema";
 import { performTavilySearch, type WebSearchResult } from "./services/tavilySearch";
 import {
@@ -24,6 +25,9 @@ import {
     handleApiError
 } from "~/lib/api-utils";
 import { executeWebSearchAgent } from "./services/webSearchAgent";
+import normalizeModelContent from "./normalizeModelContent";
+import { withRateLimit } from "~/lib/rate-limit-middleware";
+import { RateLimitPresets } from "~/lib/rate-limiter";
 
 
 export const runtime = 'nodejs';
@@ -116,11 +120,22 @@ const qaAnnOptimizer = new ANNOptimizer({
 const COMPANY_SCOPE_ROLES = new Set(["employer", "owner"]);
 
 export async function POST(request: Request) {
-    const startTime = Date.now();
+    // Apply rate limiting: 20 requests per 15 minutes for AI chat
+    // This is an expensive operation that calls OpenAI APIs
+    return withRateLimit(request, RateLimitPresets.strict, async () => {
+        const startTime = Date.now();
+        const endTimer = qaRequestDuration.startTimer();
+        let retrievalMethod = "not_started";
 
-    try {
+        const recordResult = (result: "success" | "error" | "empty") => {
+            qaRequestCounter.inc({ result, retrieval: retrievalMethod });
+            endTimer({ result, retrieval: retrievalMethod });
+        };
+
+        try {
         const validation = await validateRequestBody(request, QuestionSchema);
         if (!validation.success) {
+            recordResult("error");
             return validation.response;
         }
 
@@ -142,7 +157,7 @@ export async function POST(request: Request) {
         console.log("searchScope", searchScope);
 
         if (searchScope === "company" && !companyId) {
-            return createValidationError("companyId is required for company-wide search");
+          return createValidationError("companyId is required for company-wide search");
         }
 
         if (searchScope === "document" && !documentId) {
@@ -201,7 +216,7 @@ export async function POST(request: Request) {
         });
 
         let documents: SearchResult[] = [];
-        let retrievalMethod = searchScope === "company" ? 'company_ensemble_rrf' : 'document_ensemble_rrf';
+        retrievalMethod = searchScope === "company" ? 'company_ensemble_rrf' : 'document_ensemble_rrf';
 
         try {
             if (searchScope === "company") {
@@ -334,7 +349,7 @@ export async function POST(request: Request) {
 
         const chat = new ChatOpenAI({
             openAIApiKey: process.env.OPENAI_API_KEY,
-            modelName: "gpt-5.1",
+            modelName: "gpt-5.2",
             temperature: 0.7, // Increased for more natural, conversational responses
             timeout: 600000
         });
@@ -502,16 +517,30 @@ The user enabled web search, but no relevant results were found for this query. 
         
         const userPrompt = `User's question: "${question}"${conversationContext}\n\nRelevant document content:\n${combinedContent}${webSearchContent}${webSearchInstruction}\n\nProvide a natural, conversational answer based primarily on the provided content. When using information from web sources, cite them using [Source X] format. Address the user directly and maintain continuity with any previous conversation.`;
         
-        const summarizedAnswer = await chat.call([
+        const summarizedAnswerMessage = await chat.call([
             new SystemMessage(systemPrompt),
             new HumanMessage(userPrompt),
         ]);
 
+        // Debug logging: Print raw AI response to terminal
+        console.log('\n=== RAW AI RESPONSE (before normalization) ===');
+        console.log(JSON.stringify(summarizedAnswerMessage.content, null, 2));
+        console.log('=== END RAW AI RESPONSE ===\n');
+
+        const summarizedAnswer = normalizeModelContent(summarizedAnswerMessage.content);
+        
+        // Debug logging: Print normalized response
+        console.log('\n=== NORMALIZED RESPONSE (after conversion) ===');
+        console.log(summarizedAnswer);
+        console.log('=== END NORMALIZED RESPONSE ===\n');
+
         const totalTime = Date.now() - startTime;
+
+        recordResult("success");
 
         return NextResponse.json({
             success: true,
-            summarizedAnswer: summarizedAnswer.content,
+            summarizedAnswer,
             recommendedPages: documents.map(doc => doc.metadata?.page).filter((page): page is number => page !== undefined),
             retrievalMethod,
             processingTimeMs: totalTime,

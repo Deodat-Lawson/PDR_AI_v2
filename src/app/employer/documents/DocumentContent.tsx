@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Brain, Clock, FileSearch, AlertTriangle, CheckCircle, AlertCircle, RefreshCw, Check, ChevronLeft, ChevronRight, FileText } from "lucide-react";
 import styles from "~/styles/Employer/DocumentViewer.module.css";
 import { type ViewMode } from "./types";
+import MarkdownMessage from "~/app/_components/MarkdownMessage";
 import clsx from "clsx";
 
 // Import the QAHistory component AND the QAHistoryEntry interface
@@ -161,31 +162,48 @@ export const DocumentContent: React.FC<DocumentContentProps> = ({
   const [aiPersona, setAiPersona] = useState<AiPersona>('general');
   const [showExpertiseModal, setShowExpertiseModal] = useState(false);
   const [pendingChatTitle, setPendingChatTitle] = useState('');
+  const prevSelectedDocIdRef = useRef<number | null>(null);
   
-      // Load messages and chat settings when chat is selected
-      useEffect(() => {
-        if (currentChatId && queryMode === 'chat') {
-          void getMessages(currentChatId).then((_msgs) => {
-            // Messages are handled by AgentChatInterface component
-          }).catch(console.error);
-          
-          // Load chat settings from database
-          void getChat(currentChatId).then((chatData) => {
-            if (chatData && typeof chatData === 'object' && 'chat' in chatData && chatData.chat) {
-              const chat = chatData.chat as { aiStyle?: string; aiPersona?: string };
-              if (chat.aiStyle) {
-                setAiStyle(chat.aiStyle);
-                console.log('🔄 Restored style from database:', chat.aiStyle);
-              }
-              if (chat.aiPersona) {
-                setAiPersona(chat.aiPersona as AiPersona);
-                console.log('🔄 Restored persona from database:', chat.aiPersona);
-              }
-            }
-          }).catch(console.error);
+  // Reset chat when selected document is deleted (changes from a document to null)
+  // This ensures the chat interface works properly after document deletion
+  useEffect(() => {
+    const currentDocId = selectedDoc?.id ?? null;
+    // Only reset if we had a document selected before and now it's null (deleted)
+    if (prevSelectedDocIdRef.current !== null && currentDocId === null) {
+      setCurrentChatId(null);
+    }
+    prevSelectedDocIdRef.current = currentDocId;
+  }, [selectedDoc]);
+
+  // Load messages and chat settings when chat is selected
+  useEffect(() => {
+    if (currentChatId && queryMode === 'chat') {
+      void getMessages(currentChatId).then((_msgs) => {
+        // Messages are handled by AgentChatInterface component
+      }).catch((err: unknown) => {
+        // Normalize unknown error for safe logging
+        console.error(err instanceof Error ? err : new Error(String(err)));
+      });
+      
+      // Load chat settings from database
+      void getChat(currentChatId).then((chatData) => {
+        if (chatData && typeof chatData === 'object' && 'chat' in chatData && chatData.chat) {
+          const chat = chatData.chat as { aiStyle?: string; aiPersona?: string };
+          if (chat.aiStyle) {
+            setAiStyle(chat.aiStyle);
+            console.log('🔄 Restored style from database:', chat.aiStyle);
+          }
+          if (chat.aiPersona) {
+            setAiPersona(chat.aiPersona as AiPersona);
+            console.log('🔄 Restored persona from database:', chat.aiPersona);
+          }
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-      }, [currentChatId, queryMode]);
+      }).catch((err: unknown) => {
+        console.error(err instanceof Error ? err : new Error(String(err)));
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentChatId, queryMode]);
 
   // States for resizable sidebars
   const [rightSidebarWidth, setRightSidebarWidth] = useState(400);
@@ -605,7 +623,10 @@ export const DocumentContent: React.FC<DocumentContentProps> = ({
 
               {aiAnswer && (
                 <div className="bg-gradient-to-r from-gray-50 to-purple-50 dark:from-slate-700 dark:to-purple-900/20 rounded-xl p-4 border border-gray-200 dark:border-purple-500/30 space-y-3">
-                  <p className="text-gray-700 dark:text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">{aiAnswer}</p>
+                  <MarkdownMessage
+                    content={aiAnswer}
+                    className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed"
+                  />
 
                   {referencePages.length > 0 && (
                     <div className="pt-3 border-t border-gray-300 dark:border-slate-600 space-y-2">
