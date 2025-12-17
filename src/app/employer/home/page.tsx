@@ -143,6 +143,12 @@ const HomeScreen = () => {
                             key={index}
                             className={styles.menuCard}
                             onClick={() => handleNavigation(option.path)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    handleNavigation(option.path);
+                                }
+                            }}
                             role="button"
                             tabIndex={0}
                         >
