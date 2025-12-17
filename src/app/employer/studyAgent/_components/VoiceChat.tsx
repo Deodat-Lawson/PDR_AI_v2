@@ -145,7 +145,9 @@ export function VoiceChat({ messages, onSendMessage, onEndCall, isBuddy = false,
   // VAD hook - interrupts TTS on speech start
   const vad = useVAD({
     onSpeechStart: interruptTTS,
-    onSpeechEnd: processVadAudio,
+    onSpeechEnd: (audio) => {
+      void processVadAudio(audio);
+    },
     onError: (err) => {
       setError(err.message);
       setTimeout(() => setError(null), 3000);
