@@ -1,8 +1,10 @@
+"use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import type { Message, Document } from "../page";
 import { Mic, MicOff, PhoneOff, Volume2, VolumeX, MessageSquare } from "lucide-react";
 import { ExpandedVoiceCall } from "./ExpandedVoiceCall";
+import { useVAD } from "./vad";
 
 interface VoiceChatProps {
   messages: Message[];
@@ -14,28 +16,57 @@ interface VoiceChatProps {
 
 type CallState = "connected" | "listening" | "teacher-speaking";
 
+/**
+ * Convert Float32Array (16kHz mono) to WAV Blob for STT API
+ */
+function float32ToWav(samples: Float32Array, sampleRate = 16000): Blob {
+  const buffer = new ArrayBuffer(44 + samples.length * 2);
+  const view = new DataView(buffer);
+
+  const writeString = (offset: number, str: string) => {
+    for (let i = 0; i < str.length; i++) {
+      view.setUint8(offset + i, str.charCodeAt(i));
+    }
+  };
+
+  writeString(0, "RIFF");
+  view.setUint32(4, 36 + samples.length * 2, true);
+  writeString(8, "WAVE");
+  writeString(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeString(36, "data");
+  view.setUint32(40, samples.length * 2, true);
+
+  let offset = 44;
+  for (const sample of samples) {
+    const s = Math.max(-1, Math.min(1, sample));
+    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+    offset += 2;
+  }
+
+  return new Blob([buffer], { type: "audio/wav" });
+}
+
 export function VoiceChat({ messages, onSendMessage, onEndCall, isBuddy = false, documents = [] }: VoiceChatProps) {
   const [showTranscript, setShowTranscript] = useState(false);
   const [callState, setCallState] = useState<CallState>("connected");
   const [isMuted, setIsMuted] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const [, setCurrentTranscript] = useState("");
   const [callDuration, setCallDuration] = useState(0);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
-  const [continuousListening, setContinuousListening] = useState(true); // Auto-listen mode
+  const [continuousListening, setContinuousListening] = useState(true);
+  
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
   const lastPlayedMessageId = useRef<string | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isProcessingRef = useRef(false);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const voiceActivityCheckRef = useRef<NodeJS.Timeout | null>(null);
-  const isGeneratingTTSRef = useRef(false); // Prevent duplicate TTS requests
+  const isGeneratingTTSRef = useRef(false);
 
   // Call duration timer
   useEffect(() => {
@@ -51,54 +82,36 @@ export function VoiceChat({ messages, onSendMessage, onEndCall, isBuddy = false,
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
-  // Handle ending the call - cleanup and notify parent
-  const handleEndCall = () => {
-    // Stop any ongoing recording
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      mediaRecorderRef.current.stop();
-    }
-    
-    // Stop microphone stream
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-    
-    // Stop any playing audio
-    if (audioRef.current) {
+  // Interrupt TTS when user starts speaking
+  const interruptTTS = useCallback(() => {
+    if (audioRef.current && isPlayingAudio) {
+      console.log("🔇 [VAD] Interrupting TTS - user started speaking");
       audioRef.current.pause();
-      audioRef.current = null;
+      audioRef.current.currentTime = 0;
+      setIsPlayingAudio(false);
+      setIsLoadingAudio(false);
+      setCallState("listening");
+      isGeneratingTTSRef.current = false;
     }
-    
-    // Close audio context
-    if (audioContextRef.current) {
-      audioContextRef.current.close().catch(console.error);
-      audioContextRef.current = null;
-    }
-    
-    // Clear timers
-    if (voiceActivityCheckRef.current) {
-      clearTimeout(voiceActivityCheckRef.current);
-      voiceActivityCheckRef.current = null;
-    }
-    if (silenceTimerRef.current) {
-      clearTimeout(silenceTimerRef.current);
-      silenceTimerRef.current = null;
-    }
-    
-    // Notify parent component
-    if (onEndCall) {
-      onEndCall();
-    }
-  };
+  }, [isPlayingAudio]);
 
-  // Speech-to-text using OpenAI Whisper (via MediaRecorder)
-  const processAudioForSTT = async (audioBlob: Blob) => {
+  // Process VAD audio and send to STT
+  const processVadAudio = useCallback(async (audio: Float32Array) => {
+    if (isProcessingRef.current) {
+      console.log("🎤 [VAD] Already processing, skipping...");
+      return;
+    }
+    
+    isProcessingRef.current = true;
+    const duration = (audio.length / 16000).toFixed(2);
+    console.log(`🎤 [VAD] Processing speech (${audio.length} samples, ${duration}s)`);
+    
     try {
+      const wavBlob = float32ToWav(audio, 16000);
+      console.log(`🎤 [VAD] Created WAV blob: ${wavBlob.size} bytes`);
+      
       const formData = new FormData();
-      formData.append("audio", audioBlob, "recording.webm");
-
-      console.log("🎤 [VoiceChat] Sending audio for transcription, size:", audioBlob.size, "bytes");
+      formData.append("audio", wavBlob, "recording.wav");
 
       const response = await fetch("/api/study-agent/speech-to-text", {
         method: "POST",
@@ -110,261 +123,76 @@ export function VoiceChat({ messages, onSendMessage, onEndCall, isBuddy = false,
       }
 
       const data = await response.json() as { text?: string };
-      const transcribedText: string = data.text ?? "";
+      const transcribedText = data.text?.trim() ?? "";
       
-      // Log the transcribed text
-      console.log("🎤 [VoiceChat] Received transcription:");
-      console.log("   Text:", transcribedText);
-      console.log("   Length:", transcribedText.length, "characters");
+      console.log("🎤 [VAD] Transcription:", transcribedText);
       
-      return transcribedText;
-    } catch (error) {
-      console.error("❌ [VoiceChat] Error transcribing audio:", error);
-      return "";
+      if (transcribedText.length >= 2) {
+        console.log("📤 [VAD] Sending message:", transcribedText);
+        onSendMessage(transcribedText);
+      } else {
+        console.log("🎤 [VAD] Transcript too short, ignoring");
+      }
+    } catch (err) {
+      console.error("❌ [VAD] Error processing audio:", err);
+      setError("Failed to process speech");
+      setTimeout(() => setError(null), 3000);
+    } finally {
+      isProcessingRef.current = false;
+    }
+  }, [onSendMessage]);
+
+  // VAD hook - interrupts TTS on speech start
+  const vad = useVAD({
+    onSpeechStart: interruptTTS,
+    onSpeechEnd: (audio) => {
+      void processVadAudio(audio);
+    },
+    onError: (err) => {
+      setError(err.message);
+      setTimeout(() => setError(null), 3000);
+    },
+  });
+
+  // Handle ending the call
+  const handleEndCall = () => {
+    vad.stop();
+    
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    
+    if (onEndCall) {
+      onEndCall();
     }
   };
 
-  // Real-time voice activity detection using Web Audio API
-  const setupVoiceActivityDetection = (stream: MediaStream, mediaRecorder: MediaRecorder) => {
-    // Create audio context for voice activity detection
-    const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    const audioContext = new AudioContextClass();
-    audioContextRef.current = audioContext;
-    
-    const source = audioContext.createMediaStreamSource(stream);
-    const analyser = audioContext.createAnalyser();
-    analyser.fftSize = 256;
-    analyser.smoothingTimeConstant = 0.8;
-    source.connect(analyser);
-    analyserRef.current = analyser;
-    
-    const dataArray = new Uint8Array(analyser.frequencyBinCount);
-    let speechDetected = false;
-    let speechStartTime = 0;
-    let recordingStarted = false;
-    const SPEECH_THRESHOLD = 30; // Volume threshold (0-255)
-    const MIN_SPEECH_DURATION = 500; // Minimum 500ms of speech before processing
-    const SILENCE_DURATION = 800; // Wait 800ms of silence before processing
-    
-    // Check for voice activity every 100ms
-    const checkVoiceActivity = () => {
-      if (!analyserRef.current || !isRecording) return;
-      
-      analyserRef.current.getByteFrequencyData(dataArray);
-      
-      // Calculate average volume
-      const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-      
-      if (average > SPEECH_THRESHOLD) {
-        // Speech detected
-        if (!speechDetected) {
-          speechDetected = true;
-          speechStartTime = Date.now();
-          
-          // Start recording immediately when speech is detected
-          if (!recordingStarted && mediaRecorder.state === "inactive") {
-            console.log("🎤 [VoiceChat] Speech detected! Starting recording immediately...");
-            audioChunksRef.current = []; // Reset chunks
-            mediaRecorder.start();
-            recordingStarted = true;
-          }
-        }
-      } else {
-        // Silence detected
-        if (speechDetected && recordingStarted) {
-          const speechDuration = Date.now() - speechStartTime;
-          if (speechDuration >= MIN_SPEECH_DURATION) {
-            // Speech was long enough, wait for silence duration then process
-            speechDetected = false;
-            console.log("🎤 [VoiceChat] Speech ended, waiting for silence...");
-            
-            // Wait for silence duration, then stop and process
-            setTimeout(() => {
-              if (mediaRecorder.state === "recording") {
-                console.log("🎤 [VoiceChat] Processing audio immediately...");
-                mediaRecorder.stop();
-                recordingStarted = false;
-              }
-            }, SILENCE_DURATION);
-          } else {
-            // Too short, ignore
-            speechDetected = false;
-          }
-        }
-      }
-      
-      if (isRecording) {
-        voiceActivityCheckRef.current = setTimeout(checkVoiceActivity, 100);
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
       }
     };
-    
-    checkVoiceActivity();
-  };
+  }, []);
 
-  // Start continuous listening mode with real-time voice activity detection
-  const startContinuousListening = async () => {
-    if (isMuted || isRecording || isProcessingRef.current || isPlayingAudio) {
-      console.log("🎤 [VoiceChat] Cannot start listening:", {
-        isMuted,
-        isRecording,
-        isProcessing: isProcessingRef.current,
-        isPlayingAudio
-      });
-      return;
+  // Handle mute toggle
+  useEffect(() => {
+    if (isMuted) {
+      vad.stop();
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+    } else if (continuousListening && !isPlayingAudio && !isProcessingRef.current) {
+      void vad.start();
     }
-
-    try {
-      // Request microphone permission
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        }
-      });
-      streamRef.current = stream;
-      
-      setIsRecording(true);
-      setCallState("listening");
-      setCurrentTranscript("");
-      isProcessingRef.current = false;
-
-      // Record audio in chunks (will start when speech is detected)
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: "audio/webm;codecs=opus",
-      });
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-
-      // Setup voice activity detection (will start recording when speech detected)
-      setupVoiceActivityDetection(stream, mediaRecorder);
-
-      let accumulatedTranscript = "";
-      let messageSent = false; // Flag to prevent double-sending
-      const MIN_SPEECH_LENGTH = 3; // Minimum characters to send
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = async () => {
-        // Clear voice activity detection
-        if (voiceActivityCheckRef.current) {
-          clearTimeout(voiceActivityCheckRef.current);
-          voiceActivityCheckRef.current = null;
-        }
-        
-        // Process audio immediately when recording stops (speech ended)
-        if (!messageSent && audioChunksRef.current.length > 0 && !isProcessingRef.current) {
-          isProcessingRef.current = true;
-          const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-          
-          console.log("🎤 [VoiceChat] Processing audio chunk:", audioBlob.size, "bytes");
-          
-          try {
-            const transcript = await processAudioForSTT(audioBlob);
-            
-            if (transcript.trim().length >= MIN_SPEECH_LENGTH) {
-              const trimmedTranscript = transcript.trim();
-              const finalTranscript = accumulatedTranscript 
-                ? `${accumulatedTranscript} ${trimmedTranscript}`
-                : trimmedTranscript;
-              
-              const messageToSend = finalTranscript.trim();
-              console.log("📤 [VoiceChat] Sending message immediately after speech:");
-              console.log("   Message:", messageToSend);
-              console.log("   Length:", messageToSend.length, "characters");
-              
-              messageSent = true;
-              accumulatedTranscript = "";
-              setCurrentTranscript("");
-              
-              // Send the message immediately
-              onSendMessage(messageToSend);
-              
-              // Listening will resume automatically after AI responds (via audio.onended)
-            } else {
-              // Very short or empty transcript, continue listening
-              console.log("🎤 [VoiceChat] Transcript too short, continuing to listen...");
-              audioChunksRef.current = [];
-              accumulatedTranscript = "";
-              
-              // Resume listening if still in listening mode (recording will start when speech detected)
-              if (isRecording && !isPlayingAudio && !isMuted && streamRef.current) {
-                setTimeout(() => {
-                  if (streamRef.current && !mediaRecorderRef.current) {
-                    const newRecorder = new MediaRecorder(streamRef.current, {
-                      mimeType: "audio/webm;codecs=opus",
-                    });
-                    mediaRecorderRef.current = newRecorder;
-                    newRecorder.ondataavailable = (event) => {
-                      if (event.data.size > 0) {
-                        audioChunksRef.current.push(event.data);
-                      }
-                    };
-                    setupVoiceActivityDetection(streamRef.current, newRecorder);
-                  }
-                }, 300);
-              }
-            }
-          } catch (error) {
-            console.error("Error processing audio:", error);
-          }
-          
-          isProcessingRef.current = false;
-          messageSent = false;
-        }
-        
-        setIsRecording(false);
-        setCallState("connected");
-      };
-
-      // Start recording
-      mediaRecorder.start();
-
-    } catch (error) {
-      console.error("Error starting continuous listening:", error);
-      setIsRecording(false);
-      setCallState("connected");
-      isProcessingRef.current = false;
-    }
-  };
-
-  // Stop continuous listening
-  const stopContinuousListening = () => {
-    // Stop voice activity detection
-    if (voiceActivityCheckRef.current) {
-      clearTimeout(voiceActivityCheckRef.current);
-      voiceActivityCheckRef.current = null;
-    }
-    
-    // Close audio context
-    if (audioContextRef.current) {
-      audioContextRef.current.close().catch(console.error);
-      audioContextRef.current = null;
-    }
-    analyserRef.current = null;
-    
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      mediaRecorderRef.current.stop();
-    }
-    
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-    
-    setIsRecording(false);
-    setCallState("connected");
-    isProcessingRef.current = false;
-  };
+  }, [isMuted, continuousListening, isPlayingAudio, vad]);
 
   // Play AI voice responses using ElevenLabs TTS v3
   useEffect(() => {
     const lastMessage = messages[messages.length - 1];
-    // Only play if it's a new AI message and not muted
     if (
       lastMessage && 
       (lastMessage.role === "teacher" || lastMessage.role === "buddy") && 
@@ -372,50 +200,34 @@ export function VoiceChat({ messages, onSendMessage, onEndCall, isBuddy = false,
       lastMessage.id !== lastPlayedMessageId.current &&
       !isPlayingAudio
     ) {
-      // Stop listening when AI is about to speak
-      if (isRecording) {
-        console.log("🔊 [VoiceChat] Stopping listening - AI is about to speak");
-        stopContinuousListening();
-      }
-      
+      // VAD stays running so it can detect user speech for interruption
       lastPlayedMessageId.current = lastMessage.id;
-      // Use ttsContent if available (includes emotion tags), otherwise use content
       const textToSpeak = lastMessage.ttsContent ?? lastMessage.content;
       void playTextToSpeech(textToSpeak);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally omit isRecording and playTextToSpeech to avoid infinite loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, isMuted, isPlayingAudio]);
 
-  // Auto-start continuous listening when component mounts or when appropriate
+  // Auto-start VAD when appropriate
   useEffect(() => {
-    // Auto-start listening if:
-    // 1. Continuous listening is enabled
-    // 2. Not muted
-    // 3. Not already recording
-    // 4. Not currently playing audio
-    // 5. We have at least one message (introduction)
     if (
       continuousListening &&
       !isMuted &&
-      !isRecording &&
       !isPlayingAudio &&
+      !vad.isRunning &&
       !isProcessingRef.current &&
       messages.length > 0
     ) {
-      // Small delay to ensure component is fully mounted and audio has finished
       const timer = setTimeout(() => {
-        if (!isRecording && !isPlayingAudio && !isProcessingRef.current && continuousListening && !isMuted) {
-          console.log("🎤 [VoiceChat] Auto-starting continuous listening");
-          startContinuousListening().catch((error) => {
-            console.error("Error auto-starting listening:", error);
-          });
+        if (!isPlayingAudio && !isProcessingRef.current && continuousListening && !isMuted && !vad.isRunning) {
+          console.log("🎤 [VoiceChat] Auto-starting VAD");
+          void vad.start();
         }
-      }, 1500); // Wait for introduction audio to potentially finish
+      }, 1000);
       
       return () => clearTimeout(timer);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- startContinuousListening intentionally not wrapped in useCallback to avoid stale closures
-  }, [messages.length, continuousListening, isMuted, isRecording, isPlayingAudio]);
+  }, [messages.length, continuousListening, isMuted, isPlayingAudio, vad]);
 
   // Check if browser supports MediaSource with audio/mpeg (Firefox doesn't)
   const canUseMediaSourceStreaming = (): boolean => {
@@ -480,7 +292,7 @@ export function VoiceChat({ messages, onSendMessage, onEndCall, isBuddy = false,
         },
         body: JSON.stringify({
           text: text,
-          modelId: "eleven_v3", // Fast model for real-time
+          modelId: "eleven_v3", // TODO: modify prompt so for device that can't use media source streaming, use the turbo model
           stability: 0.5,
           similarityBoost: 0.75,
           useSpeakerBoost: true,
@@ -507,14 +319,18 @@ export function VoiceChat({ messages, onSendMessage, onEndCall, isBuddy = false,
           audioRef.current = null;
           isGeneratingTTSRef.current = false;
           
-          // Auto-start listening after AI finishes speaking
-          if (continuousListening && !isMuted && !isRecording) {
-            console.log("🎤 [VoiceChat] AI finished speaking, auto-starting listening");
+          if (continuousListening && !isMuted) {
+            console.log("🎤 [VoiceChat] AI finished speaking, resuming VAD");
             setTimeout(() => {
-              if (!isRecording && !isProcessingRef.current && !isPlayingAudio) {
-                void startContinuousListening();
+              if (!isProcessingRef.current) {
+                if (vad.isRunning) {
+                  vad.resume();
+                  setCallState("listening");
+                } else {
+                  void vad.start();
+                }
               }
-            }, 500);
+            }, 300);
           }
         };
 
@@ -612,41 +428,27 @@ export function VoiceChat({ messages, onSendMessage, onEndCall, isBuddy = false,
   // Start listening when AI finishes speaking (if continuous listening is enabled)
   // This is handled in audio.onended callback
 
-  const handleMicPress = async () => {
+  const handleMicPress = () => {
     if (isMuted) return;
     
-    if (isRecording) {
-      // Stop recording if already recording (pause mode)
-      console.log("🎤 [VoiceChat] User paused listening");
-      stopContinuousListening();
+    if (vad.isRunning) {
+      console.log("🎤 [VoiceChat] User paused VAD");
+      vad.stop();
       setContinuousListening(false);
     } else {
-      // Start/resume continuous listening
-      console.log("🎤 [VoiceChat] User resumed listening");
+      console.log("🎤 [VoiceChat] User started VAD");
       setContinuousListening(true);
       if (!isPlayingAudio && !isProcessingRef.current) {
-        void startContinuousListening();
+        void vad.start();
       }
     }
   };
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-        mediaRecorderRef.current.stop();
-        if (mediaRecorderRef.current.stream) {
-          mediaRecorderRef.current.stream.getTracks().forEach((track) => track.stop());
-        }
-      }
-    };
-  }, []);
-
-  const displayCallState = isPlayingAudio ? "speaking" : (callState === "teacher-speaking" ? "speaking" : callState);
+  const displayCallState = isPlayingAudio 
+    ? "speaking" 
+    : vad.isRecording 
+    ? "listening" 
+    : (callState === "teacher-speaking" ? "speaking" : callState);
 
   return (
     <>
@@ -730,9 +532,9 @@ export function VoiceChat({ messages, onSendMessage, onEndCall, isBuddy = false,
               </div>
             )}
 
-            {!error && displayCallState === "connected" && !isRecording && (
+            {!error && displayCallState === "connected" && !vad.isRecording && (
               <span className="text-white/90">
-                {continuousListening 
+                {vad.isRunning 
                   ? "Ready to listen... (speak naturally)" 
                   : "Click mic to start"}
               </span>
@@ -765,7 +567,9 @@ export function VoiceChat({ messages, onSendMessage, onEndCall, isBuddy = false,
           <div className="flex items-center justify-center gap-3">
             {/* Mute */}
             <button
-              onClick={() => setIsMuted(!isMuted)}
+              onClick={() => {
+                setIsMuted(!isMuted);
+              }}
               className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
                 isMuted
                   ? "bg-red-500 hover:bg-red-600"
@@ -784,20 +588,20 @@ export function VoiceChat({ messages, onSendMessage, onEndCall, isBuddy = false,
               onClick={handleMicPress}
               disabled={isMuted}
               className={`w-14 h-14 rounded-full flex items-center justify-center transition-all shadow-lg ${
-                isRecording
+                vad.isRecording
                   ? "bg-blue-500 hover:bg-blue-600 scale-110"
                   : isMuted
                   ? "bg-gray-400 cursor-not-allowed"
-                  : continuousListening
+                  : vad.isRunning
                   ? "bg-green-500 hover:bg-green-600"
                   : "bg-white hover:bg-gray-100 active:scale-95"
               }`}
-              title={continuousListening ? "Click to stop listening" : "Click to start listening"}
+              title={vad.isRunning ? "Click to stop listening" : "Click to start listening"}
             >
-              {isRecording ? (
+              {vad.isRecording ? (
                 <MicOff className="w-5 h-5 text-white" />
               ) : (
-                <Mic className={`w-5 h-5 ${isMuted ? "text-gray-600" : continuousListening ? "text-white" : "text-purple-600"}`} />
+                <Mic className={`w-5 h-5 ${isMuted ? "text-gray-600" : vad.isRunning ? "text-white" : "text-purple-600"}`} />
               )}
             </button>
 
