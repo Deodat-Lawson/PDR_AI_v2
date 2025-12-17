@@ -62,14 +62,11 @@ export async function POST(request: Request) {
       lastModified: Date.now(),
     });
 
-    // Log file details for debugging
     console.log("🎤 [Speech-to-Text] Processing audio file:");
     console.log("   MIME type:", mimeType);
     console.log("   Extension:", extension);
     console.log("   File size:", buffer.length, "bytes");
     console.log("   Filename:", `audio.${extension}`);
-
-    // Call OpenAI Whisper API
 
     const transcription = await openai.audio.transcriptions.create({
       file: audioFileForOpenAI as unknown as globalThis.File, // Type assertion for OpenAI SDK compatibility

@@ -1,7 +1,10 @@
+"use client";
+
 import { useState, useRef, useEffect } from "react";
 import type { Message, Document } from "../page";
 import { Mic, MicOff, PhoneOff, Volume2, VolumeX, MessageSquare } from "lucide-react";
 import { ExpandedVoiceCall } from "./ExpandedVoiceCall";
+import type { MicVAD } from "@ricky0123/vad-web";
 
 interface VoiceChatProps {
   messages: Message[];
@@ -201,8 +204,6 @@ export function VoiceChat({ messages, onSendMessage, onEndCall, isBuddy = false,
   };
 
   // Start continuous listening mode with real-time voice activity detection
-  // Note: Intentionally not using useCallback as the function needs current closure values
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const startContinuousListening = async () => {
     if (isMuted || isRecording || isProcessingRef.current || isPlayingAudio) {
       console.log("🎤 [VoiceChat] Cannot start listening:", {
@@ -419,7 +420,7 @@ export function VoiceChat({ messages, onSendMessage, onEndCall, isBuddy = false,
   }, [messages.length, continuousListening, isMuted, isRecording, isPlayingAudio]);
 
   // Check if browser supports MediaSource with audio/mpeg (Firefox doesn't)
-  const useMediaSourceStreaming = (): boolean => {
+  const canUseMediaSourceStreaming = (): boolean => {
     if (typeof window === "undefined") return false;
     
     const ua = navigator.userAgent;
@@ -532,7 +533,7 @@ export function VoiceChat({ messages, onSendMessage, onEndCall, isBuddy = false,
       };
 
       // Use MediaSource streaming if supported, otherwise fall back to blob
-      if (useMediaSourceStreaming()) {
+      if (canUseMediaSourceStreaming()) {
         console.log("🔊 [VoiceChat] Using MediaSource streaming");
         // Play audio chunks as they stream in using MediaSource
         const mediaSource = new MediaSource();
@@ -543,41 +544,43 @@ export function VoiceChat({ messages, onSendMessage, onEndCall, isBuddy = false,
         audio.src = mediaSourceUrl;
         setupAudioHandlers(audio, mediaSourceUrl);
 
-        mediaSource.addEventListener("sourceopen", async () => {
-          try {
-            const sourceBuffer = mediaSource.addSourceBuffer("audio/mpeg");
-            const reader = response.body!.getReader();
+        mediaSource.addEventListener("sourceopen", () => {
+          void (async () => {
+            try {
+              const sourceBuffer = mediaSource.addSourceBuffer("audio/mpeg");
+              const reader = response.body!.getReader();
 
-            const pump = async (): Promise<void> => {
-              const { done, value } = await reader.read();
-              if (done) {
-                if (mediaSource.readyState === "open") {
-                  mediaSource.endOfStream();
+              const pump = async (): Promise<void> => {
+                const { done, value } = await reader.read();
+                if (done) {
+                  if (mediaSource.readyState === "open") {
+                    mediaSource.endOfStream();
+                  }
+                  return;
                 }
-                return;
-              }
-              
-              // Wait for buffer to be ready before appending
-              if (sourceBuffer.updating) {
+                
+                // Wait for buffer to be ready before appending
+                if (sourceBuffer.updating) {
+                  await new Promise<void>(resolve => {
+                    sourceBuffer.addEventListener("updateend", () => resolve(), { once: true });
+                  });
+                }
+                
+                sourceBuffer.appendBuffer(value);
                 await new Promise<void>(resolve => {
                   sourceBuffer.addEventListener("updateend", () => resolve(), { once: true });
                 });
-              }
-              
-              sourceBuffer.appendBuffer(value);
-              await new Promise<void>(resolve => {
-                sourceBuffer.addEventListener("updateend", () => resolve(), { once: true });
-              });
-              return pump();
-            };
+                return pump();
+              };
 
-            await pump();
-          } catch (err) {
-            console.error("❌ [VoiceChat] Error streaming audio:", err);
-            if (mediaSource.readyState === "open") {
-              mediaSource.endOfStream("decode");
+              await pump();
+            } catch (err) {
+              console.error("❌ [VoiceChat] Error streaming audio:", err);
+              if (mediaSource.readyState === "open") {
+                mediaSource.endOfStream("decode");
+              }
             }
-          }
+          })();
         });
 
         await audio.play();
