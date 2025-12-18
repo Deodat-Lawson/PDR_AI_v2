@@ -86,10 +86,10 @@ export const pdfChunks = pgTable("pdf_chunks", {
 
 export const ChatHistory = pgTable("chatHistory", {
     id: serial("id").primaryKey(),
-    UserId: varchar("company id", { length: 256 }).notNull(),
-    documentId: varchar("document id", { length: 256 }).notNull(),
-    documentTitle: varchar("document title", { length: 256 }).notNull(),
-    question: varchar("question", { length: 256 }).notNull(),
+    UserId: varchar("user_id", { length: 256 }).notNull(),
+    documentId: varchar("document_id", { length: 256 }).notNull(),
+    documentTitle: varchar("document_title", { length: 256 }).notNull(),
+    question: text("question").notNull(),
     response: text("response").notNull(),
     chatId: varchar("chat_id", { length: 256 }),
     queryType: varchar("query_type", { length: 20, enum: ["simple", "advanced"] }).default(
