@@ -2,10 +2,10 @@ import { ChatOpenAI } from "@langchain/openai";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { z } from "zod";
 import { DuckDuckGoSearch } from "@langchain/community/tools/duckduckgo_search";
-import type { 
-    PdfChunk, 
-    AnalysisSpecification, 
-    PredictiveAnalysisResult, 
+import type {
+    PdfChunk,
+    AnalysisSpecification,
+    PredictiveAnalysisResult,
     MissingDocumentPrediction,
     SearchResult
 } from "../types";
@@ -20,6 +20,7 @@ import { document } from "~/server/db/schema";
 import { and, eq, ne } from "drizzle-orm";
 import stringSimilarity from 'string-similarity-js';
 import { ANALYSIS_BATCH_CONFIG } from "~/lib/constants";
+import { DEFAULT_MODELS } from "~/lib/models";
 
 async function withRetry<T>(
     operation: () => Promise<T>,
@@ -149,7 +150,7 @@ export async function callAIAnalysis(
 
     const chat = new ChatOpenAI({
         openAIApiKey: process.env.OPENAI_API_KEY,
-        modelName: "gpt-5.2",
+        modelName: DEFAULT_MODELS.ANALYSIS,
         temperature: 0.3,
     });
 

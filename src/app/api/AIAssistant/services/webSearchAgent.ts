@@ -2,6 +2,7 @@ import { ChatOpenAI } from "@langchain/openai";
 import { SystemMessage, HumanMessage } from "@langchain/core/messages";
 import { performTavilySearch, type WebSearchResult } from "./tavilySearch";
 import { env } from "~/env";
+import { DEFAULT_MODELS } from "~/lib/models";
 
 /**
  * Web Search Agent using LangChain and LangSmith
@@ -91,7 +92,7 @@ async function refineSearchQuery(
 ): Promise<{ refinedQuery: string; reasoning: string }> {
     const chat = new ChatOpenAI({
         openAIApiKey: env.server.OPENAI_API_KEY,
-        modelName: "gpt-5-mini",
+        modelName: DEFAULT_MODELS.LIGHTWEIGHT,
         temperature: 0.3,
     });
 
@@ -180,7 +181,7 @@ async function synthesizeResults(
 
     const chat = new ChatOpenAI({
         openAIApiKey: env.server.OPENAI_API_KEY,
-        modelName: "gpt-5-mini",
+        modelName: DEFAULT_MODELS.LIGHTWEIGHT,
         temperature: 0.2,
     });
 

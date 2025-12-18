@@ -21,6 +21,7 @@ import { executeWebSearchAgent } from "./services/webSearchAgent";
 import normalizeModelContent from "./normalizeModelContent";
 import { withRateLimit } from "~/lib/rate-limit-middleware";
 import { RateLimitPresets } from "~/lib/rate-limiter";
+import { DEFAULT_MODELS } from "~/lib/models";
 
 
 export const runtime = 'nodejs';
@@ -234,7 +235,7 @@ export async function POST(request: Request) {
         }
 
         const embeddings = new OpenAIEmbeddings({
-            model: "text-embedding-ada-002",
+            model: DEFAULT_MODELS.EMBEDDING,
             openAIApiKey: process.env.OPENAI_API_KEY,
         });
 
@@ -376,7 +377,7 @@ export async function POST(request: Request) {
 
         const chat = new ChatOpenAI({
             openAIApiKey: process.env.OPENAI_API_KEY,
-            modelName: "gpt-5.2",
+            modelName: DEFAULT_MODELS.ANALYSIS,
             temperature: 0.7, // Increased for more natural, conversational responses
             timeout: 600000
         });
