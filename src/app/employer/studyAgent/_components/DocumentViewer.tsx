@@ -4,13 +4,14 @@ import { FileText, Image as ImageIcon, FileType, ExternalLink, Download } from "
 
 interface DocumentViewerProps {
   document: Document | null;
+  isDark?: boolean;
 }
 
-export function DocumentViewer({ document }: DocumentViewerProps) {
+export function DocumentViewer({ document, isDark = false }: DocumentViewerProps) {
   if (!document) {
     return (
-      <div className="flex-1 bg-gray-100 flex items-center justify-center">
-        <div className="text-center text-gray-400">
+      <div className={`h-full flex items-center justify-center ${isDark ? 'bg-gray-800' : 'bg-gray-100'}`}>
+        <div className={`text-center ${isDark ? 'text-gray-400' : 'text-gray-400'}`}>
           <FileText className="w-16 h-16 mx-auto mb-4" />
           <p>Select a document to view</p>
         </div>
@@ -19,9 +20,11 @@ export function DocumentViewer({ document }: DocumentViewerProps) {
   }
 
   return (
-    <div className="flex-1 bg-gray-900 flex flex-col">
+    <div className={`h-full flex flex-col ${isDark ? 'bg-gray-950' : 'bg-gray-900'}`}>
       {/* Document Toolbar */}
-      <div className="bg-gray-800 px-4 py-2 flex items-center justify-between border-b border-gray-700">
+      <div className={`px-4 py-2 flex items-center justify-between border-b ${
+        isDark ? 'bg-gray-900 border-gray-800' : 'bg-gray-800 border-gray-700'
+      }`}>
         <div className="flex items-center gap-3 text-white text-sm">
           <FileText className="w-4 h-4" />
           <span>{document.name}</span>
@@ -52,7 +55,7 @@ export function DocumentViewer({ document }: DocumentViewerProps) {
       </div>
 
       {/* Document Content */}
-      <div className="flex-1 overflow-hidden flex items-stretch justify-center bg-gray-800">
+      <div className={`flex-1 overflow-hidden flex items-stretch justify-center ${isDark ? 'bg-gray-900' : 'bg-gray-800'}`}>
         {document.type === "pdf" ? (
           document.url ? (
             <iframe

@@ -1,0 +1,400 @@
+"use client";
+
+import { useState, useEffect, useRef } from "react";
+import { Play, Pause, RotateCcw, Clock, Coffee, Brain, Settings } from "lucide-react";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+
+interface PomodoroTimerProps {
+  isDark?: boolean;
+}
+
+type TimerMode = "focus" | "shortBreak" | "longBreak";
+
+export function PomodoroTimer({ isDark = false }: PomodoroTimerProps) {
+  const [mode, setMode] = useState<TimerMode>("focus");
+  const [focusDuration, setFocusDuration] = useState(25);
+  const [shortBreakDuration, setShortBreakDuration] = useState(5);
+  const [longBreakDuration, setLongBreakDuration] = useState(15);
+  const [sessionsBeforeLongBreak, setSessionsBeforeLongBreak] = useState(4);
+  const [showSettings, setShowSettings] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(25 * 60);
+  const [isRunning, setIsRunning] = useState(false);
+  const [completedSessions, setCompletedSessions] = useState(0);
+  const [autoStartBreaks, setAutoStartBreaks] = useState(false);
+  const [autoStartPomodoros, setAutoStartPomodoros] = useState(false);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const getCurrentDuration = () => {
+    switch (mode) {
+      case "focus":
+        return focusDuration * 60;
+      case "shortBreak":
+        return shortBreakDuration * 60;
+      case "longBreak":
+        return longBreakDuration * 60;
+    }
+  };
+
+  useEffect(() => {
+    if (isRunning && timeLeft > 0) {
+      intervalRef.current = setInterval(() => {
+        setTimeLeft((prev) => {
+          if (prev <= 1) {
+            handleTimerComplete();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    }
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRunning, timeLeft]);
+
+  const handleTimerComplete = () => {
+    setIsRunning(false);
+
+    if (mode === "focus") {
+      setCompletedSessions((prev) => prev + 1);
+      // After 4 focus sessions, suggest long break
+      if ((completedSessions + 1) % sessionsBeforeLongBreak === 0) {
+        switchMode("longBreak");
+      } else {
+        switchMode("shortBreak");
+      }
+    } else {
+      switchMode("focus");
+    }
+  };
+
+  const switchMode = (newMode: TimerMode) => {
+    setMode(newMode);
+    let duration = focusDuration;
+    if (newMode === "shortBreak") duration = shortBreakDuration;
+    if (newMode === "longBreak") duration = longBreakDuration;
+    setTimeLeft(duration * 60);
+    setIsRunning(false);
+  };
+
+  const handlePlayPause = () => {
+    setIsRunning(!isRunning);
+  };
+
+  const handleReset = () => {
+    setIsRunning(false);
+    setTimeLeft(getCurrentDuration());
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  const progress = ((getCurrentDuration() - timeLeft) / getCurrentDuration()) * 100;
+
+  return (
+    <div
+      className={`rounded-lg border p-3 ${
+        isDark
+          ? "bg-gray-800 border-gray-700"
+          : "bg-gradient-to-br from-purple-50 to-blue-50 border-purple-200"
+      }`}
+    >
+      {/* Mode Selector */}
+      <div className="flex gap-1 mb-3">
+        <Button
+          variant={mode === "focus" ? "default" : "outline"}
+          size="sm"
+          onClick={() => switchMode("focus")}
+          className={`flex-1 h-8 text-xs ${
+            mode === "focus"
+              ? "bg-purple-600 hover:bg-purple-700 text-white"
+              : isDark
+              ? "text-gray-300"
+              : ""
+          }`}
+        >
+          <Brain className="w-3 h-3 mr-1" />
+          Focus
+        </Button>
+        <Button
+          variant={mode === "shortBreak" ? "default" : "outline"}
+          size="sm"
+          onClick={() => switchMode("shortBreak")}
+          className={`flex-1 h-8 text-xs ${
+            mode === "shortBreak"
+              ? "bg-green-600 hover:bg-green-700 text-white"
+              : isDark
+              ? "text-gray-300"
+              : ""
+          }`}
+        >
+          <Coffee className="w-3 h-3 mr-1" />
+          Break
+        </Button>
+        <Button
+          variant={mode === "longBreak" ? "default" : "outline"}
+          size="sm"
+          onClick={() => switchMode("longBreak")}
+          className={`flex-1 h-8 text-xs ${
+            mode === "longBreak"
+              ? "bg-blue-600 hover:bg-blue-700 text-white"
+              : isDark
+              ? "text-gray-300"
+              : ""
+          }`}
+        >
+          <Coffee className="w-3 h-3 mr-1" />
+          Long
+        </Button>
+      </div>
+
+      {/* Timer Display */}
+      <div className="relative mb-3">
+        {/* Progress Circle */}
+        <svg className="w-full h-auto max-w-[180px] mx-auto" viewBox="0 0 200 200">
+          <circle
+            cx="100"
+            cy="100"
+            r="85"
+            fill="none"
+            stroke={isDark ? "#374151" : "#e5e7eb"}
+            strokeWidth="8"
+          />
+          <circle
+            cx="100"
+            cy="100"
+            r="85"
+            fill="none"
+            stroke={
+              mode === "focus"
+                ? "#9333ea"
+                : mode === "shortBreak"
+                ? "#16a34a"
+                : "#2563eb"
+            }
+            strokeWidth="8"
+            strokeDasharray={`${2 * Math.PI * 85}`}
+            strokeDashoffset={`${2 * Math.PI * 85 * (1 - progress / 100)}`}
+            strokeLinecap="round"
+            transform="rotate(-90 100 100)"
+            style={{ transition: "stroke-dashoffset 1s linear" }}
+          />
+        </svg>
+
+        {/* Time Text */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <div
+            className={`text-3xl mb-1 ${
+              isDark ? "text-white" : "text-gray-900"
+            }`}
+          >
+            {formatTime(timeLeft)}
+          </div>
+          <div
+            className={`text-xs uppercase tracking-wide ${
+              isDark ? "text-gray-400" : "text-gray-600"
+            }`}
+          >
+            {mode === "focus"
+              ? "Focus Time"
+              : mode === "shortBreak"
+              ? "Short Break"
+              : "Long Break"}
+          </div>
+        </div>
+      </div>
+
+      {/* Controls */}
+      <div className="flex gap-2 mb-3">
+        <Button
+          variant="default"
+          size="sm"
+          onClick={handlePlayPause}
+          className={`flex-1 h-9 ${
+            mode === "focus"
+              ? "bg-purple-600 hover:bg-purple-700"
+              : mode === "shortBreak"
+              ? "bg-green-600 hover:bg-green-700"
+              : "bg-blue-600 hover:bg-blue-700"
+          } text-white`}
+        >
+          {isRunning ? (
+            <>
+              <Pause className="w-4 h-4 mr-2" />
+              Pause
+            </>
+          ) : (
+            <>
+              <Play className="w-4 h-4 mr-2" />
+              Start
+            </>
+          )}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleReset}
+          className={`h-9 w-9 p-0 ${isDark ? "text-gray-300" : ""}`}
+        >
+          <RotateCcw className="w-4 h-4" />
+        </Button>
+      </div>
+
+      {/* Session Counter and Settings Button */}
+      <div className="flex items-center justify-between">
+        <div
+          className={`flex items-center gap-2 text-xs ${
+            isDark ? "text-gray-400" : "text-gray-600"
+          }`}
+        >
+          <Clock className="w-3 h-3" />
+          <span>
+            {completedSessions} session{completedSessions !== 1 ? "s" : ""} completed
+          </span>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setShowSettings(!showSettings)}
+          className={`h-8 w-8 p-0 ${isDark ? "text-gray-300 hover:bg-gray-700" : "hover:bg-purple-100"}`}
+        >
+          <Settings className="w-4 h-4" />
+        </Button>
+      </div>
+
+      {/* Settings Panel */}
+      {showSettings && (
+        <div className={`mt-3 p-2.5 rounded-lg border space-y-2 ${
+          isDark ? "bg-gray-900 border-gray-700" : "bg-white border-gray-200"
+        }`}>
+          <h4 className={`text-xs mb-1.5 ${isDark ? "text-white" : "text-gray-900"}`}>Timer Settings</h4>
+          
+          <div className="space-y-2">
+            {/* Duration settings in 2 columns */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label htmlFor="focusDuration" className={`text-xs ${isDark ? "text-gray-300" : ""}`}>
+                  Focus (min)
+                </Label>
+                <Input
+                  type="number"
+                  id="focusDuration"
+                  value={focusDuration}
+                  onChange={(e) => {
+                    const val = Math.max(1, Math.min(60, Number(e.target.value)));
+                    setFocusDuration(val);
+                    if (mode === "focus" && !isRunning) {
+                      setTimeLeft(val * 60);
+                    }
+                  }}
+                  min="1"
+                  max="60"
+                  className={`mt-0.5 h-8 text-xs ${isDark ? "bg-gray-800 border-gray-700 text-white" : ""}`}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="shortBreakDuration" className={`text-xs ${isDark ? "text-gray-300" : ""}`}>
+                  Short (min)
+                </Label>
+                <Input
+                  type="number"
+                  id="shortBreakDuration"
+                  value={shortBreakDuration}
+                  onChange={(e) => {
+                    const val = Math.max(1, Math.min(30, Number(e.target.value)));
+                    setShortBreakDuration(val);
+                    if (mode === "shortBreak" && !isRunning) {
+                      setTimeLeft(val * 60);
+                    }
+                  }}
+                  min="1"
+                  max="30"
+                  className={`mt-0.5 h-8 text-xs ${isDark ? "bg-gray-800 border-gray-700 text-white" : ""}`}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label htmlFor="longBreakDuration" className={`text-xs ${isDark ? "text-gray-300" : ""}`}>
+                  Long (min)
+                </Label>
+                <Input
+                  type="number"
+                  id="longBreakDuration"
+                  value={longBreakDuration}
+                  onChange={(e) => {
+                    const val = Math.max(1, Math.min(60, Number(e.target.value)));
+                    setLongBreakDuration(val);
+                    if (mode === "longBreak" && !isRunning) {
+                      setTimeLeft(val * 60);
+                    }
+                  }}
+                  min="1"
+                  max="60"
+                  className={`mt-0.5 h-8 text-xs ${isDark ? "bg-gray-800 border-gray-700 text-white" : ""}`}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="sessionsBeforeLongBreak" className={`text-xs ${isDark ? "text-gray-300" : ""}`}>
+                  Cycles
+                </Label>
+                <Input
+                  type="number"
+                  id="sessionsBeforeLongBreak"
+                  value={sessionsBeforeLongBreak}
+                  onChange={(e) => setSessionsBeforeLongBreak(Math.max(1, Math.min(10, Number(e.target.value))))}
+                  min="1"
+                  max="10"
+                  className={`mt-0.5 h-8 text-xs ${isDark ? "bg-gray-800 border-gray-700 text-white" : ""}`}
+                />
+              </div>
+            </div>
+
+            <div className={`pt-2 border-t space-y-1.5 ${isDark ? "border-gray-700" : "border-gray-200"}`}>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={autoStartBreaks}
+                  onChange={(e) => setAutoStartBreaks(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded"
+                />
+                <span className={`text-xs ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                  Auto-start breaks
+                </span>
+              </label>
+
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={autoStartPomodoros}
+                  onChange={(e) => setAutoStartPomodoros(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded"
+                />
+                <span className={`text-xs ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                  Auto-start focus sessions
+                </span>
+              </label>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+

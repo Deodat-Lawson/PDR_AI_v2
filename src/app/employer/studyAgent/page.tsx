@@ -7,6 +7,9 @@ import { StudyBuddyPanel } from "./_components/StudyBuddyPanel";
 import { OnboardingScreen } from "./_components/OnboardingScreen";
 import { ConnectingScreen } from "./_components/ConnectingScreen";
 import { WhiteboardPanel } from "./_components/WhiteboardPanel";
+import { CollaborativeDocsEditor } from "./_components/CollaborativeDocsEditor";
+import { ResizablePanel } from "./_components/ResizablePanel";
+import { Toaster } from "./_components/ui/sonner";
 
 export type Subject = "general" | "math" | "science" | "history" | "literature";
 
@@ -40,12 +43,29 @@ export interface StudyPlanItem {
   materials: string[]; // document IDs
 }
 
+export interface Note {
+  id: string;
+  title: string;
+  content: string;
+  tags: string[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface UserPreferences {
   selectedDocuments: string[];
+  name?: string;
   grade: string;
   gender: string;
   fieldOfStudy: string;
   mode: "teacher" | "study-buddy";
+  aiGender?: string;
+  aiPersonality?: {
+    extroversion: number;
+    intuition: number;
+    thinking: number;
+    judging: number;
+  };
 }
 
 type AppState = "onboarding" | "connecting" | "session";
@@ -53,6 +73,9 @@ type AppState = "onboarding" | "connecting" | "session";
 export default function App() {
   const [appState, setAppState] = useState<AppState>("onboarding");
   const [userPreferences, setUserPreferences] = useState<UserPreferences | null>(null);
+  const [teacherView, setTeacherView] = useState<"documents" | "docs" | "whiteboard">("docs");
+  const [isDark, setIsDark] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(false);
 
   const [documents, setDocuments] = useState<Document[]>([]);
   const [documentsLoading, setDocumentsLoading] = useState(true);
@@ -63,6 +86,8 @@ export default function App() {
   const [messages, setMessages] = useState<Message[]>([]);
 
   const [studyPlan, setStudyPlan] = useState<StudyPlanItem[]>([]);
+
+  const [notes, setNotes] = useState<Note[]>([]);
 
   // Fetch documents from database on mount
   useEffect(() => {
@@ -355,14 +380,36 @@ export default function App() {
     setStudyPlan((prev) => prev.filter((item) => item.id !== itemId));
   };
 
+  const handleAddNote = (note: Omit<Note, "id" | "createdAt" | "updatedAt">) => {
+    const newNote: Note = {
+      ...note,
+      id: Date.now().toString(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    setNotes((prev) => [...prev, newNote]);
+  };
+
+  const handleUpdateNote = (noteId: string, updates: Partial<Note>) => {
+    setNotes((prev) =>
+      prev.map((note) =>
+        note.id === noteId ? { ...note, ...updates, updatedAt: new Date() } : note
+      )
+    );
+  };
+
+  const handleDeleteNote = (noteId: string) => {
+    setNotes((prev) => prev.filter((note) => note.id !== noteId));
+  };
+
   // Render appropriate screen based on state
   if (appState === "onboarding") {
     if (documentsLoading) {
       return (
-        <div className="flex h-screen items-center justify-center bg-gray-50">
+        <div className={`flex h-screen items-center justify-center ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading documents...</p>
+            <p className={isDark ? 'text-gray-400' : 'text-gray-600'}>Loading documents...</p>
           </div>
         </div>
       );
@@ -370,10 +417,10 @@ export default function App() {
     
     if (documentsError) {
       return (
-        <div className="flex h-screen items-center justify-center bg-gray-50">
+        <div className={`flex h-screen items-center justify-center ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
           <div className="text-center max-w-md">
             <p className="text-red-600 mb-4">Error loading documents: {documentsError}</p>
-            <p className="text-gray-600 text-sm">You can still proceed, but documents may not be available.</p>
+            <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>You can still proceed, but documents may not be available.</p>
             <button
               onClick={() => window.location.reload()}
               className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
@@ -405,48 +452,87 @@ export default function App() {
 
   // Session state - show main interface
   return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Left Sidebar - Document Library */}
-      <Sidebar
-        documents={documents}
-        selectedDocument={selectedDocument}
-        onSelectDocument={setSelectedDocument}
-        onUploadDocument={handleUploadDocument}
-      />
-
-      {/* Center - Document Viewer or Whiteboard */}
-      {userPreferences?.mode === "teacher" ? (
-        <WhiteboardPanel document={selectedDocument} />
-      ) : (
-        <DocumentViewer document={selectedDocument} />
+    <div className={`flex h-screen overflow-hidden ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
+      {/* Left Sidebar - Document Library (Hidden by default, toggleable) */}
+      {showSidebar && (
+        <ResizablePanel
+          defaultWidth={280}
+          minWidth={200}
+          maxWidth={400}
+          position="left"
+        >
+          <Sidebar
+            documents={documents}
+            selectedDocument={selectedDocument}
+            onSelectDocument={setSelectedDocument}
+            onUploadDocument={handleUploadDocument}
+            isDark={isDark}
+            onToggleDark={() => setIsDark(!isDark)}
+            onCloseSidebar={() => setShowSidebar(false)}
+          />
+        </ResizablePanel>
       )}
 
-      {/* Right Sidebar - AI Panel based on mode */}
-      {userPreferences?.mode === "teacher" ? (
-        <TeacherPanel
-          messages={messages}
-          studyPlan={studyPlan}
-          documents={documents}
-          onSendMessage={handleSendMessage}
-          onEndCall={handleEndCall}
-          onPullUpMaterial={handlePullUpMaterial}
-          onToggleStudyItem={handleToggleStudyItem}
-        />
-      ) : (
-        <StudyBuddyPanel
-          messages={messages}
-          studyPlan={studyPlan}
-          documents={documents}
-          selectedDocument={selectedDocument}
-          onSendMessage={handleSendMessage}
-          onEndCall={handleEndCall}
-          onPullUpMaterial={handlePullUpMaterial}
-          onToggleStudyItem={handleToggleStudyItem}
-          onAddStudyItem={handleAddStudyItem}
-          onEditStudyItem={handleEditStudyItem}
-          onDeleteStudyItem={handleDeleteStudyItem}
-        />
-      )}
+      {/* Center - Document Viewer, Whiteboard, or Docs Editor */}
+      <div className="flex-1 min-w-0">
+        {userPreferences?.mode === "teacher" ? (
+          teacherView === "documents" ? (
+            <DocumentViewer document={selectedDocument} isDark={isDark} />
+          ) : teacherView === "docs" ? (
+            <CollaborativeDocsEditor document={selectedDocument} isDark={isDark} />
+          ) : (
+            <WhiteboardPanel document={selectedDocument} isDark={isDark} />
+          )
+        ) : (
+          <DocumentViewer document={selectedDocument} isDark={isDark} />
+        )}
+      </div>
+
+      {/* Right Sidebar - AI Panel based on mode (Resizable) */}
+      <ResizablePanel
+        defaultWidth={384}
+        minWidth={320}
+        maxWidth={600}
+        position="right"
+      >
+        {userPreferences?.mode === "teacher" ? (
+          <TeacherPanel
+            messages={messages}
+            studyPlan={studyPlan}
+            documents={documents}
+            onSendMessage={handleSendMessage}
+            onEndCall={handleEndCall}
+            onPullUpMaterial={handlePullUpMaterial}
+            onToggleStudyItem={handleToggleStudyItem}
+            onToggleView={setTeacherView}
+            currentView={teacherView}
+            onToggleSidebar={() => setShowSidebar(!showSidebar)}
+            isDark={isDark}
+          />
+        ) : (
+          <StudyBuddyPanel
+            messages={messages}
+            studyPlan={studyPlan}
+            documents={documents}
+            notes={notes}
+            selectedDocument={selectedDocument}
+            onSendMessage={handleSendMessage}
+            onEndCall={handleEndCall}
+            onPullUpMaterial={handlePullUpMaterial}
+            onToggleStudyItem={handleToggleStudyItem}
+            onAddStudyItem={handleAddStudyItem}
+            onEditStudyItem={handleEditStudyItem}
+            onDeleteStudyItem={handleDeleteStudyItem}
+            onAddNote={handleAddNote}
+            onUpdateNote={handleUpdateNote}
+            onDeleteNote={handleDeleteNote}
+            onToggleSidebar={() => setShowSidebar(!showSidebar)}
+            isDark={isDark}
+          />
+        )}
+      </ResizablePanel>
+      
+      <Toaster />
     </div>
   );
 }

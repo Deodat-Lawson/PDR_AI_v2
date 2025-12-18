@@ -1,18 +1,23 @@
 "use client";
 import { useState } from "react";
-import type { Message, Document, StudyPlanItem } from "../page";
+import type { Message, Document, StudyPlanItem, Note } from "../page";
 import { Button } from "./ui/button";
-import { BookOpen, CheckCircle2, Circle, Plus, Edit2, Trash2 } from "lucide-react";
+import { BookOpen, CheckCircle2, Circle, Plus, Edit2, Trash2, Timer, FileText, Menu } from "lucide-react";
 import { VoiceChat } from "./VoiceChat";
 import { Badge } from "./ui/badge";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { Label } from "./ui/label";
+import { AIQueryChat } from "./AIQueryChat";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+import { PomodoroTimer } from "./PomodoroTimer";
+import { NotesTab } from "./NotesTab";
 
 interface StudyBuddyPanelProps {
   messages: Message[];
   studyPlan: StudyPlanItem[];
   documents: Document[];
+  notes: Note[];
   selectedDocument: Document | null;
   onSendMessage: (content: string) => void;
   onEndCall?: () => void;
@@ -21,12 +26,18 @@ interface StudyBuddyPanelProps {
   onAddStudyItem: (item: Omit<StudyPlanItem, "id">) => void;
   onEditStudyItem: (itemId: string, updates: Partial<StudyPlanItem>) => void;
   onDeleteStudyItem: (itemId: string) => void;
+  onAddNote: (note: Omit<Note, "id" | "createdAt" | "updatedAt">) => void;
+  onUpdateNote: (noteId: string, updates: Partial<Note>) => void;
+  onDeleteNote: (noteId: string) => void;
+  onToggleSidebar?: () => void;
+  isDark?: boolean;
 }
 
 export function StudyBuddyPanel({
   messages,
   studyPlan,
   documents,
+  notes,
   selectedDocument: _selectedDocument,
   onSendMessage,
   onEndCall,
@@ -35,6 +46,11 @@ export function StudyBuddyPanel({
   onAddStudyItem,
   onEditStudyItem,
   onDeleteStudyItem,
+  onAddNote,
+  onUpdateNote,
+  onDeleteNote,
+  onToggleSidebar,
+  isDark = false,
 }: StudyBuddyPanelProps) {
   void _selectedDocument; // Unused but required by interface
   const [isCreating, setIsCreating] = useState(false);
@@ -44,6 +60,15 @@ export function StudyBuddyPanel({
     description: "",
     materials: [] as string[],
   });
+
+  // Note-taking state
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [noteFormData, setNoteFormData] = useState({
+    title: "",
+    content: "",
+    tags: [] as string[],
+  });
+  const [newTag, setNewTag] = useState("");
 
   const completedCount = studyPlan.filter((item) => item.completed).length;
   const totalCount = studyPlan.length;
@@ -93,27 +118,111 @@ export function StudyBuddyPanel({
     }));
   };
 
-  return (
-    <div className="w-96 bg-white border-l border-gray-200 flex flex-col">
-      {/* Compact Voice Call Interface */}
-      <VoiceChat 
-        messages={messages} 
-        onSendMessage={onSendMessage} 
-        onEndCall={onEndCall} 
-        isBuddy 
-        documents={documents} 
-      />
+  // Note-taking functions
+  const handleStartNoteEdit = (note: Note) => {
+    setEditingNoteId(note.id);
+    setNoteFormData({
+      title: note.title,
+      content: note.content,
+      tags: note.tags,
+    });
+  };
 
-      {/* Study Plan Section */}
-      <div className="flex-1 overflow-y-auto p-4">
+  const handleNoteSave = () => {
+    if (!noteFormData.title.trim()) return;
+
+    if (editingNoteId && editingNoteId !== "new") {
+      onUpdateNote(editingNoteId, noteFormData);
+    } else {
+      onAddNote(noteFormData);
+    }
+    
+    setEditingNoteId(null);
+    setNoteFormData({ title: "", content: "", tags: [] });
+    setNewTag("");
+  };
+
+  const handleNoteCancel = () => {
+    setEditingNoteId(null);
+    setNoteFormData({ title: "", content: "", tags: [] });
+    setNewTag("");
+  };
+
+  const handleAddTag = () => {
+    if (!newTag.trim()) return;
+    setNoteFormData((prev) => ({
+      ...prev,
+      tags: [...prev.tags, newTag],
+    }));
+    setNewTag("");
+  };
+
+  const handleRemoveTag = (tag: string) => {
+    setNoteFormData((prev) => ({
+      ...prev,
+      tags: prev.tags.filter((t) => t !== tag),
+    }));
+  };
+
+  return (
+    <div className={`h-full border-l flex flex-col ${
+      isDark ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'
+    }`}>
+      {/* Header with Sidebar Toggle - Fixed */}
+      <div className={`flex-shrink-0 flex items-center justify-between p-3 border-b ${
+        isDark ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-gray-50'
+      }`}>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onToggleSidebar}
+          className={`h-8 w-8 p-0 ${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-200'}`}
+        >
+          <Menu className="w-4 h-4" />
+        </Button>
+        <span className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+          AI Study Buddy
+        </span>
+      </div>
+
+      {/* Voice Call Interface - Fixed */}
+      <div className="flex-shrink-0">
+        <VoiceChat 
+          messages={messages} 
+          onSendMessage={onSendMessage} 
+          onEndCall={onEndCall} 
+          isBuddy 
+          documents={documents} 
+        />
+      </div>
+
+      {/* Tabs for Study Plan and AI Query - Scrollable Container */}
+      <Tabs defaultValue="plan" className="flex-1 flex flex-col min-h-0">
+        <div className={`flex-shrink-0 border-b px-4 pt-3 ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+          <TabsList className={`w-full grid grid-cols-4 ${isDark ? 'bg-slate-800' : ''}`}>
+            <TabsTrigger value="plan">Plan</TabsTrigger>
+            <TabsTrigger value="notes">
+              <FileText className="w-3 h-3 mr-1" />
+              Notes
+            </TabsTrigger>
+            <TabsTrigger value="timer">
+              <Timer className="w-3 h-3 mr-1" />
+              Timer
+            </TabsTrigger>
+            <TabsTrigger value="query">Query</TabsTrigger>
+          </TabsList>
+        </div>
+
+        {/* Study Plan Tab */}
+        <TabsContent value="plan" className="flex-1 overflow-y-auto p-4 m-0 data-[state=active]:block">
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-lg">Your Study Plan</h3>
+              <h3 className={`text-lg ${isDark ? 'text-white' : 'text-gray-900'}`}>Your Study Plan</h3>
               <Badge variant="secondary">
                 {completedCount}/{totalCount}
               </Badge>
             </div>
-            <p className="text-sm text-gray-600 mb-3">
+            <p className={`text-sm mb-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
               Customize your learning journey
             </p>
             <Button
@@ -128,34 +237,40 @@ export function StudyBuddyPanel({
 
           {/* Create/Edit Form */}
           {(isCreating || editingId) && (
-            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-3">
+            <div className={`mb-4 p-4 border rounded-lg space-y-3 ${
+              isDark 
+                ? 'bg-blue-900/20 border-blue-800' 
+                : 'bg-blue-50 border-blue-200'
+            }`}>
               <div>
-                <Label htmlFor="title" className="text-xs">Goal Title</Label>
+                <Label htmlFor="title" className={`text-xs ${isDark ? 'text-gray-300' : ''}`}>Goal Title</Label>
                 <Input
                   id="title"
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   placeholder="e.g., Master Chapter 5"
-                  className="mt-1"
+                  className={`mt-1 ${isDark ? 'bg-gray-800 border-gray-700 text-white' : ''}`}
                 />
               </div>
               <div>
-                <Label htmlFor="description" className="text-xs">Description</Label>
+                <Label htmlFor="description" className={`text-xs ${isDark ? 'text-gray-300' : ''}`}>Description</Label>
                 <Textarea
                   id="description"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="What do you want to achieve?"
-                  className="mt-1 min-h-[60px]"
+                  className={`mt-1 min-h-[60px] ${isDark ? 'bg-gray-800 border-gray-700 text-white' : ''}`}
                 />
               </div>
               <div>
-                <Label className="text-xs mb-2 block">Related Materials (Optional)</Label>
+                <Label className={`text-xs mb-2 block ${isDark ? 'text-gray-300' : ''}`}>Related Materials (Optional)</Label>
                 <div className="space-y-1 max-h-32 overflow-y-auto">
                   {documents.map((doc) => (
                     <label
                       key={doc.id}
-                      className="flex items-center gap-2 text-xs cursor-pointer hover:bg-blue-100 p-1 rounded"
+                      className={`flex items-center gap-2 text-xs cursor-pointer p-1 rounded ${
+                        isDark ? 'hover:bg-gray-800' : 'hover:bg-blue-100'
+                      }`}
                     >
                       <input
                         type="checkbox"
@@ -163,7 +278,7 @@ export function StudyBuddyPanel({
                         onChange={() => toggleMaterial(doc.id)}
                         className="rounded"
                       />
-                      <span className="truncate">{doc.name}</span>
+                      <span className={`truncate ${isDark ? 'text-gray-300' : ''}`}>{doc.name}</span>
                     </label>
                   ))}
                 </div>
@@ -196,8 +311,12 @@ export function StudyBuddyPanel({
                 key={item.id}
                 className={`border rounded-lg p-4 transition-all ${
                   item.completed
-                    ? "bg-green-50 border-green-200"
-                    : "bg-white border-gray-200 hover:border-blue-300"
+                    ? isDark
+                      ? "bg-green-900/20 border-green-800"
+                      : "bg-green-50 border-green-200"
+                    : isDark
+                      ? "bg-gray-800 border-gray-700 hover:border-blue-600"
+                      : "bg-white border-gray-200 hover:border-blue-300"
                 }`}
               >
                 <div className="flex items-start gap-3">
@@ -208,18 +327,22 @@ export function StudyBuddyPanel({
                     {item.completed ? (
                       <CheckCircle2 className="w-5 h-5 text-green-600" />
                     ) : (
-                      <Circle className="w-5 h-5 text-gray-400" />
+                      <Circle className={`w-5 h-5 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
                     )}
                   </button>
                   <div className="flex-1 min-w-0">
                     <h4
                       className={`text-sm mb-1 ${
-                        item.completed ? "line-through text-gray-500" : ""
+                        item.completed 
+                          ? "line-through text-gray-500" 
+                          : isDark 
+                            ? "text-white" 
+                            : "text-gray-900"
                       }`}
                     >
                       {item.title}
                     </h4>
-                    <p className="text-xs text-gray-600 mb-3">{item.description}</p>
+                    <p className={`text-xs mb-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{item.description}</p>
                     {item.materials.length > 0 && (
                       <div className="space-y-1">
                         {item.materials.map((materialId) => {
@@ -257,7 +380,7 @@ export function StudyBuddyPanel({
                           onDeleteStudyItem(item.id);
                         }
                       }}
-                      className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                      className={`h-7 w-7 p-0 text-red-600 hover:text-red-700 ${isDark ? 'hover:bg-red-900/20' : 'hover:bg-red-50'}`}
                     >
                       <Trash2 className="w-3 h-3" />
                     </Button>
@@ -268,20 +391,67 @@ export function StudyBuddyPanel({
           </div>
 
           {studyPlan.length === 0 && !isCreating && (
-            <div className="text-center py-8 text-gray-500">
+            <div className={`text-center py-8 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
               <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-50" />
               <p className="text-sm">No study goals yet</p>
               <p className="text-xs mt-1">Create your first goal to get started!</p>
             </div>
           )}
 
-        <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <p className="text-sm text-blue-900">
-            <strong>Tip:</strong> Ask your study buddy for help organizing your goals
-            or breaking down complex topics!
-          </p>
-        </div>
-      </div>
+          <div className={`mt-6 p-4 rounded-lg border ${
+            isDark 
+              ? 'bg-blue-900/20 border-blue-800' 
+              : 'bg-blue-50 border-blue-200'
+          }`}>
+            <p className={`text-sm ${isDark ? 'text-blue-300' : 'text-blue-900'}`}>
+              <strong>Tip:</strong> Ask your study buddy for help organizing your goals
+              or breaking down complex topics!
+            </p>
+          </div>
+        </TabsContent>
+
+        {/* Timer Tab */}
+        <TabsContent value="timer" className="flex-1 overflow-y-auto p-4 m-0 data-[state=active]:block">
+          <div className="space-y-4">
+            <div>
+              <h3 className={`text-lg mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Pomodoro Timer</h3>
+              <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                Stay focused with the Pomodoro Technique
+              </p>
+            </div>
+            
+            <PomodoroTimer isDark={isDark} />
+          </div>
+        </TabsContent>
+
+        {/* AI Query Tab */}
+        <TabsContent value="query" className="flex-1 flex flex-col m-0 data-[state=active]:flex">
+          <AIQueryChat 
+            isBuddy={true}
+            isDark={isDark}
+          />
+        </TabsContent>
+
+        {/* Notes Tab */}
+        <TabsContent value="notes" className="flex-1 overflow-y-auto p-4 m-0 data-[state=active]:block">
+          <NotesTab
+            notes={notes}
+            editingNoteId={editingNoteId}
+            noteFormData={noteFormData}
+            newTag={newTag}
+            isDark={isDark}
+            onEditingNoteIdChange={setEditingNoteId}
+            onNoteFormDataChange={setNoteFormData}
+            onNewTagChange={setNewTag}
+            onAddTag={handleAddTag}
+            onRemoveTag={handleRemoveTag}
+            onNoteSave={handleNoteSave}
+            onNoteCancel={handleNoteCancel}
+            onStartNoteEdit={handleStartNoteEdit}
+            onDeleteNote={onDeleteNote}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

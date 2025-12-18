@@ -4,7 +4,7 @@ import type { Document, UserPreferences } from "../page";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { Upload, FileText, GraduationCap, CheckCircle2, Search, FolderOpen, X } from "lucide-react";
+import { Upload, FileText, GraduationCap, CheckCircle2, Search, FolderOpen, X, Sparkles } from "lucide-react";
 
 interface OnboardingScreenProps {
   documents: Document[];
@@ -15,10 +15,19 @@ interface OnboardingScreenProps {
 export function OnboardingScreen({ documents, onComplete, onUploadDocument }: OnboardingScreenProps) {
   const [step, setStep] = useState(1);
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
+  const [name, setName] = useState("");
   const [grade, setGrade] = useState("");
   const [gender, setGender] = useState("");
   const [fieldOfStudy, setFieldOfStudy] = useState("");
   const [mode, setMode] = useState<"teacher" | "study-buddy" | null>(null);
+  const [customizePersonality, setCustomizePersonality] = useState(false);
+  const [aiGender, setAiGender] = useState("");
+  const [aiPersonality, setAiPersonality] = useState({
+    extroversion: 50, // 0 = Introverted, 100 = Extroverted
+    intuition: 50, // 0 = Sensing, 100 = Intuitive
+    thinking: 50, // 0 = Feeling, 100 = Thinking
+    judging: 50, // 0 = Perceiving, 100 = Judging
+  });
   
   // Search and filter states
   const [searchQuery, setSearchQuery] = useState("");
@@ -64,24 +73,61 @@ export function OnboardingScreen({ documents, onComplete, onUploadDocument }: On
   const handleContinue = () => {
     if (step === 1 && selectedDocuments.length > 0) {
       setStep(2);
-    } else if (step === 2 && grade && gender && fieldOfStudy) {
+    } else if (step === 2 && grade && fieldOfStudy) {
       setStep(3);
     } else if (step === 3 && mode) {
+      setStep(4); // Go to AI personality customization
+    } else if (step === 4) {
+      // Step 4 is optional, can complete without selections
       onComplete({
         selectedDocuments,
+        name,
         grade,
         gender,
         fieldOfStudy,
-        mode,
+        mode: mode!,
+        aiGender,
+        aiPersonality,
       });
     }
   };
 
   const canContinue = () => {
     if (step === 1) return selectedDocuments.length > 0;
-    if (step === 2) return grade && gender && fieldOfStudy;
+    if (step === 2) return grade && fieldOfStudy;
     if (step === 3) return mode !== null;
+    if (step === 4) return true; // Optional step, always can continue
     return false;
+  };
+
+  // Get personality type and role
+  const getPersonalityTypeAndRole = () => {
+    const type = 
+      (aiPersonality.extroversion < 50 ? 'I' : 'E') +
+      (aiPersonality.intuition < 50 ? 'S' : 'N') +
+      (aiPersonality.thinking < 50 ? 'F' : 'T') +
+      (aiPersonality.judging < 50 ? 'P' : 'J');
+    
+    const roles: Record<string, string> = {
+      'INTJ': 'The Architect',
+      'INTP': 'The Logician',
+      'ENTJ': 'The Commander',
+      'ENTP': 'The Debater',
+      'INFJ': 'The Advocate',
+      'INFP': 'The Mediator',
+      'ENFJ': 'The Protagonist',
+      'ENFP': 'The Campaigner',
+      'ISTJ': 'The Logistician',
+      'ISFJ': 'The Defender',
+      'ESTJ': 'The Executive',
+      'ESFJ': 'The Consul',
+      'ISTP': 'The Virtuoso',
+      'ISFP': 'The Adventurer',
+      'ESTP': 'The Entrepreneur',
+      'ESFP': 'The Entertainer',
+    };
+    
+    return { type, role: roles[type] ?? 'The Analyst' };
   };
 
   return (
@@ -102,7 +148,7 @@ export function OnboardingScreen({ documents, onComplete, onUploadDocument }: On
 
         {/* Progress Steps */}
         <div className="flex items-center justify-center gap-4 mb-8">
-          {[1, 2, 3].map((s) => (
+          {[1, 2, 3, 4].map((s) => (
             <div key={s} className="flex items-center gap-2">
               <div
                 className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
@@ -115,7 +161,7 @@ export function OnboardingScreen({ documents, onComplete, onUploadDocument }: On
               >
                 {s < step ? <CheckCircle2 className="w-5 h-5" /> : s}
               </div>
-              {s < 3 && <div className="w-12 h-1 bg-white/30 rounded" />}
+              {s < 4 && <div className="w-12 h-1 bg-white/30 rounded" />}
             </div>
           ))}
         </div>
@@ -296,6 +342,17 @@ export function OnboardingScreen({ documents, onComplete, onUploadDocument }: On
 
               <div className="space-y-4">
                 <div>
+                  <Label htmlFor="name">Name (Optional)</Label>
+                  <Input
+                    id="name"
+                    placeholder="e.g., John Doe"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="mt-1.5"
+                  />
+                </div>
+
+                <div>
                   <Label htmlFor="grade">Grade Level / Education Level</Label>
                   <Input
                     id="grade"
@@ -398,6 +455,168 @@ export function OnboardingScreen({ documents, onComplete, onUploadDocument }: On
             </div>
           )}
 
+          {/* Step 4: AI Personality Customization */}
+          {step === 4 && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl mb-2 flex items-center gap-2">
+                  <Sparkles className="w-6 h-6 text-purple-600" />
+                  Customize Your AI Personality
+                </h2>
+                <p className="text-gray-600">
+                  Optional: Personalize your AI assistant&apos;s voice and personality
+                </p>
+              </div>
+
+              {/* Customize Toggle */}
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={customizePersonality}
+                    onChange={(e) => setCustomizePersonality(e.target.checked)}
+                    className="w-5 h-5 text-purple-600 rounded border-gray-300 focus:ring-purple-500 cursor-pointer"
+                  />
+                  <div className="flex-1">
+                    <div className="text-sm font-medium">Customize AI Personality</div>
+                    <div className="text-xs text-gray-600">
+                      Fine-tune voice and personality traits for your assistant
+                    </div>
+                  </div>
+                </label>
+              </div>
+
+              {/* Customization Options - Only shown when enabled */}
+              {customizePersonality && (
+                <div className="space-y-6 bg-gray-50 p-5 rounded-lg border border-gray-200">
+                  {/* Voice Gender */}
+                  <div>
+                    <Label htmlFor="ai-gender" className="mb-2">AI Voice Gender</Label>
+                    <select
+                      id="ai-gender"
+                      value={aiGender}
+                      onChange={(e) => setAiGender(e.target.value)}
+                      className="w-full mt-1.5 h-10 px-3 rounded-md border border-gray-200 bg-white"
+                    >
+                      <option value="">Any (Default)</option>
+                      <option value="male">Male Voice</option>
+                      <option value="female">Female Voice</option>
+                      <option value="neutral">Neutral Voice</option>
+                    </select>
+                  </div>
+
+                  {/* Personality Sliders */}
+                  <div className="space-y-5">
+                    <div>
+                      <Label className="block mb-2">Personality Type (Myers-Briggs)</Label>
+                      <p className="text-xs text-gray-500 mb-4">
+                        Adjust each dimension to create your ideal AI personality
+                      </p>
+                    </div>
+                    
+                    {/* Introversion/Extroversion Slider */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">Social Energy</span>
+                        <span className="text-xs text-gray-500 font-mono">{aiPersonality.extroversion}%</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-gray-500 w-20">Introverted (I)</span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={aiPersonality.extroversion}
+                          onChange={(e) => setAiPersonality({ ...aiPersonality, extroversion: parseInt(e.target.value) })}
+                          className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-purple-600"
+                        />
+                        <span className="text-xs text-gray-500 w-20 text-right">Extroverted (E)</span>
+                      </div>
+                    </div>
+
+                    {/* Sensing/Intuition Slider */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">Information Processing</span>
+                        <span className="text-xs text-gray-500 font-mono">{aiPersonality.intuition}%</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-gray-500 w-20">Sensing (S)</span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={aiPersonality.intuition}
+                          onChange={(e) => setAiPersonality({ ...aiPersonality, intuition: parseInt(e.target.value) })}
+                          className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                        />
+                        <span className="text-xs text-gray-500 w-20 text-right">Intuitive (N)</span>
+                      </div>
+                    </div>
+
+                    {/* Feeling/Thinking Slider */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">Decision Making</span>
+                        <span className="text-xs text-gray-500 font-mono">{aiPersonality.thinking}%</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-gray-500 w-20">Feeling (F)</span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={aiPersonality.thinking}
+                          onChange={(e) => setAiPersonality({ ...aiPersonality, thinking: parseInt(e.target.value) })}
+                          className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-green-600"
+                        />
+                        <span className="text-xs text-gray-500 w-20 text-right">Thinking (T)</span>
+                      </div>
+                    </div>
+
+                    {/* Perceiving/Judging Slider */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">Structure & Planning</span>
+                        <span className="text-xs text-gray-500 font-mono">{aiPersonality.judging}%</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-gray-500 w-20">Perceiving (P)</span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={aiPersonality.judging}
+                          onChange={(e) => setAiPersonality({ ...aiPersonality, judging: parseInt(e.target.value) })}
+                          className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-orange-600"
+                        />
+                        <span className="text-xs text-gray-500 w-20 text-right">Judging (J)</span>
+                      </div>
+                    </div>
+
+                    {/* Personality Type Display */}
+                    <div className="mt-4 text-center bg-white p-4 rounded-lg border border-gray-200">
+                      <div className="text-xs text-gray-500 mb-1">Your AI&apos;s Personality Type</div>
+                      <div className="text-2xl font-mono mb-1">
+                        {getPersonalityTypeAndRole().type}
+                      </div>
+                      <div className="text-sm text-purple-600">
+                        {getPersonalityTypeAndRole().role}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Skip Hint */}
+              <div className="text-center bg-purple-50 p-4 rounded-lg border border-purple-100">
+                <p className="text-sm text-purple-700">
+                  💡 Default personality works great - skip if you&apos;re unsure!
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Navigation Buttons */}
           <div className="flex gap-3 mt-8 pt-6 border-t">
             {step > 1 && (
@@ -414,7 +633,7 @@ export function OnboardingScreen({ documents, onComplete, onUploadDocument }: On
               disabled={!canContinue()}
               className="flex-1 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800"
             >
-              {step === 3 ? "Start Learning" : "Continue"}
+              {step === 4 ? "Start Learning" : "Continue"}
             </Button>
           </div>
         </div>

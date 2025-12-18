@@ -6,6 +6,7 @@ import { Eraser, Pen, Download, Trash2, Undo, Redo } from "lucide-react";
 
 interface WhiteboardPanelProps {
   document: Document | null;
+  isDark?: boolean;
 }
 
 type Tool = "pen" | "eraser" | "rectangle" | "circle" | "text";
@@ -17,7 +18,7 @@ interface DrawingPath {
   points: { x: number; y: number }[];
 }
 
-export function WhiteboardPanel({ document }: WhiteboardPanelProps) {
+export function WhiteboardPanel({ document, isDark = false }: WhiteboardPanelProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [tool, setTool] = useState<Tool>("pen");
@@ -183,9 +184,11 @@ export function WhiteboardPanel({ document }: WhiteboardPanelProps) {
   const colors = ["#6366f1", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", "#000000"];
 
   return (
-    <div className="flex-1 bg-gray-100 flex flex-col">
+    <div className={`h-full flex flex-col ${isDark ? 'bg-gray-900' : 'bg-gray-100'}`}>
       {/* Toolbar */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-4 flex-wrap">
+      <div className={`border-b px-4 py-3 flex items-center gap-4 flex-wrap ${
+        isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+      }`}>
         {/* Tools */}
         <div className="flex items-center gap-2 border-r pr-4">
           <Button
@@ -224,7 +227,7 @@ export function WhiteboardPanel({ document }: WhiteboardPanelProps) {
 
         {/* Line Width */}
         <div className="flex items-center gap-2 border-r pr-4">
-          <span className="text-xs text-gray-600">Size:</span>
+          <span className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Size:</span>
           <input
             type="range"
             min="1"
@@ -296,7 +299,11 @@ export function WhiteboardPanel({ document }: WhiteboardPanelProps) {
 
       {/* Document Reference */}
       {document && (
-        <div className="bg-white border-t border-gray-200 px-4 py-2 text-sm text-gray-600">
+        <div className={`border-t px-4 py-2 text-sm ${
+          isDark 
+            ? 'bg-gray-800 border-gray-700 text-gray-400' 
+            : 'bg-white border-gray-200 text-gray-600'
+        }`}>
           Teaching from: <span className="text-purple-600">{document.name}</span>
         </div>
       )}

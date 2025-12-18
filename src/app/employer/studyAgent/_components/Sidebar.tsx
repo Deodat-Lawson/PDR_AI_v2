@@ -1,15 +1,19 @@
 "use client";
 import { useState } from "react";
 import type { Document } from "../page";
-import { Search, Upload, ChevronDown, ChevronRight, FileText, GraduationCap } from "lucide-react";
+import { Search, Upload, ChevronDown, ChevronRight, FileText, GraduationCap, X } from "lucide-react";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
+import { DarkModeToggle } from "./DarkModeToggle";
 
 interface SidebarProps {
   documents: Document[];
   selectedDocument: Document | null;
   onSelectDocument: (doc: Document) => void;
   onUploadDocument: (file: File) => void;
+  isDark?: boolean;
+  onToggleDark?: () => void;
+  onCloseSidebar?: () => void;
 }
 
 export function Sidebar({
@@ -17,6 +21,9 @@ export function Sidebar({
   selectedDocument,
   onSelectDocument,
   onUploadDocument,
+  isDark = false,
+  onToggleDark,
+  onCloseSidebar,
 }: SidebarProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedFolders, setExpandedFolders] = useState<string[]>(["test", "Culture of Engineering Profession"]);
@@ -47,14 +54,14 @@ export function Sidebar({
   );
 
   return (
-    <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
+    <div className={`h-full border-r flex flex-col ${isDark ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>
       {/* Header */}
-      <div className="p-4 border-b border-gray-200">
+      <div className={`p-4 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
         <div className="flex items-center gap-2 mb-4">
           <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
             <GraduationCap className="w-5 h-5 text-white" />
           </div>
-          <span className="text-purple-600">AI Teacher</span>
+          <span className={isDark ? 'text-purple-400' : 'text-purple-600'}>AI Teacher</span>
         </div>
 
         {/* Search */}
@@ -65,17 +72,21 @@ export function Sidebar({
             placeholder="Search documents..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 h-9"
+            className={`pl-9 h-9 ${isDark ? 'bg-gray-800 border-gray-700 text-white' : ''}`}
           />
         </div>
       </div>
 
       {/* Upload Button */}
-      <div className="p-4 border-b border-gray-200">
+      <div className={`p-4 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
         <label htmlFor="file-upload">
           <Button
             variant="outline"
-            className="w-full justify-start gap-2 text-purple-600 border-purple-200 hover:bg-purple-50"
+            className={`w-full justify-start gap-2 ${
+              isDark 
+                ? 'text-purple-400 border-gray-700 hover:bg-gray-800' 
+                : 'text-purple-600 border-purple-200 hover:bg-purple-50'
+            }`}
             asChild
           >
             <span>
@@ -102,8 +113,14 @@ export function Sidebar({
               <button
                 key={doc.id}
                 onClick={() => onSelectDocument(doc)}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 transition-colors text-left ${
-                  selectedDocument?.id === doc.id ? "bg-purple-50 text-purple-700" : "text-gray-700"
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors text-left ${
+                  selectedDocument?.id === doc.id 
+                    ? isDark 
+                      ? "bg-purple-900/30 text-purple-300" 
+                      : "bg-purple-50 text-purple-700"
+                    : isDark
+                      ? "text-gray-300 hover:bg-gray-800"
+                      : "text-gray-700 hover:bg-gray-100"
                 }`}
               >
                 <FileText className="w-4 h-4 flex-shrink-0" />
@@ -120,14 +137,16 @@ export function Sidebar({
                 <div key={folder}>
                   <button
                     onClick={() => toggleFolder(folder)}
-                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm hover:bg-gray-100 transition-colors"
+                    className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-colors ${
+                      isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-100'
+                    }`}
                   >
                     {isExpanded ? (
                       <ChevronDown className="w-4 h-4 text-gray-500" />
                     ) : (
                       <ChevronRight className="w-4 h-4 text-gray-500" />
                     )}
-                    <span className="text-gray-700">{folder}</span>
+                    <span className={isDark ? 'text-gray-300' : 'text-gray-700'}>{folder}</span>
                   </button>
                   {isExpanded && (
                     <div className="ml-4 space-y-1 mt-1">
@@ -135,10 +154,14 @@ export function Sidebar({
                         <button
                           key={doc.id}
                           onClick={() => onSelectDocument(doc)}
-                          className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gray-100 transition-colors text-left group ${
+                          className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors text-left group ${
                             selectedDocument?.id === doc.id
-                              ? "bg-purple-50 text-purple-700"
-                              : "text-gray-600"
+                              ? isDark
+                                ? "bg-purple-900/30 text-purple-300"
+                                : "bg-purple-50 text-purple-700"
+                              : isDark
+                                ? "text-gray-400 hover:bg-gray-800"
+                                : "text-gray-600 hover:bg-gray-100"
                           }`}
                         >
                           <FileText className="w-4 h-4 flex-shrink-0" />
@@ -151,6 +174,31 @@ export function Sidebar({
               );
             })}
           </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className={`p-4 border-t space-y-2 ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+        {onToggleDark && (
+          <DarkModeToggle
+            isDark={isDark}
+            onToggle={onToggleDark}
+          />
+        )}
+        {onCloseSidebar && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onCloseSidebar}
+            className={`w-full justify-start gap-2 ${
+              isDark 
+                ? 'text-gray-400 border-gray-700 hover:bg-gray-800' 
+                : 'text-gray-600 border-gray-200 hover:bg-gray-100'
+            }`}
+          >
+            <X className="w-4 h-4" />
+            Close Sidebar
+          </Button>
         )}
       </div>
     </div>
