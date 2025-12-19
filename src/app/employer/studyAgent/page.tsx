@@ -88,6 +88,8 @@ export default function App() {
   const [studyPlan, setStudyPlan] = useState<StudyPlanItem[]>([]);
 
   const [notes, setNotes] = useState<Note[]>([]);
+  const [preferencesError, setPreferencesError] = useState<string | null>(null);
+  const [studyPlanError, setStudyPlanError] = useState<string | null>(null);
 
   // Fetch documents from database on mount
   useEffect(() => {
@@ -139,7 +141,90 @@ export default function App() {
     void fetchDocuments();
   }, []);
 
+  const mapServerGoal = (goal: any): StudyPlanItem => ({
+    id: goal.id?.toString?.() ?? goal.id ?? Date.now().toString(),
+    title: goal.title ?? "",
+    description: goal.description ?? "",
+    completed: Boolean(goal.completed),
+    materials: goal.materials ?? [],
+  });
+
+  const persistGoalUpdate = async (goalId: string, updates: Partial<StudyPlanItem>) => {
+    try {
+      const response = await fetch("/api/study-agent/me/study-goals", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: goalId, ...updates }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update goal");
+      }
+
+      const data = await response.json();
+      if (data.goal) {
+        setStudyPlan((prev) =>
+          prev.map((item) => (item.id === goalId ? mapServerGoal(data.goal) : item))
+        );
+      }
+      setStudyPlanError(null);
+    } catch (error) {
+      console.error("Error saving study goal", error);
+      setStudyPlanError("We couldn't save your study goals. Changes are local only.");
+    }
+  };
+
+  const persistGoalCreate = async (item: StudyPlanItem) => {
+    try {
+      const response = await fetch("/api/study-agent/me/study-goals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: item.title,
+          description: item.description,
+          materials: item.materials,
+          completed: item.completed,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to create goal");
+      }
+
+      const data = await response.json();
+      if (data.goal) {
+        setStudyPlan((prev) =>
+          prev.map((goal) => (goal.id === item.id ? mapServerGoal(data.goal) : goal))
+        );
+      }
+      setStudyPlanError(null);
+    } catch (error) {
+      console.error("Error creating study goal", error);
+      setStudyPlanError("We couldn't save your study goals. Changes are local only.");
+    }
+  };
+
+  const persistGoalDelete = async (goalId: string) => {
+    try {
+      const response = await fetch("/api/study-agent/me/study-goals", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: goalId }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete goal");
+      }
+      setStudyPlanError(null);
+    } catch (error) {
+      console.error("Error deleting study goal", error);
+      setStudyPlanError("We couldn't sync the removal with the server. Try again later.");
+    }
+  };
+
   const handleCompleteOnboarding = async (preferences: UserPreferences) => {
+    setPreferencesError(null);
+    setStudyPlanError(null);
     setUserPreferences(preferences);
     
     // Set selected document
@@ -160,6 +245,53 @@ export default function App() {
       };
     });
     setStudyPlan(initialPlan);
+
+    let planForSession: StudyPlanItem[] = initialPlan;
+    try {
+      const profileResponse = await fetch("/api/study-agent/me/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: preferences.name,
+          grade: preferences.grade,
+          gender: preferences.gender,
+          fieldOfStudy: preferences.fieldOfStudy,
+        }),
+      });
+
+      if (!profileResponse.ok) {
+        throw new Error("Failed to save profile");
+      }
+
+      const prefResponse = await fetch("/api/study-agent/me/preferences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(preferences),
+      });
+
+      if (!prefResponse.ok) {
+        throw new Error("Failed to save preferences");
+      }
+
+      const goalsResponse = await fetch("/api/study-agent/me/study-goals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: initialPlan }),
+      });
+
+      if (!goalsResponse.ok) {
+        throw new Error("Failed to save study plan");
+      }
+
+      const goalData = await goalsResponse.json() as { goals?: StudyPlanItem[] };
+      if (Array.isArray(goalData.goals)) {
+        planForSession = goalData.goals.map(mapServerGoal);
+        setStudyPlan(planForSession);
+      }
+    } catch (error) {
+      console.error("Error saving onboarding data", error);
+      setPreferencesError("We couldn't save your study setup. We'll keep it local for now.");
+    }
 
     setAppState("connecting");
 
@@ -182,7 +314,7 @@ export default function App() {
           mode: preferences.mode ?? "teacher",
           fieldOfStudy: preferences.fieldOfStudy,
           selectedDocuments: preferences.selectedDocuments ?? [],
-          studyPlan: initialPlan,
+          studyPlan: planForSession,
           conversationHistory: [],
         }),
       });
@@ -374,11 +506,14 @@ export default function App() {
   };
 
   const handleToggleStudyItem = (itemId: string) => {
-    setStudyPlan((prev) =>
-      prev.map((item) =>
-        item.id === itemId ? { ...item, completed: !item.completed } : item
-      )
-    );
+    setStudyPlan((prev) => {
+      const target = prev.find((item) => item.id === itemId);
+      const nextCompleted = target ? !target.completed : false;
+      void persistGoalUpdate(itemId, { completed: nextCompleted });
+      return prev.map((item) =>
+        item.id === itemId ? { ...item, completed: nextCompleted } : item
+      );
+    });
   };
 
   const handleAddStudyItem = (item: Omit<StudyPlanItem, "id">) => {
@@ -387,18 +522,21 @@ export default function App() {
       id: Date.now().toString(),
     };
     setStudyPlan((prev) => [...prev, newItem]);
+    void persistGoalCreate(newItem);
   };
 
   const handleEditStudyItem = (itemId: string, updates: Partial<StudyPlanItem>) => {
-    setStudyPlan((prev) =>
-      prev.map((item) =>
+    setStudyPlan((prev) => {
+      void persistGoalUpdate(itemId, updates);
+      return prev.map((item) =>
         item.id === itemId ? { ...item, ...updates } : item
-      )
-    );
+      );
+    });
   };
 
   const handleDeleteStudyItem = (itemId: string) => {
     setStudyPlan((prev) => prev.filter((item) => item.id !== itemId));
+    void persistGoalDelete(itemId);
   };
 
   const handleAddNote = (note: Omit<Note, "id" | "createdAt" | "updatedAt">) => {
@@ -454,10 +592,11 @@ export default function App() {
     }
     
     return (
-      <OnboardingScreen 
+      <OnboardingScreen
         documents={documents}
         onComplete={handleCompleteOnboarding}
         onUploadDocument={handleUploadDocument}
+        errorMessage={preferencesError}
       />
     );
   }
@@ -549,6 +688,7 @@ export default function App() {
             onDeleteNote={handleDeleteNote}
             onToggleSidebar={() => setShowSidebar(!showSidebar)}
             isDark={isDark}
+            errorMessage={studyPlanError}
           />
         )}
       </ResizablePanel>

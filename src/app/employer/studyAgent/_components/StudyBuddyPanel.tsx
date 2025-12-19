@@ -31,6 +31,7 @@ interface StudyBuddyPanelProps {
   onDeleteNote: (noteId: string) => void;
   onToggleSidebar?: () => void;
   isDark?: boolean;
+  errorMessage?: string | null;
 }
 
 export function StudyBuddyPanel({
@@ -51,6 +52,7 @@ export function StudyBuddyPanel({
   onDeleteNote,
   onToggleSidebar,
   isDark = false,
+  errorMessage,
 }: StudyBuddyPanelProps) {
   void _selectedDocument; // Unused but required by interface
   const [isCreating, setIsCreating] = useState(false);
@@ -225,6 +227,11 @@ export function StudyBuddyPanel({
             <p className={`text-sm mb-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
               Customize your learning journey
             </p>
+            {errorMessage && (
+              <p className="mb-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md p-2">
+                {errorMessage}
+              </p>
+            )}
             <Button
               onClick={handleStartCreate}
               className="w-full bg-blue-600 hover:bg-blue-700"

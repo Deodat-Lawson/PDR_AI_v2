@@ -25,6 +25,8 @@ export function PomodoroTimer({ isDark = false }: PomodoroTimerProps) {
   const [autoStartBreaks, setAutoStartBreaks] = useState(false);
   const [autoStartPomodoros, setAutoStartPomodoros] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const hasLoadedSettings = useRef(false);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
 
   const getCurrentDuration = () => {
     switch (mode) {
@@ -61,6 +63,79 @@ export function PomodoroTimer({ isDark = false }: PomodoroTimerProps) {
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRunning, timeLeft]);
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const response = await fetch("/api/study-agent/me/pomodoro-settings");
+        if (!response.ok) {
+          throw new Error("Failed to fetch settings");
+        }
+
+        const data = await response.json();
+        const settings = data.settings ?? {};
+        setFocusDuration(settings.focusMinutes ?? 25);
+        setShortBreakDuration(settings.shortBreakMinutes ?? 5);
+        setLongBreakDuration(settings.longBreakMinutes ?? 15);
+        setSessionsBeforeLongBreak(settings.sessionsBeforeLongBreak ?? 4);
+        setAutoStartBreaks(Boolean(settings.autoStartBreaks));
+        setAutoStartPomodoros(Boolean(settings.autoStartPomodoros));
+        setTimeLeft((settings.focusMinutes ?? 25) * 60);
+        hasLoadedSettings.current = true;
+        setSettingsError(null);
+      } catch (error) {
+        console.error("Error loading Pomodoro settings", error);
+        hasLoadedSettings.current = true;
+        setSettingsError("Unable to load saved settings. Using defaults.");
+      }
+    };
+
+    void loadSettings();
+  }, []);
+
+  useEffect(() => {
+    if (!hasLoadedSettings.current) return;
+    const controller = new AbortController();
+
+    const persistSettings = async () => {
+      try {
+        const response = await fetch("/api/study-agent/me/pomodoro-settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            focusMinutes: focusDuration,
+            shortBreakMinutes: shortBreakDuration,
+            longBreakMinutes: longBreakDuration,
+            sessionsBeforeLongBreak,
+            autoStartBreaks,
+            autoStartPomodoros,
+          }),
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to save settings");
+        }
+
+        setSettingsError(null);
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        console.error("Error saving Pomodoro settings", error);
+        setSettingsError("We couldn't save your settings. They'll stay local for now.");
+      }
+    };
+
+    void persistSettings();
+
+    return () => controller.abort();
+  }, [
+    focusDuration,
+    shortBreakDuration,
+    longBreakDuration,
+    sessionsBeforeLongBreak,
+    autoStartBreaks,
+    autoStartPomodoros,
+  ]);
 
   const handleTimerComplete = () => {
     setIsRunning(false);
@@ -112,6 +187,11 @@ export function PomodoroTimer({ isDark = false }: PomodoroTimerProps) {
           : "bg-gradient-to-br from-purple-50 to-blue-50 border-purple-200"
       }`}
     >
+      {settingsError && (
+        <p className="mb-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1">
+          {settingsError}
+        </p>
+      )}
       {/* Mode Selector */}
       <div className="flex gap-1 mb-3">
         <Button

@@ -10,9 +10,10 @@ interface OnboardingScreenProps {
   documents: Document[];
   onComplete: (preferences: UserPreferences) => void;
   onUploadDocument: (file: File) => void;
+  errorMessage?: string | null;
 }
 
-export function OnboardingScreen({ documents, onComplete, onUploadDocument }: OnboardingScreenProps) {
+export function OnboardingScreen({ documents, onComplete, onUploadDocument, errorMessage }: OnboardingScreenProps) {
   const [step, setStep] = useState(1);
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
   const [name, setName] = useState("");
@@ -144,6 +145,11 @@ export function OnboardingScreen({ documents, onComplete, onUploadDocument }: On
           <p className="text-white/80">
             Let&apos;s set up your personalized learning experience
           </p>
+          {errorMessage && (
+            <p className="mt-4 text-red-100 text-sm bg-red-500/30 inline-block px-3 py-2 rounded-lg">
+              {errorMessage}
+            </p>
+          )}
         </div>
 
         {/* Progress Steps */}
