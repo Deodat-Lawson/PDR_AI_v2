@@ -9,6 +9,7 @@ import {
 import { db } from "../../../../server/db/index";
 import { pdfChunks, document, users } from "../../../../server/db/schema";
 import { eq, inArray } from "drizzle-orm";
+import { DEFAULT_MODELS } from "~/lib/models";
 
 import type { EmotionTag, StudyAgentChatRequest } from "./types";
 import {
@@ -245,7 +246,7 @@ export async function POST(request: Request) {
     // Initialize OpenAI and generate response
     const chat = new ChatOpenAI({
       openAIApiKey: process.env.OPENAI_API_KEY,
-      modelName: "gpt-4o-mini",
+      modelName: DEFAULT_MODELS.LIGHTWEIGHT,
       temperature: 0.7,
       timeout: 30000,
     });

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import OpenAI from "openai";
 import { File } from "formdata-node";
+import { DEFAULT_MODELS } from "~/lib/models";
 
 /**
  * Speech-to-Text API using OpenAI Whisper
@@ -70,7 +71,7 @@ export async function POST(request: Request) {
 
     const transcription = await openai.audio.transcriptions.create({
       file: audioFileForOpenAI as unknown as globalThis.File, // Type assertion for OpenAI SDK compatibility
-      model: "gpt-4o-transcribe",
+      model: DEFAULT_MODELS.TRANSCRIPTION,
       response_format: "text",
     });
 

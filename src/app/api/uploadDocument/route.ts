@@ -17,6 +17,7 @@ import type { Document } from "langchain/document";
 import { processPDFWithOCR } from "../services/ocrService";
 import { withRateLimit } from "~/lib/rate-limit-middleware";
 import { RateLimitPresets } from "~/lib/rate-limiter";
+import { DEFAULT_MODELS } from "~/lib/models";
 
 interface PDFMetadata {
     loc?: {
@@ -158,7 +159,7 @@ export async function POST(request: Request) {
         }
 
         const embeddings = new OpenAIEmbeddings({
-            model: "text-embedding-ada-002",
+            model: DEFAULT_MODELS.EMBEDDING,
             openAIApiKey: process.env.OPENAI_API_KEY,
         });
 

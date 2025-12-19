@@ -1,4 +1,5 @@
 import { OpenAIEmbeddings } from "@langchain/openai";
+import { DEFAULT_MODELS } from "~/lib/models";
 
 const embeddingCache = new Map<string, number[]>();
 
@@ -10,7 +11,7 @@ export async function getEmbeddings(text: string): Promise<number[]> {
     try {
         const embeddings = new OpenAIEmbeddings({
             openAIApiKey: process.env.OPENAI_API_KEY,
-            modelName: "text-embedding-ada-002",
+            modelName: DEFAULT_MODELS.EMBEDDING,
         });
         
         const [embedding] = await embeddings.embedDocuments([text]);
@@ -30,7 +31,7 @@ export async function batchGetEmbeddings(texts: string[]): Promise<number[][]> {
     try {
         const embeddings = new OpenAIEmbeddings({
             openAIApiKey: process.env.OPENAI_API_KEY,
-            modelName: "text-embedding-ada-002",
+            modelName: DEFAULT_MODELS.EMBEDDING,
         });
         
         const results = await embeddings.embedDocuments(uniqueTexts);

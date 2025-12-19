@@ -3,6 +3,7 @@ import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { z } from "zod";
 import type { PdfChunk, DocumentReference } from "../types";
 import { groupContentFromChunks, hasSpecificIdentifier } from "../utils/content";
+import { DEFAULT_MODELS } from "~/lib/models";
 
 const ReferenceExtractionSchema = z.object({
     references: z.array(z.object({
@@ -45,7 +46,7 @@ export async function extractReferences(
     
     const chat = new ChatOpenAI({
         openAIApiKey: process.env.OPENAI_API_KEY,
-        modelName: "gpt-5.2",
+        modelName: DEFAULT_MODELS.ANALYSIS,
         temperature: 0.1,
     });
 
