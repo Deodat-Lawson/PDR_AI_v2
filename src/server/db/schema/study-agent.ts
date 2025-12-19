@@ -5,11 +5,32 @@ import { boolean, index, integer, jsonb, serial, text, timestamp, varchar } from
 
 import { pgTable } from "./helpers";
 
+export const studyAgentSessions = pgTable(
+    "study_agent_sessions",
+    {
+        id: serial("id").primaryKey(),
+        userId: varchar("user_id", { length: 256 }).notNull(),
+        name: text("name").notNull().default("Default Session"),
+        createdAt: timestamp("created_at", { withTimezone: true })
+            .default(sql`CURRENT_TIMESTAMP`)
+            .notNull(),
+        updatedAt: timestamp("updated_at", { withTimezone: true }).$onUpdate(
+            () => new Date()
+        ),
+    },
+    (table) => ({
+        sessionsUserIdx: index("study_agent_sessions_user_idx").on(table.userId),
+    })
+);
+
 export const studyAgentProfile = pgTable(
     "study_agent_profile",
     {
         id: serial("id").primaryKey(),
-        userId: varchar("user_id", { length: 256 }).notNull().unique(),
+        userId: varchar("user_id", { length: 256 }).notNull(),
+        sessionId: integer("session_id")
+            .notNull()
+            .references(() => studyAgentSessions.id, { onDelete: "cascade" }),
         name: text("name"),
         grade: text("grade"),
         gender: text("gender"),
@@ -23,6 +44,7 @@ export const studyAgentProfile = pgTable(
     },
     (table) => ({
         userIdx: index("study_agent_profile_user_idx").on(table.userId),
+        sessionIdx: index("study_agent_profile_session_idx").on(table.sessionId),
     })
 );
 
@@ -30,7 +52,10 @@ export const studyAgentPreferences = pgTable(
     "study_agent_preferences",
     {
         id: serial("id").primaryKey(),
-        userId: varchar("user_id", { length: 256 }).notNull().unique(),
+        userId: varchar("user_id", { length: 256 }).notNull(),
+        sessionId: integer("session_id")
+            .notNull()
+            .references(() => studyAgentSessions.id, { onDelete: "cascade" }),
         preferences: jsonb("preferences").notNull().default({}),
         createdAt: timestamp("created_at", { withTimezone: true })
             .default(sql`CURRENT_TIMESTAMP`)
@@ -41,6 +66,9 @@ export const studyAgentPreferences = pgTable(
     },
     (table) => ({
         preferencesUserIdx: index("study_agent_preferences_user_idx").on(table.userId),
+        preferencesSessionIdx: index("study_agent_preferences_session_idx").on(
+            table.sessionId
+        ),
     })
 );
 
@@ -49,6 +77,9 @@ export const studyAgentGoals = pgTable(
     {
         id: serial("id").primaryKey(),
         userId: varchar("user_id", { length: 256 }).notNull(),
+        sessionId: integer("session_id")
+            .notNull()
+            .references(() => studyAgentSessions.id, { onDelete: "cascade" }),
         title: text("title").notNull(),
         description: text("description"),
         materials: text("materials").array().default([]),
@@ -62,6 +93,7 @@ export const studyAgentGoals = pgTable(
     },
     (table) => ({
         goalsUserIdx: index("study_agent_goals_user_idx").on(table.userId),
+        goalsSessionIdx: index("study_agent_goals_session_idx").on(table.sessionId),
     })
 );
 
@@ -69,7 +101,10 @@ export const studyAgentPomodoroSettings = pgTable(
     "study_agent_pomodoro_settings",
     {
         id: serial("id").primaryKey(),
-        userId: varchar("user_id", { length: 256 }).notNull().unique(),
+        userId: varchar("user_id", { length: 256 }).notNull(),
+        sessionId: integer("session_id")
+            .notNull()
+            .references(() => studyAgentSessions.id, { onDelete: "cascade" }),
         focusMinutes: integer("focus_minutes").notNull().default(25),
         shortBreakMinutes: integer("short_break_minutes").notNull().default(5),
         longBreakMinutes: integer("long_break_minutes").notNull().default(15),
@@ -86,23 +121,61 @@ export const studyAgentPomodoroSettings = pgTable(
         ),
     },
     (table) => ({
-        pomodoroUserIdx: index("study_agent_pomodoro_settings_user_idx").on(table.userId),
+        pomodoroUserIdx: index("study_agent_pomodoro_settings_user_idx").on(
+            table.userId
+        ),
+        pomodoroSessionIdx: index("study_agent_pomodoro_settings_session_idx").on(
+            table.sessionId
+        ),
     })
 );
 
-export const studyAgentProfileRelations = relations(studyAgentProfile, ({ one, many }) => ({
-    preferences: one(studyAgentPreferences, {
-        fields: [studyAgentProfile.userId],
-        references: [studyAgentPreferences.userId],
-    }),
+export const studyAgentNotes = pgTable(
+    "study_agent_notes",
+    {
+        id: serial("id").primaryKey(),
+        userId: varchar("user_id", { length: 256 }).notNull(),
+        sessionId: integer("session_id")
+            .notNull()
+            .references(() => studyAgentSessions.id, { onDelete: "cascade" }),
+        title: text("title"),
+        content: text("content"),
+        tags: text("tags").array().default([]),
+        createdAt: timestamp("created_at", { withTimezone: true })
+            .default(sql`CURRENT_TIMESTAMP`)
+            .notNull(),
+        updatedAt: timestamp("updated_at", { withTimezone: true }).$onUpdate(
+            () => new Date()
+        ),
+    },
+    (table) => ({
+        notesUserIdx: index("study_agent_notes_user_idx").on(table.userId),
+        notesSessionIdx: index("study_agent_notes_session_idx").on(table.sessionId),
+    })
+);
+
+export const studyAgentSessionRelations = relations(studyAgentSessions, ({ many }) => ({
+    profiles: many(studyAgentProfile),
+    preferences: many(studyAgentPreferences),
     goals: many(studyAgentGoals),
-    pomodoroSettings: one(studyAgentPomodoroSettings, {
-        fields: [studyAgentProfile.userId],
-        references: [studyAgentPomodoroSettings.userId],
-    }),
+    pomodoroSettings: many(studyAgentPomodoroSettings),
+    notes: many(studyAgentNotes),
 }));
 
+export const studyAgentProfileRelations = relations(studyAgentProfile, ({ one, many }) => ({
+    session: one(studyAgentSessions, {
+        fields: [studyAgentProfile.sessionId],
+        references: [studyAgentSessions.id],
+    }),
+    preferences: many(studyAgentPreferences),
+    goals: many(studyAgentGoals),
+    pomodoroSettings: many(studyAgentPomodoroSettings),
+    notes: many(studyAgentNotes),
+}));
+
+export type StudyAgentSession = InferSelectModel<typeof studyAgentSessions>;
 export type StudyAgentGoal = InferSelectModel<typeof studyAgentGoals>;
 export type StudyAgentProfile = InferSelectModel<typeof studyAgentProfile>;
 export type StudyAgentPreferences = InferSelectModel<typeof studyAgentPreferences>;
 export type StudyAgentPomodoroSettings = InferSelectModel<typeof studyAgentPomodoroSettings>;
+export type StudyAgentNote = InferSelectModel<typeof studyAgentNotes>;

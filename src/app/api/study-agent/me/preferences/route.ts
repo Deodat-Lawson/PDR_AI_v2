@@ -1,23 +1,40 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { db } from "~/server/db";
 import { studyAgentPreferences } from "~/server/db/schema";
+import { resolveSessionForUser } from "~/server/study-agent/session";
 
-export async function GET() {
+function parseSessionId(request: Request) {
+    const sessionIdParam = new URL(request.url).searchParams.get("sessionId");
+    const parsedSessionId = sessionIdParam ? Number(sessionIdParam) : undefined;
+    return Number.isNaN(parsedSessionId) ? undefined : parsedSessionId;
+}
+
+export async function GET(request: Request) {
     try {
         const { userId } = await auth();
         if (!userId) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
+        const session = await resolveSessionForUser(userId, parseSessionId(request));
+        if (!session) {
+            return NextResponse.json({ error: "Session not found" }, { status: 404 });
+        }
+
         const [preferences] = await db
             .select()
             .from(studyAgentPreferences)
-            .where(eq(studyAgentPreferences.userId, userId));
+            .where(
+                and(
+                    eq(studyAgentPreferences.userId, userId),
+                    eq(studyAgentPreferences.sessionId, session.id)
+                )
+            );
 
-        return NextResponse.json({ preferences: preferences?.preferences ?? null });
+        return NextResponse.json({ preferences: preferences?.preferences ?? null, session });
     } catch (error) {
         console.error("Error fetching study agent preferences", error);
         return NextResponse.json(
@@ -34,29 +51,49 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const preferences = await request.json();
+        const body = await request.json();
+        const session = await resolveSessionForUser(
+            userId,
+            body.sessionId ?? parseSessionId(request)
+        );
+
+        if (!session) {
+            return NextResponse.json({ error: "Session not found" }, { status: 404 });
+        }
+
+        const preferences = body.preferences ?? {};
 
         const [existing] = await db
             .select()
             .from(studyAgentPreferences)
-            .where(eq(studyAgentPreferences.userId, userId));
+            .where(
+                and(
+                    eq(studyAgentPreferences.userId, userId),
+                    eq(studyAgentPreferences.sessionId, session.id)
+                )
+            );
 
         if (existing) {
             const [updated] = await db
                 .update(studyAgentPreferences)
                 .set({ preferences })
-                .where(eq(studyAgentPreferences.userId, userId))
+                .where(
+                    and(
+                        eq(studyAgentPreferences.userId, userId),
+                        eq(studyAgentPreferences.sessionId, session.id)
+                    )
+                )
                 .returning();
 
-            return NextResponse.json({ preferences: updated.preferences });
+            return NextResponse.json({ preferences: updated.preferences, session });
         }
 
         const [created] = await db
             .insert(studyAgentPreferences)
-            .values({ userId, preferences })
+            .values({ userId, sessionId: session.id, preferences })
             .returning();
 
-        return NextResponse.json({ preferences: created.preferences }, { status: 201 });
+        return NextResponse.json({ preferences: created.preferences, session }, { status: 201 });
     } catch (error) {
         console.error("Error saving study agent preferences", error);
         return NextResponse.json(
@@ -66,16 +103,26 @@ export async function POST(request: Request) {
     }
 }
 
-export async function DELETE() {
+export async function DELETE(request: Request) {
     try {
         const { userId } = await auth();
         if (!userId) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
+        const session = await resolveSessionForUser(userId, parseSessionId(request));
+        if (!session) {
+            return NextResponse.json({ error: "Session not found" }, { status: 404 });
+        }
+
         await db
             .delete(studyAgentPreferences)
-            .where(eq(studyAgentPreferences.userId, userId));
+            .where(
+                and(
+                    eq(studyAgentPreferences.userId, userId),
+                    eq(studyAgentPreferences.sessionId, session.id)
+                )
+            );
 
         return NextResponse.json({ success: true });
     } catch (error) {
