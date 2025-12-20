@@ -5,11 +5,11 @@
 
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
-import { v4 as uuidv4 } from "uuid";
-import type { StudyNote, NoteInput } from "../types";
-
-// In-memory note store (in production, this would be in the database)
-const noteStore = new Map<string, StudyNote>();
+import type { NoteInput, StudyNote } from "../types";
+import { db } from "~/server/db";
+import { studyAgentNotes } from "~/server/db/schema";
+import { resolveSessionForUser } from "~/server/study-agent/session";
+import { and, eq } from "drizzle-orm";
 
 const NoteSchema = z.object({
   action: z
@@ -36,13 +36,31 @@ const NoteSchema = z.object({
  * - delete
  */
 export async function manageNotes(
-  input: NoteInput & { userId: string }
+  input: NoteInput & { userId: string; sessionId?: number | null }
 ): Promise<{
   success: boolean;
   note?: StudyNote;
   message: string;
 }> {
   const now = new Date();
+
+  const session = await resolveSessionForUser(input.userId, input.sessionId ?? undefined);
+  if (!session) {
+    return {
+      success: false,
+      message: "Unable to find a study session for this user",
+    };
+  }
+
+  const mapRowToNote = (row: (typeof studyAgentNotes)["$inferSelect"]) => ({
+    id: row.id.toString(),
+    userId: row.userId,
+    title: row.title ?? "",
+    content: row.content ?? "",
+    tags: row.tags ?? [],
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt ?? row.createdAt,
+  });
 
   switch (input.action) {
     case "create": {
@@ -53,20 +71,20 @@ export async function manageNotes(
         };
       }
 
-      const newNote: StudyNote = {
-        id: uuidv4(),
-        userId: input.userId,
-        title: input.data?.title ?? "Untitled Note",
-        content: input.data?.content ?? "",
-        // keep existing fields intact; only set the ones we can
-        // (format/relatedDocuments/etc. are left to defaults if your type requires them)
-        // If your StudyNote type requires these fields, keep them as-is from your original code:
-        tags: input.data?.tags ?? [],
-        createdAt: now,
-        updatedAt: now,
-      };
+      const [inserted] = await db
+        .insert(studyAgentNotes)
+        .values({
+          userId: input.userId,
+          sessionId: session.id,
+          title: input.data?.title ?? "Untitled Note",
+          content: input.data?.content ?? "",
+          tags: input.data?.tags ?? [],
+          createdAt: now,
+          updatedAt: now,
+        })
+        .returning();
 
-      noteStore.set(newNote.id, newNote);
+      const newNote = mapRowToNote(inserted);
       console.log(`📝 [Notes] Created note: ${newNote.title}`);
 
       return {
@@ -83,21 +101,48 @@ export async function manageNotes(
         return { success: false, message: "Note ID is required for update" };
       }
 
-      const existingNote = noteStore.get(input.noteId);
+      const noteId = Number.parseInt(input.noteId, 10);
+      if (Number.isNaN(noteId)) {
+        return { success: false, message: "Note not found" };
+      }
+
+      const [existingNote] = await db
+        .select()
+        .from(studyAgentNotes)
+        .where(
+          and(
+            eq(studyAgentNotes.id, noteId),
+            eq(studyAgentNotes.userId, input.userId),
+            eq(studyAgentNotes.sessionId, session.id)
+          )
+        );
+
       if (!existingNote) {
         return { success: false, message: "Note not found" };
       }
 
-      const updatedNote: StudyNote = {
-        ...existingNote,
-        title: input.data?.title ?? existingNote.title,
-        content: input.data?.content ?? existingNote.content,
-        tags: input.data?.tags ?? existingNote.tags,
-        // preserve the rest of the fields; only update updatedAt
-        updatedAt: now,
-      };
+      const [updated] = await db
+        .update(studyAgentNotes)
+        .set({
+          title: input.data?.title ?? existingNote.title,
+          content: input.data?.content ?? existingNote.content,
+          tags: input.data?.tags ?? existingNote.tags,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(studyAgentNotes.id, noteId),
+            eq(studyAgentNotes.userId, input.userId),
+            eq(studyAgentNotes.sessionId, session.id)
+          )
+        )
+        .returning();
 
-      noteStore.set(input.noteId, updatedNote);
+      if (!updated) {
+        return { success: false, message: "Unable to save note" };
+      }
+
+      const updatedNote = mapRowToNote(updated);
       console.log(`📝 [Notes] Updated note: ${updatedNote.title}`);
 
       return {

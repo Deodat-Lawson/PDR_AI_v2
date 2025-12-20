@@ -72,6 +72,7 @@ type AppState = "onboarding" | "connecting" | "session";
 
 export default function App() {
   const [appState, setAppState] = useState<AppState>("onboarding");
+  const [sessionId, setSessionId] = useState<number | null>(null);
   const [userPreferences, setUserPreferences] = useState<UserPreferences | null>(null);
   const [teacherView, setTeacherView] = useState<"documents" | "docs" | "whiteboard">("docs");
   const [isDark, setIsDark] = useState(false);
@@ -90,6 +91,45 @@ export default function App() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [preferencesError, setPreferencesError] = useState<string | null>(null);
   const [studyPlanError, setStudyPlanError] = useState<string | null>(null);
+
+  // Load persisted study data (goals, notes, preferences) on mount
+  useEffect(() => {
+    const loadPersistedData = async () => {
+      try {
+        const response = await fetch("/api/study-agent/me");
+        if (!response.ok) return;
+
+        const data = await response.json();
+
+        if (data.session?.id) {
+          setSessionId(Number(data.session.id));
+        }
+
+        if (Array.isArray(data.goals)) {
+          setStudyPlan(data.goals.map(mapServerGoal));
+          console.log(`📝 [StudyAgent] Loaded ${data.goals.length} goals from database`);
+        }
+
+        if (Array.isArray(data.notes)) {
+          setNotes(
+            data.notes.map((note: any, index: number) => ({
+              id: note.id?.toString?.() ?? note.id ?? `note-${Date.now()}-${index}`,
+              title: note.title ?? "",
+              content: note.content ?? "",
+              tags: note.tags ?? [],
+              createdAt: new Date(note.createdAt),
+              updatedAt: new Date(note.updatedAt),
+            }))
+          );
+          console.log(`📒 [StudyAgent] Loaded ${data.notes.length} notes from database`);
+        }
+      } catch (error) {
+        console.error("Error loading persisted study data", error);
+      }
+    };
+
+    void loadPersistedData();
+  }, []);
 
   // Fetch documents from database on mount
   useEffect(() => {
@@ -154,7 +194,7 @@ export default function App() {
       const response = await fetch("/api/study-agent/me/study-goals", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: goalId, ...updates }),
+        body: JSON.stringify({ id: goalId, ...updates, sessionId }),
       });
 
       if (!response.ok) {
@@ -184,6 +224,7 @@ export default function App() {
           description: item.description,
           materials: item.materials,
           completed: item.completed,
+          sessionId,
         }),
       });
 
@@ -209,7 +250,7 @@ export default function App() {
       const response = await fetch("/api/study-agent/me/study-goals", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: goalId }),
+        body: JSON.stringify({ id: goalId, sessionId }),
       });
 
       if (!response.ok) {
@@ -226,6 +267,30 @@ export default function App() {
     setPreferencesError(null);
     setStudyPlanError(null);
     setUserPreferences(preferences);
+
+    let newSessionId: number | null = null;
+
+    try {
+      const sessionResponse = await fetch("/api/study-agent/me/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: preferences.name ? `${preferences.name}'s Session` : undefined }),
+      });
+
+      if (!sessionResponse.ok) {
+        throw new Error("Failed to start a study session");
+      }
+
+      const sessionData = await sessionResponse.json();
+      if (sessionData.session?.id) {
+        newSessionId = Number(sessionData.session.id);
+        setSessionId(newSessionId);
+      }
+    } catch (error) {
+      console.error("Error creating study session", error);
+      setPreferencesError("We couldn't start your study session. Please try again.");
+      return;
+    }
     
     // Set selected document
     if (preferences.selectedDocuments.length > 0) {
@@ -256,6 +321,7 @@ export default function App() {
           grade: preferences.grade,
           gender: preferences.gender,
           fieldOfStudy: preferences.fieldOfStudy,
+          sessionId: newSessionId ?? sessionId,
         }),
       });
 
@@ -266,7 +332,7 @@ export default function App() {
       const prefResponse = await fetch("/api/study-agent/me/preferences", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(preferences),
+        body: JSON.stringify({ ...preferences, sessionId: newSessionId ?? sessionId }),
       });
 
       if (!prefResponse.ok) {
@@ -276,7 +342,7 @@ export default function App() {
       const goalsResponse = await fetch("/api/study-agent/me/study-goals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items: initialPlan }),
+        body: JSON.stringify({ items: initialPlan, sessionId: newSessionId ?? sessionId }),
       });
 
       if (!goalsResponse.ok) {
@@ -379,6 +445,7 @@ export default function App() {
     setAppState("onboarding");
     // Reset user preferences to allow new session setup
     setUserPreferences(null);
+    setSessionId(null);
   };
 
   const handleSendMessage = async (content: string) => {
@@ -641,6 +708,7 @@ export default function App() {
           action: "update",
           noteId,
           data: updates,
+          sessionId,
         }),
       });
     } catch (error) {
@@ -660,6 +728,7 @@ export default function App() {
         body: JSON.stringify({
           action: "delete",
           noteId,
+          sessionId,
         }),
       });
     } catch (error) {

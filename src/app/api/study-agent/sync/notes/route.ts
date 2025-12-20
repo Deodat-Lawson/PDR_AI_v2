@@ -71,7 +71,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { action, noteId, data, searchQuery } = body as {
+    const { action, noteId, data, searchQuery, sessionId } = body as {
       action: "create" | "update" | "delete" | "get" | "summarize";
       noteId?: string;
       data?: {
@@ -85,6 +85,7 @@ export async function POST(request: Request) {
         isArchived?: boolean;
       };
       searchQuery?: string;
+      sessionId?: number;
     };
 
     if (!action) {
@@ -97,6 +98,7 @@ export async function POST(request: Request) {
       noteId,
       data,
       searchQuery,
+      sessionId,
     });
 
     return NextResponse.json({
