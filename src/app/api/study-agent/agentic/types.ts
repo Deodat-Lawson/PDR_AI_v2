@@ -346,6 +346,7 @@ export interface PomodoroSession {
 export interface PomodoroInput {
   action: "start" | "pause" | "resume" | "stop" | "skip" | "status" | "configure";
   taskId?: string;
+  phase?: PomodoroPhase;
   settings?: Partial<PomodoroSettings>;
 }
 
@@ -358,15 +359,9 @@ export interface StudyNote {
   userId: string;
   title: string;
   content: string;
-  format: "text" | "markdown" | "bullet_points";
   tags: string[];
-  relatedDocuments: string[];
-  relatedConcepts: string[];
-  linkedNotes: string[];
   createdAt: Date;
   updatedAt: Date;
-  isFavorite: boolean;
-  isArchived: boolean;
 }
 
 export interface NoteInput {

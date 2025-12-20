@@ -162,7 +162,7 @@ export function PomodoroTimer({ isDark = false, onTimerUpdate }: PomodoroTimerPr
     autoStartPomodoros,
   ]);
 
-  const handleTimerComplete = () => {
+  const handleTimerComplete = async () => {
     setIsRunning(false);
     // Sync with backend to move to next phase
     await syncAction("skip");

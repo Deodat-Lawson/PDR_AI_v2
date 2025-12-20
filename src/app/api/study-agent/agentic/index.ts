@@ -14,7 +14,6 @@ export type {
   QuizQuestion,
   Quiz,
   ConceptExplanation,
-  StudyPlanItem,
   StudySession,
   StudyAgentRequest,
   StudyAgentResponse,

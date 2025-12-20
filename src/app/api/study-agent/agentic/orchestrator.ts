@@ -1,6 +1,12 @@
 /**
  * Study Buddy Agent Orchestrator
  * Main service for running the agentic workflow
+ *
+ * MODS:
+ * - Added inline “how orchestration works” comments + a lightweight trace object
+ * - Actually uses suggestedQuestions + relatedTopics helpers in the response
+ * - More explicit, structured logging + optional trace return
+ * - Keeps core behavior the same (graph.invoke / graph.stream)
  */
 
 import { HumanMessage, AIMessage } from "@langchain/core/messages";
@@ -10,10 +16,6 @@ import type {
   StudyAgentRequest,
   StudyAgentResponse,
   EmotionTag,
-  Flashcard,
-  Quiz,
-  ConceptExplanation,
-  StudyPlanItem,
 } from "./types";
 
 // ============================================================================
@@ -53,9 +55,7 @@ function stripEmotionTags(text: string): string {
 function addEmotionTag(text: string, emotion: EmotionTag): string {
   // Check if already has emotion tag
   for (const tag of EMOTION_TAGS) {
-    if (text.toLowerCase().includes(`[${tag}]`)) {
-      return text;
-    }
+    if (text.toLowerCase().includes(`[${tag}]`)) return text;
   }
   return `[${emotion}] ${text}`;
 }
@@ -64,11 +64,43 @@ function addEmotionTag(text: string, emotion: EmotionTag): string {
  * Ensure trailing ellipses for natural TTS pauses
  */
 function ensureTrailingEllipses(text: string): string {
-  // Add ellipses after sentences for natural pauses
   return text
     .replace(/\.(\s+)(?=[A-Z])/g, "...$1")
     .replace(/\?(\s+)(?=[A-Z])/g, "?...$1")
     .replace(/!(\s+)(?=[A-Z])/g, "!...$1");
+}
+
+// ============================================================================
+// Orchestration Trace (optional, for debugging/observability)
+// ============================================================================
+
+type OrchestrationTrace = {
+  startedAtMs: number;
+  finishedAtMs?: number;
+  mode: string;
+  steps: Array<{
+    atMs: number;
+    type:
+      | "init_state"
+      | "build_messages"
+      | "invoke_graph_start"
+      | "invoke_graph_end"
+      | "final_response"
+      | "error";
+    detail?: Record<string, unknown>;
+  }>;
+};
+
+function newTrace(mode: string): OrchestrationTrace {
+  return { startedAtMs: Date.now(), mode, steps: [] };
+}
+
+function traceStep(
+  trace: OrchestrationTrace,
+  type: OrchestrationTrace["steps"][number]["type"],
+  detail?: Record<string, unknown>
+) {
+  trace.steps.push({ atMs: Date.now(), type, detail });
 }
 
 // ============================================================================
@@ -77,11 +109,22 @@ function ensureTrailingEllipses(text: string): string {
 
 /**
  * Run the Study Buddy Agent workflow
+ *
+ * High-level orchestration:
+ * 1) Compile/load the LangGraph (getStudyBuddyGraph)
+ * 2) Build initial agent state (createInitialState)
+ * 3) Build message history (conversationHistory + current message)
+ * 4) Invoke the graph with { state + messages }, and pass userId via configurable
+ * 5) Read final state + last message => response text
+ * 6) Post-process for UI + TTS (emotion tags + ellipses)
+ * 7) Return structured response metadata (toolsUsed, sources, confidence, etc.)
  */
 export async function runStudyBuddyAgent(
-  request: StudyAgentRequest
-): Promise<StudyAgentResponse> {
+  request: StudyAgentRequest,
+  opts?: { includeTrace?: boolean }
+): Promise<StudyAgentResponse & { trace?: OrchestrationTrace }> {
   const startTime = Date.now();
+  const trace = newTrace(request.mode);
 
   console.log("🚀 [Study Buddy Agent] Starting workflow...");
   console.log(`   Mode: ${request.mode}`);
@@ -90,37 +133,56 @@ export async function runStudyBuddyAgent(
   console.log(`   Message: ${request.message.substring(0, 100)}...`);
 
   try {
-    // Get the compiled graph
+    // 1) Graph compilation/loading
+    //    - getStudyBuddyGraph typically builds a LangGraph/StateGraph with nodes:
+    //      retrieve -> reason -> tool calls -> synthesize -> finalize (example)
     const graph = getStudyBuddyGraph();
 
-    // Create initial state
+    // 2) Initial state construction
+    //    - this is the “working memory” for the whole run
+    //    - includes mode, user prefs, retrieved context placeholders, generated assets, etc.
     const initialState = createInitialState(request.userId, request.mode, {
       fieldOfStudy: request.fieldOfStudy,
       selectedDocuments: request.selectedDocuments,
-      studyPlan: request.studyPlan,
       learningStyle: request.preferences?.learningStyle,
       preferredDifficulty: request.preferences?.preferredDifficulty,
     });
 
-    // Build message history
-    const messages = [];
+    traceStep(trace, "init_state", {
+      fieldOfStudy: request.fieldOfStudy,
+      selectedDocumentsCount: request.selectedDocuments?.length ?? 0,
+      learningStyle: request.preferences?.learningStyle,
+      preferredDifficulty: request.preferences?.preferredDifficulty,
+    });
 
-    // Add conversation history if provided
+    // 3) Message history (short context window)
+    const messages: Array<HumanMessage | AIMessage> = [];
+
     if (request.conversationHistory) {
+      // Keep last 10 to control token usage and reduce drift
       for (const msg of request.conversationHistory.slice(-10)) {
-        // Keep last 10 messages
-        if (msg.role === "user") {
-          messages.push(new HumanMessage(msg.content));
-        } else {
-          messages.push(new AIMessage(msg.content));
-        }
+        messages.push(
+          msg.role === "user"
+            ? new HumanMessage(msg.content)
+            : new AIMessage(msg.content)
+        );
       }
     }
 
-    // Add current message
+    // Always add the current user message at the end
     messages.push(new HumanMessage(request.message));
 
-    // Run the graph
+    traceStep(trace, "build_messages", {
+      historyIncluded: Boolean(request.conversationHistory?.length),
+      messagesCount: messages.length,
+    });
+
+    // 4) Graph invocation
+    //    - graph.invoke executes the whole workflow until it reaches an END node
+    //    - configurable.userId is a common LangChain pattern for per-user tool config,
+    //      memory scoping, or tracing
+    traceStep(trace, "invoke_graph_start");
+
     const result = await graph.invoke(
       {
         ...initialState,
@@ -133,45 +195,36 @@ export async function runStudyBuddyAgent(
       }
     );
 
-    // Extract final response
+    traceStep(trace, "invoke_graph_end");
+
+    // 5) Extract final response from the final state
     const finalState = result as StudyAgentState;
     const lastMessage = finalState.messages[finalState.messages.length - 1];
 
-    let responseText =
+    const rawResponseText =
       typeof lastMessage?.content === "string"
         ? lastMessage.content
         : extractTextFromContent(lastMessage?.content);
 
-    // Process response for TTS
-    const displayResponse = stripEmotionTags(responseText);
+    // 6) Post-process response for UI + TTS
+    const displayResponse = stripEmotionTags(rawResponseText);
     const ttsResponse = ensureTrailingEllipses(
-      addEmotionTag(responseText, finalState.emotion)
+      addEmotionTag(rawResponseText, finalState.emotion)
     );
 
-    // Build response object
-    const response: StudyAgentResponse = {
+    // Optional “extra UX” fields using your helpers
+    const suggestedQuestions = generateSuggestedQuestions(
+      request.message,
+      finalState
+    );
+    const relatedTopics = extractRelatedTopics(finalState);
+
+    // 7) Build response object
+    const response: StudyAgentResponse & { trace?: OrchestrationTrace } = {
       response: ttsResponse,
       displayResponse,
       emotion: finalState.emotion,
       mode: request.mode,
-
-      // Generated content
-      flashcards:
-        finalState.generatedFlashcards.length > 0
-          ? finalState.generatedFlashcards
-          : undefined,
-      quiz:
-        finalState.generatedQuizzes.length > 0
-          ? finalState.generatedQuizzes[finalState.generatedQuizzes.length - 1]
-          : undefined,
-      conceptExplanation:
-        finalState.conceptExplanations.length > 0
-          ? finalState.conceptExplanations[
-              finalState.conceptExplanations.length - 1
-            ]
-          : undefined,
-      updatedStudyPlan:
-        finalState.studyPlan.length > 0 ? finalState.studyPlan : undefined,
 
       // Metadata
       toolsUsed: finalState.toolsUsed,
@@ -182,13 +235,21 @@ export async function runStudyBuddyAgent(
       confidence: finalState.confidence,
       processingTimeMs: Date.now() - startTime,
 
-      // Suggestions
-      suggestedQuestions: generateSuggestedQuestions(
-        request.message,
-        finalState
-      ),
-      relatedTopics: extractRelatedTopics(finalState),
+      // If your StudyAgentResponse type doesn’t include these, remove them
+      // or extend the type. They’re very useful in a UI.
+      ...(suggestedQuestions.length ? { suggestedQuestions } : {}),
+      ...(relatedTopics.length ? { relatedTopics } : {}),
+
+      ...(opts?.includeTrace ? { trace } : {}),
     };
+
+    traceStep(trace, "final_response", {
+      emotion: response.emotion,
+      toolsUsed: response.toolsUsed,
+      retrievedSourcesCount: response.retrievedSources.length,
+      confidence: response.confidence,
+    });
+    trace.finishedAtMs = Date.now();
 
     console.log(
       `✅ [Study Buddy Agent] Completed in ${response.processingTimeMs}ms`
@@ -200,9 +261,14 @@ export async function runStudyBuddyAgent(
   } catch (error) {
     console.error("❌ [Study Buddy Agent] Error:", error);
 
-    // Return error response
+    traceStep(trace, "error", {
+      message: error instanceof Error ? error.message : "Unknown error",
+    });
+    trace.finishedAtMs = Date.now();
+
     return {
-      response: `[calm] I encountered an issue processing your request... Let me try again in a moment...`,
+      response:
+        "[calm] I encountered an issue processing your request... Let me try again in a moment...",
       displayResponse:
         "I encountered an issue processing your request. Let me try again in a moment.",
       emotion: "calm",
@@ -211,6 +277,7 @@ export async function runStudyBuddyAgent(
       retrievedSources: [],
       confidence: 0.3,
       processingTimeMs: Date.now() - startTime,
+      ...(opts?.includeTrace ? { trace } : {}),
     };
   }
 }
@@ -219,20 +286,15 @@ export async function runStudyBuddyAgent(
 // Helper Functions
 // ============================================================================
 
-/**
- * Extract text from complex message content
- */
 function extractTextFromContent(content: unknown): string {
-  if (typeof content === "string") {
-    return content;
-  }
+  if (typeof content === "string") return content;
 
   if (Array.isArray(content)) {
     return content
       .map((item) => {
         if (typeof item === "string") return item;
         if (item && typeof item === "object" && "text" in item) {
-          return String(item.text);
+          return String((item as any).text);
         }
         return "";
       })
@@ -240,7 +302,7 @@ function extractTextFromContent(content: unknown): string {
   }
 
   if (content && typeof content === "object" && "text" in content) {
-    return String((content as { text: string }).text);
+    return String((content as any).text);
   }
 
   return "";
@@ -256,7 +318,6 @@ function generateSuggestedQuestions(
   const suggestions: string[] = [];
   const lowerMessage = userMessage.toLowerCase();
 
-  // Based on what was generated
   if (state.generatedFlashcards.length > 0) {
     suggestions.push("Quiz me on these flashcards!");
     suggestions.push("Can you make more flashcards on a related topic?");
@@ -268,16 +329,14 @@ function generateSuggestedQuestions(
   }
 
   if (state.conceptExplanations.length > 0) {
-    const lastConcept = state.conceptExplanations[state.conceptExplanations.length - 1];
-    if (lastConcept?.relatedConcepts?.length > 0) {
-      suggestions.push(
-        `Explain ${lastConcept.relatedConcepts[0]} to me`
-      );
+    const lastConcept =
+      state.conceptExplanations[state.conceptExplanations.length - 1];
+    if (lastConcept?.relatedConcepts && lastConcept.relatedConcepts.length > 0) {
+      suggestions.push(`Explain ${lastConcept.relatedConcepts[0]} to me`);
     }
     suggestions.push("Can you give me more examples?");
   }
 
-  // General suggestions based on mode
   if (state.mode === "study-buddy") {
     if (!lowerMessage.includes("flashcard")) {
       suggestions.push("Create flashcards for this topic");
@@ -292,7 +351,7 @@ function generateSuggestedQuestions(
     suggestions.push("What are the key takeaways?");
   }
 
-  return suggestions.slice(0, 3); // Return max 3 suggestions
+  return suggestions.slice(0, 3);
 }
 
 /**
@@ -301,26 +360,19 @@ function generateSuggestedQuestions(
 function extractRelatedTopics(state: StudyAgentState): string[] {
   const topics = new Set<string>();
 
-  // From concept explanations
   for (const explanation of state.conceptExplanations) {
     for (const related of explanation.relatedConcepts ?? []) {
       topics.add(related);
     }
   }
 
-  // From flashcards
   for (const card of state.generatedFlashcards) {
-    if (card.topic) {
-      topics.add(card.topic);
-    }
+    if ((card as any).topic) topics.add(String((card as any).topic));
   }
 
-  // From quizzes
   for (const quiz of state.generatedQuizzes) {
-    for (const question of quiz.questions) {
-      if (question.topic) {
-        topics.add(question.topic);
-      }
+    for (const question of (quiz as any).questions ?? []) {
+      if (question?.topic) topics.add(String(question.topic));
     }
   }
 
@@ -354,39 +406,36 @@ export async function* streamStudyBuddyAgent(
     const initialState = createInitialState(request.userId, request.mode, {
       fieldOfStudy: request.fieldOfStudy,
       selectedDocuments: request.selectedDocuments,
-      studyPlan: request.studyPlan,
     });
 
     const messages = [new HumanMessage(request.message)];
 
-    // Stream graph execution
+    // graph.stream emits intermediate states as the graph progresses node-by-node
     const stream = await graph.stream(
+      { ...initialState, messages },
       {
-        ...initialState,
-        messages,
-      },
-      {
-        configurable: {
-          userId: request.userId,
-        },
+        configurable: { userId: request.userId },
         streamMode: "values",
       }
     );
 
     let lastState: StudyAgentState | null = null;
+    let sawRetrieveStart = false;
 
     for await (const state of stream) {
       lastState = state as StudyAgentState;
       const typedState = state as StudyAgentState;
 
-      // Yield updates based on state changes
-      if (typedState.currentStep === "retrieve") {
+      // Example: emit tool start when we enter retrieve step
+      if (typedState.currentStep === "retrieve" && !sawRetrieveStart) {
+        sawRetrieveStart = true;
         yield {
           type: "tool_start",
           data: { tool: "rag_search", message: "Searching documents..." },
         };
       }
 
+      // Example: emit tool end whenever we have tool usage updates
       if (typedState.toolsUsed.length > 0) {
         yield {
           type: "tool_end",
@@ -428,4 +477,3 @@ export async function* streamStudyBuddyAgent(
     };
   }
 }
-

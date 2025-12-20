@@ -302,7 +302,6 @@ export default function App() {
       mode?: string;
     }
 
-    // Generate introduction via API
     try {
       const response = await fetch("/api/study-agent/chat", {
         method: "POST",
@@ -530,9 +529,6 @@ export default function App() {
       };
       setMessages((prev) => [...prev, aiMessage]);
 
-      // Sync notes and tasks after agent response (they may have been modified)
-      await syncNotes();
-      await syncTasks();
     } catch (error) {
       console.error("Error getting AI response:", error);
       // Fallback to mock response if API fails
@@ -621,32 +617,11 @@ export default function App() {
   const handleAddNote = (note: Omit<Note, "id" | "createdAt" | "updatedAt">) => {
     const newNote: Note = {
       ...note,
-      id: tempId,
+      id: Date.now().toString(), // fix this
       createdAt: new Date(),
       updatedAt: new Date(),
     };
     setNotes((prev) => [...prev, newNote]);
-
-    // Sync with backend
-    try {
-      const response = await fetch("/api/study-agent/sync/notes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "create",
-          data: {
-            title: note.title,
-            content: note.content,
-            tags: note.tags,
-          },
-        }),
-      });
-      if (response.ok) {
-        await syncNotes(); // Refresh to get the real ID
-      }
-    } catch (error) {
-      console.error("Error syncing note to backend:", error);
-    }
   };
 
   const handleUpdateNote = async (noteId: string, updates: Partial<Note>) => {

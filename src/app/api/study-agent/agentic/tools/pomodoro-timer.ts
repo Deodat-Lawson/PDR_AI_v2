@@ -25,7 +25,8 @@ const PomodoroSchema = z.object({
     .enum(["start", "pause", "resume", "stop", "skip", "status", "configure"])
     .describe("The Pomodoro action to perform"),
   userId: z.string().describe("The user ID"),
-  taskId: z.string().optional().describe("Optional task ID to associate with the Pomodoro"),
+  sessionId: z.string().optional().describe("Session ID to associate with the Pomodoro"),
+  phase: z.enum(["work", "short_break", "long_break"]).optional().describe("The timer to start, pause, resume, stop, skip, or status"),
   settings: z
     .object({
       workDuration: z.number().min(1).max(60).optional(),
@@ -92,6 +93,7 @@ export async function managePomodoro(
   success: boolean;
   session?: PomodoroSession;
   message: string;
+  phase?: PomodoroPhase;
   timeRemaining?: string;
   encouragement?: string;
 }> {
@@ -104,7 +106,7 @@ export async function managePomodoro(
     case "start": {
       // Create new session or restart
       const settings = session?.settings ?? DEFAULT_SETTINGS;
-      const phase: PomodoroPhase = "work";
+      const phase: PomodoroPhase = input.phase ?? "work";
       const duration = getPhaseDuration(phase, settings);
       const endsAt = new Date(now.getTime() + duration * 60000);
 
@@ -359,7 +361,6 @@ export const pomodoroTool = tool(
       const result = await managePomodoro({
         action: input.action,
         userId: input.userId,
-        taskId: input.taskId,
         settings: input.settings,
       });
 
@@ -374,13 +375,13 @@ export const pomodoroTool = tool(
   {
     name: "pomodoro_timer",
     description: `Control the Pomodoro timer for focused study sessions.
-Use this when the user wants to:
-- Start a Pomodoro (focus session)
-- Pause or resume the timer
-- Stop the current session
-- Skip to the next phase (break or work)
-- Check timer status
-- Configure timer settings (work duration, break duration)
+    Use this when the user wants to:
+    - Start a Pomodoro (focus session)
+    - Pause or resume the timer
+    - Stop the current session
+    - Skip to the next phase (break or work)
+    - Check timer status
+    - Configure timer settings (work duration, break duration)
 
 Examples: "Start a pomodoro", "Pause the timer", "How much time left?", "Set pomodoro to 30 minutes", "Skip this break"`,
     schema: PomodoroSchema,

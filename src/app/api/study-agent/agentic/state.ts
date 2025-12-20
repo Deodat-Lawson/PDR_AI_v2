@@ -14,7 +14,6 @@ import type {
   Flashcard,
   Quiz,
   ConceptExplanation,
-  StudyPlanItem,
   StudySession,
 } from "./types";
 
@@ -134,21 +133,6 @@ export const StudyAgentStateAnnotation = Annotation.Root({
   currentSession: Annotation<StudySession | undefined>({
     reducer: (_, y) => y,
     default: () => undefined,
-  }),
-
-  /**
-   * User's study plan items
-   */
-  studyPlan: Annotation<StudyPlanItem[]>({
-    reducer: (x, y) => {
-      // Merge study plans, updating existing items and adding new ones
-      const existingMap = new Map(x.map((item) => [item.id, item]));
-      for (const item of y) {
-        existingMap.set(item.id, item);
-      }
-      return Array.from(existingMap.values());
-    },
-    default: () => [],
   }),
 
   // ============================================================================
@@ -290,7 +274,6 @@ export function createInitialState(
   options?: {
     fieldOfStudy?: string;
     selectedDocuments?: string[];
-    studyPlan?: StudyPlanItem[];
     learningStyle?: "visual" | "auditory" | "kinesthetic" | "reading";
     preferredDifficulty?: "beginner" | "intermediate" | "advanced";
   }
@@ -300,7 +283,6 @@ export function createInitialState(
     mode,
     fieldOfStudy: options?.fieldOfStudy,
     selectedDocuments: options?.selectedDocuments ?? [],
-    studyPlan: options?.studyPlan ?? [],
     learningStyle: options?.learningStyle,
     preferredDifficulty: options?.preferredDifficulty,
     currentStep: "understand",

@@ -8,29 +8,29 @@ export { ragSearchTool, executeRAGSearch } from "./rag-search";
 export { webResearchTool, performWebResearch } from "./web-research";
 
 // Content Generation Tools
-export { flashcardTool, generateFlashcards } from "./flashcard-generator";
-export { quizTool, generateQuiz } from "./quiz-generator";
-export { conceptExplainerTool, explainConcept } from "./concept-explainer";
+export { flashcardTool, generateFlashcards } from "./UNUSED_flashcard-generator";
+export { quizTool, generateQuiz } from "./UNUSED_quiz-generator";
+export { conceptExplainerTool, explainConcept } from "./UNUSED_concept-explainer";
 
 // Planning and Tracking Tools
 export { studyPlanTool, createOrUpdateStudyPlan } from "./study-plan";
-export { progressTrackerTool, trackProgress } from "./progress-tracker";
+export { progressTrackerTool, trackProgress } from "./UNUSED_progress-tracker";
 
 // Task and Time Management Tools
-export { taskManagerTool, manageTasks } from "./task-manager";
+export { taskManagerTool, manageTasks } from "./UNUSED_task-manager";
 export { pomodoroTool, managePomodoro } from "./pomodoro-timer";
 
 // Note-Taking Tools
 export { noteTakingTool, manageNotes } from "./note-taking";
 
 import { ragSearchTool } from "./rag-search";
-import { flashcardTool } from "./flashcard-generator";
-import { quizTool } from "./quiz-generator";
-import { conceptExplainerTool } from "./concept-explainer";
+import { flashcardTool } from "./UNUSED_flashcard-generator";
+import { quizTool } from "./UNUSED_quiz-generator";
+import { conceptExplainerTool } from "./UNUSED_concept-explainer";
 import { studyPlanTool } from "./study-plan";
-import { progressTrackerTool } from "./progress-tracker";
+import { progressTrackerTool } from "./UNUSED_progress-tracker";
 import { webResearchTool } from "./web-research";
-import { taskManagerTool } from "./task-manager";
+import { taskManagerTool } from "./UNUSED_task-manager";
 import { pomodoroTool } from "./pomodoro-timer";
 import { noteTakingTool } from "./note-taking";
 

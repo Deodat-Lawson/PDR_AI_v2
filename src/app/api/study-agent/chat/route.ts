@@ -45,13 +45,6 @@ const AGENTIC_TRIGGERS = [
   // Note-taking
   "note", "write down", "remember this", "jot down", "save this", "my notes",
   "find my", "search notes", "take a note", "add a note",
-  // Flashcards and quizzes
-  "flashcard", "flash card", "study cards", "memorize",
-  "quiz", "test me", "practice questions", "test my knowledge",
-  // Study planning
-  "study plan", "create a plan", "organize my study", "learning plan", "schedule",
-  // Progress tracking
-  "my progress", "how am i doing", "session summary",
 ];
 
 // Research keywords for detecting research-type questions
@@ -155,27 +148,15 @@ export async function POST(request: Request) {
       
       // Convert mode to agentic mode type
       const agenticMode: StudyMode = mode === "teacher" ? "teacher" : "study-buddy";
-      
-      // Convert study plan to agentic format
-      const agenticStudyPlan = studyPlan?.map((item) => ({
-        id: item.id,
-        title: item.title,
-        description: item.description,
-        objectives: [],
-        estimatedDuration: 30,
-        materials: item.materials,
-        completed: item.completed,
-        priority: "medium" as const,
-      }));
 
       // Run the agentic workflow
       const agentResponse = await runStudyBuddyAgent({
         message,
         mode: agenticMode,
         userId,
+        // sessionId: sessionId, ignore sessionID for now, all users share the same session
         fieldOfStudy,
         selectedDocuments,
-        studyPlan: agenticStudyPlan,
         conversationHistory: conversationHistory?.map((msg) => ({
           role: msg.role === "user" ? "user" : "assistant",
           content: msg.content,
@@ -195,12 +176,7 @@ export async function POST(request: Request) {
           emotion: agentResponse.emotion,
           mode: agentResponse.mode,
           // Include generated content for frontend to handle
-          flashcards: agentResponse.flashcards,
-          quiz: agentResponse.quiz,
-          conceptExplanation: agentResponse.conceptExplanation,
-          updatedStudyPlan: agentResponse.updatedStudyPlan,
           toolsUsed: agentResponse.toolsUsed,
-          suggestedQuestions: agentResponse.suggestedQuestions,
           // Indicate this was an agentic response
           isAgenticResponse: true,
         },
