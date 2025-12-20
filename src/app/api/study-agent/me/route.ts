@@ -1,16 +1,32 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 
 import { db } from "~/server/db";
 import {
     studyAgentGoals,
+    studyAgentMessages,
     studyAgentNotes,
     studyAgentPomodoroSettings,
     studyAgentPreferences,
     studyAgentProfile,
 } from "~/server/db/schema";
 import { resolveSessionForUser } from "~/server/study-agent/session";
+
+// Helper to convert BigInt values to numbers for JSON serialization
+function serializeBigInt<T>(obj: T): T {
+    if (obj === null || obj === undefined) return obj;
+    if (typeof obj === "bigint") return Number(obj) as unknown as T;
+    if (Array.isArray(obj)) return obj.map(serializeBigInt) as unknown as T;
+    if (typeof obj === "object") {
+        const result: Record<string, unknown> = {};
+        for (const [key, value] of Object.entries(obj)) {
+            result[key] = serializeBigInt(value);
+        }
+        return result as T;
+    }
+    return obj;
+}
 
 export async function GET(request: Request) {
     try {
@@ -30,13 +46,15 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: "Session not found" }, { status: 404 });
         }
 
+        const sessionIdBigInt = BigInt(session.id);
+
         const [profile] = await db
             .select()
             .from(studyAgentProfile)
             .where(
                 and(
                     eq(studyAgentProfile.userId, userId),
-                    eq(studyAgentProfile.sessionId, session.id)
+                    eq(studyAgentProfile.sessionId, sessionIdBigInt)
                 )
             );
 
@@ -46,7 +64,7 @@ export async function GET(request: Request) {
             .where(
                 and(
                     eq(studyAgentPreferences.userId, userId),
-                    eq(studyAgentPreferences.sessionId, session.id)
+                    eq(studyAgentPreferences.sessionId, sessionIdBigInt)
                 )
             );
 
@@ -56,7 +74,7 @@ export async function GET(request: Request) {
             .where(
                 and(
                     eq(studyAgentGoals.userId, userId),
-                    eq(studyAgentGoals.sessionId, session.id)
+                    eq(studyAgentGoals.sessionId, sessionIdBigInt)
                 )
             );
 
@@ -66,7 +84,7 @@ export async function GET(request: Request) {
             .where(
                 and(
                     eq(studyAgentNotes.userId, userId),
-                    eq(studyAgentNotes.sessionId, session.id)
+                    eq(studyAgentNotes.sessionId, sessionIdBigInt)
                 )
             );
 
@@ -76,17 +94,29 @@ export async function GET(request: Request) {
             .where(
                 and(
                     eq(studyAgentPomodoroSettings.userId, userId),
-                    eq(studyAgentPomodoroSettings.sessionId, session.id)
+                    eq(studyAgentPomodoroSettings.sessionId, sessionIdBigInt)
                 )
             );
 
+        const messages = await db
+            .select()
+            .from(studyAgentMessages)
+            .where(
+                and(
+                    eq(studyAgentMessages.userId, userId),
+                    eq(studyAgentMessages.sessionId, sessionIdBigInt)
+                )
+            )
+            .orderBy(asc(studyAgentMessages.createdAt));
+
         return NextResponse.json({
-            session,
-            profile: profile ?? null,
+            session: serializeBigInt(session),
+            profile: serializeBigInt(profile) ?? null,
             preferences: preferences?.preferences ?? null,
-            goals: goals.map((goal) => ({ ...goal, id: goal.id.toString() })),
-            notes: notes.map((note) => ({ ...note, id: note.id.toString() })),
-            pomodoroSettings: pomodoroSettings ?? null,
+            goals: goals.map((goal) => serializeBigInt({ ...goal, id: goal.id.toString() })),
+            notes: notes.map((note) => serializeBigInt({ ...note, id: note.id.toString() })),
+            pomodoroSettings: serializeBigInt(pomodoroSettings) ?? null,
+            messages: messages.map((msg) => serializeBigInt({ ...msg, id: msg.id.toString() })),
         });
     } catch (error) {
         console.error("Error loading study agent data", error);

@@ -6,6 +6,21 @@ import { db } from "~/server/db";
 import { studyAgentPreferences } from "~/server/db/schema";
 import { resolveSessionForUser } from "~/server/study-agent/session";
 
+// Helper to convert BigInt values to numbers for JSON serialization
+function serializeBigInt<T>(obj: T): T {
+    if (obj === null || obj === undefined) return obj;
+    if (typeof obj === "bigint") return Number(obj) as unknown as T;
+    if (Array.isArray(obj)) return obj.map(serializeBigInt) as unknown as T;
+    if (typeof obj === "object") {
+        const result: Record<string, unknown> = {};
+        for (const [key, value] of Object.entries(obj)) {
+            result[key] = serializeBigInt(value);
+        }
+        return result as T;
+    }
+    return obj;
+}
+
 function parseSessionId(request: Request) {
     const sessionIdParam = new URL(request.url).searchParams.get("sessionId");
     const parsedSessionId = sessionIdParam ? Number(sessionIdParam) : undefined;
@@ -34,7 +49,7 @@ export async function GET(request: Request) {
                 )
             );
 
-        return NextResponse.json({ preferences: preferences?.preferences ?? null, session });
+        return NextResponse.json({ preferences: preferences?.preferences ?? null, session: serializeBigInt(session) });
     } catch (error) {
         console.error("Error fetching study agent preferences", error);
         return NextResponse.json(
@@ -85,7 +100,7 @@ export async function POST(request: Request) {
                 )
                 .returning();
 
-            return NextResponse.json({ preferences: updated.preferences, session });
+            return NextResponse.json({ preferences: updated.preferences, session: serializeBigInt(session) });
         }
 
         const [created] = await db
@@ -93,7 +108,7 @@ export async function POST(request: Request) {
             .values({ userId, sessionId: session.id, preferences })
             .returning();
 
-        return NextResponse.json({ preferences: created.preferences, session }, { status: 201 });
+        return NextResponse.json({ preferences: created.preferences, session: serializeBigInt(session) }, { status: 201 });
     } catch (error) {
         console.error("Error saving study agent preferences", error);
         return NextResponse.json(

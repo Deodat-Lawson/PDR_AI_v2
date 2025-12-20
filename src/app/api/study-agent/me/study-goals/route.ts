@@ -6,6 +6,21 @@ import { db } from "~/server/db";
 import { studyAgentGoals } from "~/server/db/schema";
 import { resolveSessionForUser } from "~/server/study-agent/session";
 
+// Helper to convert BigInt values to numbers for JSON serialization
+function serializeBigInt<T>(obj: T): T {
+    if (obj === null || obj === undefined) return obj;
+    if (typeof obj === "bigint") return Number(obj) as unknown as T;
+    if (Array.isArray(obj)) return obj.map(serializeBigInt) as unknown as T;
+    if (typeof obj === "object") {
+        const result: Record<string, unknown> = {};
+        for (const [key, value] of Object.entries(obj)) {
+            result[key] = serializeBigInt(value);
+        }
+        return result as T;
+    }
+    return obj;
+}
+
 function mapGoal(goal: typeof studyAgentGoals.$inferSelect) {
     return {
         ...goal,
@@ -37,11 +52,11 @@ export async function GET(request: Request) {
             .where(
                 and(
                     eq(studyAgentGoals.userId, userId),
-                    eq(studyAgentGoals.sessionId, session.id)
+                    eq(studyAgentGoals.sessionId, BigInt(session.id))
                 )
             );
 
-        return NextResponse.json({ goals: goals.map(mapGoal), session });
+        return NextResponse.json({ goals: goals.map(mapGoal).map(serializeBigInt), session: serializeBigInt(session) });
     } catch (error) {
         console.error("Error fetching study goals", error);
         return NextResponse.json({ error: "Failed to load study goals" }, { status: 500 });
@@ -72,7 +87,7 @@ export async function POST(request: Request) {
                 .where(
                     and(
                         eq(studyAgentGoals.userId, userId),
-                        eq(studyAgentGoals.sessionId, session.id)
+                        eq(studyAgentGoals.sessionId, BigInt(session.id))
                     )
                 );
 
@@ -90,14 +105,14 @@ export async function POST(request: Request) {
                 )
                 .returning();
 
-            return NextResponse.json({ goals: inserted.map(mapGoal), session }, { status: 201 });
+            return NextResponse.json({ goals: inserted.map(mapGoal).map(serializeBigInt), session: serializeBigInt(session) }, { status: 201 });
         }
 
         const [created] = await db
             .insert(studyAgentGoals)
             .values({
                 userId,
-                sessionId: session.id,
+                sessionId: BigInt(session.id),
                 title: body.title ?? "",
                 description: body.description ?? null,
                 materials: body.materials ?? [],
@@ -105,7 +120,11 @@ export async function POST(request: Request) {
             })
             .returning();
 
-        return NextResponse.json({ goal: mapGoal(created), session }, { status: 201 });
+        if (!created) {
+            return NextResponse.json({ error: "Failed to create goal" }, { status: 500 });
+        }
+
+        return NextResponse.json({ goal: serializeBigInt(mapGoal(created)), session: serializeBigInt(session) }, { status: 201 });
     } catch (error) {
         console.error("Error saving study goals", error);
         return NextResponse.json({ error: "Failed to save study goals" }, { status: 500 });
@@ -145,7 +164,7 @@ export async function PUT(request: Request) {
                 and(
                     eq(studyAgentGoals.id, Number(body.id)),
                     eq(studyAgentGoals.userId, userId),
-                    eq(studyAgentGoals.sessionId, session.id)
+                    eq(studyAgentGoals.sessionId, BigInt(session.id))
                 )
             )
             .returning();
@@ -154,7 +173,7 @@ export async function PUT(request: Request) {
             return NextResponse.json({ error: "Goal not found" }, { status: 404 });
         }
 
-        return NextResponse.json({ goal: mapGoal(updated), session });
+        return NextResponse.json({ goal: serializeBigInt(mapGoal(updated)), session: serializeBigInt(session) });
     } catch (error) {
         console.error("Error updating study goal", error);
         return NextResponse.json({ error: "Failed to update study goal" }, { status: 500 });
@@ -188,7 +207,7 @@ export async function DELETE(request: Request) {
                 and(
                     eq(studyAgentGoals.id, Number(body.id)),
                     eq(studyAgentGoals.userId, userId),
-                    eq(studyAgentGoals.sessionId, session.id)
+                    eq(studyAgentGoals.sessionId, BigInt(session.id))
                 )
             );
 

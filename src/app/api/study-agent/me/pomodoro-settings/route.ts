@@ -6,6 +6,21 @@ import { db } from "~/server/db";
 import { studyAgentPomodoroSettings } from "~/server/db/schema";
 import { resolveSessionForUser } from "~/server/study-agent/session";
 
+// Helper to convert BigInt values to numbers for JSON serialization
+function serializeBigInt<T>(obj: T): T {
+    if (obj === null || obj === undefined) return obj;
+    if (typeof obj === "bigint") return Number(obj) as unknown as T;
+    if (Array.isArray(obj)) return obj.map(serializeBigInt) as unknown as T;
+    if (typeof obj === "object") {
+        const result: Record<string, unknown> = {};
+        for (const [key, value] of Object.entries(obj)) {
+            result[key] = serializeBigInt(value);
+        }
+        return result as T;
+    }
+    return obj;
+}
+
 function parseSessionId(request: Request) {
     const sessionIdParam = new URL(request.url).searchParams.get("sessionId");
     const parsedSessionId = sessionIdParam ? Number(sessionIdParam) : undefined;
@@ -30,11 +45,11 @@ export async function GET(request: Request) {
             .where(
                 and(
                     eq(studyAgentPomodoroSettings.userId, userId),
-                    eq(studyAgentPomodoroSettings.sessionId, session.id)
+                    eq(studyAgentPomodoroSettings.sessionId, BigInt(session.id))
                 )
             );
 
-        return NextResponse.json({ pomodoroSettings: settings ?? null, session });
+        return NextResponse.json({ pomodoroSettings: serializeBigInt(settings) ?? null, session: serializeBigInt(session) });
     } catch (error) {
         console.error("Error fetching pomodoro settings", error);
         return NextResponse.json(
@@ -76,7 +91,7 @@ export async function POST(request: Request) {
             .where(
                 and(
                     eq(studyAgentPomodoroSettings.userId, userId),
-                    eq(studyAgentPomodoroSettings.sessionId, session.id)
+                    eq(studyAgentPomodoroSettings.sessionId, BigInt(session.id))
                 )
             );
 
@@ -87,20 +102,20 @@ export async function POST(request: Request) {
                 .where(
                     and(
                         eq(studyAgentPomodoroSettings.userId, userId),
-                        eq(studyAgentPomodoroSettings.sessionId, session.id)
+                        eq(studyAgentPomodoroSettings.sessionId, BigInt(session.id))
                     )
                 )
                 .returning();
 
-            return NextResponse.json({ pomodoroSettings: updated, session });
+            return NextResponse.json({ pomodoroSettings: serializeBigInt(updated), session: serializeBigInt(session) });
         }
 
         const [created] = await db
             .insert(studyAgentPomodoroSettings)
-            .values({ ...payload, userId, sessionId: session.id })
+            .values({ ...payload, userId, sessionId: BigInt(session.id) })
             .returning();
 
-        return NextResponse.json({ pomodoroSettings: created, session }, { status: 201 });
+        return NextResponse.json({ pomodoroSettings: serializeBigInt(created), session: serializeBigInt(session) }, { status: 201 });
     } catch (error) {
         console.error("Error saving pomodoro settings", error);
         return NextResponse.json(
@@ -127,7 +142,7 @@ export async function DELETE(request: Request) {
             .where(
                 and(
                     eq(studyAgentPomodoroSettings.userId, userId),
-                    eq(studyAgentPomodoroSettings.sessionId, session.id)
+                    eq(studyAgentPomodoroSettings.sessionId, BigInt(session.id))
                 )
             );
         return NextResponse.json({ success: true });

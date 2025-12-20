@@ -7,3 +7,4 @@ export { pgTable } from "./schema/helpers";
 export * from "./schema/base";
 export * from "./schema/agent-ai";
 export * from "./schema/study-agent";
+export { studyAgentMessages } from "./schema/study-agent";

@@ -57,6 +57,20 @@
       "when": 1766085738027,
       "tag": "0007_plain_leader",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1766262374297,
+      "tag": "0008_nappy_mandarin",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1766263036187,
+      "tag": "0009_public_warstar",
+      "breakpoints": true
     }
   ]
 }

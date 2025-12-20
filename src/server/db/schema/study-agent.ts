@@ -155,12 +155,39 @@ export const studyAgentNotes = pgTable(
     })
 );
 
+export const studyAgentMessages = pgTable(
+    "study_agent_messages",
+    {
+        id: serial("id").primaryKey(),
+        odlId: varchar("original_id", { length: 64 }), // store original frontend ID for dedup
+        userId: varchar("user_id", { length: 256 }).notNull(),
+        sessionId: bigint("session_id", { mode: "bigint" })
+            .notNull()
+            .references(() => studyAgentSessions.id, { onDelete: "cascade" }),
+        role: varchar("role", { length: 32 }).notNull(), // "user" | "teacher" | "buddy"
+        content: text("content").notNull(),
+        ttsContent: text("tts_content"), // text with emotion tags for TTS
+        attachedDocument: text("attached_document"),
+        attachedDocumentId: text("attached_document_id"),
+        attachedDocumentUrl: text("attached_document_url"),
+        isVoice: boolean("is_voice").default(false),
+        createdAt: timestamp("created_at", { withTimezone: true })
+            .default(sql`CURRENT_TIMESTAMP`)
+            .notNull(),
+    },
+    (table) => ({
+        messagesUserIdIdx: index("study_agent_messages_user_id_idx").on(table.userId),
+        messagesSessionIdIdx: index("study_agent_messages_session_id_idx").on(table.sessionId)
+    })
+);
+
 export const studyAgentSessionRelations = relations(studyAgentSessions, ({ many }) => ({
     profiles: many(studyAgentProfile),
     preferences: many(studyAgentPreferences),
     goals: many(studyAgentGoals),
     pomodoroSettings: many(studyAgentPomodoroSettings),
     notes: many(studyAgentNotes),
+    messages: many(studyAgentMessages),
 }));
 
 export const studyAgentProfileRelations = relations(studyAgentProfile, ({ one, many }) => ({
@@ -180,3 +207,4 @@ export type StudyAgentProfile = InferSelectModel<typeof studyAgentProfile>;
 export type StudyAgentPreferences = InferSelectModel<typeof studyAgentPreferences>;
 export type StudyAgentPomodoroSettings = InferSelectModel<typeof studyAgentPomodoroSettings>;
 export type StudyAgentNote = InferSelectModel<typeof studyAgentNotes>;
+export type StudyAgentMessage = InferSelectModel<typeof studyAgentMessages>;

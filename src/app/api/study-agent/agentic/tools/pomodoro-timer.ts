@@ -140,7 +140,7 @@ export async function managePomodoro(
         .where(
             and(
                 eq(studyAgentPomodoroSettings.userId, input.userId),
-                eq(studyAgentPomodoroSettings.sessionId, session.id)
+                eq(studyAgentPomodoroSettings.sessionId, BigInt(session.id))
             )
         );
 
@@ -161,7 +161,7 @@ export async function managePomodoro(
         .where(
             and(
                 eq(studyAgentPreferences.userId, input.userId),
-                eq(studyAgentPreferences.sessionId, session.id)
+                eq(studyAgentPreferences.sessionId, BigInt(session.id))
             )
         );
 
@@ -182,13 +182,13 @@ export async function managePomodoro(
                 .where(
                     and(
                         eq(studyAgentPreferences.userId, input.userId),
-                        eq(studyAgentPreferences.sessionId, session.id)
+                        eq(studyAgentPreferences.sessionId, BigInt(session.id))
                     )
                 );
         } else {
             await db.insert(studyAgentPreferences).values({
                 userId: input.userId,
-                sessionId: session.id,
+                sessionId: BigInt(session.id),
                 preferences,
             });
         }
@@ -209,15 +209,15 @@ export async function managePomodoro(
         if (settingsRow) {
             await db
                 .update(studyAgentPomodoroSettings)
-                .set(payload)
+                .set({ ...payload, sessionId: BigInt(session.id) })
                 .where(
                     and(
                         eq(studyAgentPomodoroSettings.userId, input.userId),
-                        eq(studyAgentPomodoroSettings.sessionId, session.id)
+                        eq(studyAgentPomodoroSettings.sessionId, BigInt(session.id))
                     )
                 );
         } else {
-            await db.insert(studyAgentPomodoroSettings).values(payload);
+            await db.insert(studyAgentPomodoroSettings).values({ ...payload, sessionId: BigInt(session.id) });
         }
     };
 

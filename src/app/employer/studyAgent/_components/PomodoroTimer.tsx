@@ -8,8 +8,8 @@ import { Label } from "./ui/label";
 
 interface PomodoroTimerProps {
   isDark?: boolean;
-  sessionId?: number | null;
   onTimerUpdate?: (isRunning: boolean, phase: string, timeLeft: number) => void;
+  sessionId?: number | null;
 }
 
 type TimerMode = "focus" | "shortBreak" | "longBreak" | "idle";
@@ -32,7 +32,7 @@ interface PomodoroSession {
   };
 }
 
-export function PomodoroTimer({ isDark = false, onTimerUpdate, sessionId }: PomodoroTimerProps) {
+export function PomodoroTimer({ isDark = false, sessionId }: PomodoroTimerProps) {
   const [mode, setMode] = useState<TimerMode>("focus");
   const [focusDuration, setFocusDuration] = useState(25);
   const [shortBreakDuration, setShortBreakDuration] = useState(5);
@@ -55,23 +55,17 @@ export function PomodoroTimer({ isDark = false, onTimerUpdate, sessionId }: Pomo
     if (!time) return undefined;
     const [mins, secs] = time.split(":").map((value) => Number(value));
     if (Number.isNaN(mins) || Number.isNaN(secs)) return undefined;
-    return mins * 60 + secs;
-  };
-
-  const buildUrl = useCallback(
-    (path: string) => {
-      const url = new URL(path, window.location.origin);
-      if (sessionId) {
-        url.searchParams.set("sessionId", sessionId.toString());
-      }
-      return url.toString();
-    },
-    [sessionId]
-  );
+    return (mins ?? 0) * 60 + (secs ?? 0);
+    };
 
   const syncWithBackend = useCallback(async () => {
     try {
-      const response = await fetch(buildUrl("/api/study-agent/sync/pomodoro"));
+      const url = new URL("/api/study-agent/sync/pomodoro", window.location.origin);
+      if (sessionId) {
+        url.searchParams.set("sessionId", String(sessionId));
+      }
+
+      const response = await fetch(url.toString());
       if (!response.ok) return;
 
       const data = await response.json();
@@ -122,15 +116,15 @@ export function PomodoroTimer({ isDark = false, onTimerUpdate, sessionId }: Pomo
 
       setLastSyncTime(new Date());
     } catch (error) {
-    console.error("Error syncing Pomodoro state", error);
+      console.error("Error syncing Pomodoro state", error);
     }
   }, [
-    buildUrl,
     focusDuration,
     shortBreakDuration,
     longBreakDuration,
     sessionsBeforeLongBreak,
     mode,
+    sessionId,
   ]);
 
   const getCurrentDuration = () => {
@@ -172,10 +166,31 @@ export function PomodoroTimer({ isDark = false, onTimerUpdate, sessionId }: Pomo
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRunning, timeLeft]);
 
+  // Listen for external sync events (e.g., when AI uses pomodoro_timer tool)
+  useEffect(() => {
+    const handlePomodoroSync = () => {
+      console.log("🍅 [Pomodoro] External sync event received, syncing with backend...");
+      void syncWithBackend();
+    };
+
+    window.addEventListener("pomodoro-sync", handlePomodoroSync);
+    return () => {
+      window.removeEventListener("pomodoro-sync", handlePomodoroSync);
+    };
+  }, [syncWithBackend]);
+
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const response = await fetch(buildUrl("/api/study-agent/me/pomodoro-settings"));
+        const settingsUrl = new URL(
+          "/api/study-agent/me/pomodoro-settings",
+          window.location.origin
+        );
+        if (sessionId) {
+          settingsUrl.searchParams.set("sessionId", String(sessionId));
+        }
+
+        const response = await fetch(settingsUrl.toString());
         if (!response.ok) {
           throw new Error("Failed to fetch settings");
         }
@@ -199,8 +214,9 @@ export function PomodoroTimer({ isDark = false, onTimerUpdate, sessionId }: Pomo
       }
     };
 
+    hasLoadedSettings.current = false;
     void loadSettings();
-  }, [buildUrl, syncWithBackend]);
+  }, [sessionId, syncWithBackend]);
 
   useEffect(() => {
     if (!hasLoadedSettings.current) return;
@@ -208,7 +224,7 @@ export function PomodoroTimer({ isDark = false, onTimerUpdate, sessionId }: Pomo
 
     const persistSettings = async () => {
       try {
-        const response = await fetch(buildUrl("/api/study-agent/me/pomodoro-settings"), {
+        const response = await fetch("/api/study-agent/me/pomodoro-settings", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -245,7 +261,6 @@ export function PomodoroTimer({ isDark = false, onTimerUpdate, sessionId }: Pomo
     sessionsBeforeLongBreak,
     autoStartBreaks,
     autoStartPomodoros,
-    sessionId,
   ]);
 
   const handleTimerComplete = async () => {
@@ -258,10 +273,10 @@ export function PomodoroTimer({ isDark = false, onTimerUpdate, sessionId }: Pomo
   const syncAction = async (action: "start" | "pause" | "resume" | "stop" | "skip" | "configure", settings?: object) => {
     setIsSyncing(true);
     try {
-      const response = await fetch(buildUrl("/api/study-agent/sync/pomodoro"), {
+      const response = await fetch("/api/study-agent/sync/pomodoro", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, settings, sessionId }),
+        body: JSON.stringify({ action, settings, sessionId: sessionId ?? undefined }),
       });
 
       if (response.ok) {

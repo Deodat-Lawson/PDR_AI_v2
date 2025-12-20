@@ -105,6 +105,41 @@ export default function App() {
     updatedAt: new Date(note.updatedAt ?? note.createdAt ?? Date.now()),
   });
 
+  const mapServerMessage = (message: any, index: number): Message => ({
+    id:
+      message.id?.toString?.() ??
+      message.originalId ??
+      `message-${Date.now()}-${index}`,
+    role:
+      message.role === "teacher" || message.role === "buddy" ? message.role : "user",
+    content: message.content ?? "",
+    ttsContent: message.ttsContent ?? undefined,
+    timestamp: new Date(message.createdAt ?? Date.now()),
+    attachedDocument: message.attachedDocument ?? undefined,
+    attachedDocumentId: message.attachedDocumentId ?? undefined,
+    attachedDocumentUrl: message.attachedDocumentUrl ?? undefined,
+    isVoice: Boolean(message.isVoice),
+  });
+
+  const buildPreferencesFromServer = (data: any): UserPreferences | null => {
+    const prefs = data?.preferences ?? {};
+    const profile = data?.profile ?? {};
+    const hasPrefs = prefs && Object.keys(prefs).length > 0;
+    const hasProfile = profile && Object.keys(profile).length > 0;
+    if (!hasPrefs && !hasProfile) return null;
+
+    return {
+      selectedDocuments: prefs.selectedDocuments ?? [],
+      name: profile.name ?? prefs.name,
+      grade: profile.grade ?? prefs.grade ?? "",
+      gender: profile.gender ?? prefs.gender ?? "",
+      fieldOfStudy: profile.fieldOfStudy ?? prefs.fieldOfStudy ?? "",
+      mode: prefs.mode ?? "teacher",
+      aiGender: prefs.aiGender,
+      aiPersonality: prefs.aiPersonality,
+    };
+  };
+
   const updateSessionUrl = useCallback(
     (id: number) => {
       const current = new URL(window.location.href);
@@ -115,15 +150,56 @@ export default function App() {
     [router]
   );
 
+  // If no sessionId is present in the URL, create a fresh session and stay on onboarding
+  useEffect(() => {
+    const sessionIdFromUrl = searchParams.get("sessionId");
+    if (sessionIdFromUrl) return;
+
+    let cancelled = false;
+
+    const bootstrapSession = async () => {
+      try {
+        const response = await fetch("/api/study-agent/me/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to create study session");
+        }
+
+        const data = await response.json();
+        const newId = Number(data.session?.id);
+        if (!newId || cancelled) return;
+
+        setSessionId(newId);
+        setAppState("onboarding");
+        updateSessionUrl(newId);
+      } catch (error) {
+        console.error("Error bootstrapping study session", error);
+      }
+    };
+
+    void bootstrapSession();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams, updateSessionUrl]);
+
   // Load persisted study data (goals, notes, preferences) on mount
+  // If URL has sessionId, resume that session immediately
   useEffect(() => {
     const loadPersistedData = async () => {
       try {
         const sessionIdFromUrl = searchParams.get("sessionId");
+        const resolvedSessionId =
+          sessionIdFromUrl ?? (sessionId ? sessionId.toString() : null);
+
+        if (!resolvedSessionId) return;
+
         const url = new URL("/api/study-agent/me", window.location.origin);
-        if (sessionIdFromUrl) {
-          url.searchParams.set("sessionId", sessionIdFromUrl);
-        }
+        url.searchParams.set("sessionId", resolvedSessionId);
 
         const response = await fetch(url.toString());
         if (!response.ok) return;
@@ -142,10 +218,28 @@ export default function App() {
         }
 
         if (Array.isArray(data.notes)) {
-          setNotes(
-            data.notes.map((note: any, index: number) => mapServerNote(note, index))
-          );
+          setNotes(data.notes.map(mapServerNote));
           console.log(`📒 [StudyAgent] Loaded ${data.notes.length} notes from database`);
+        }
+
+        if (Array.isArray(data.messages)) {
+          setMessages(data.messages.map(mapServerMessage));
+          console.log(`💬 [StudyAgent] Restored ${data.messages.length} messages from database`);
+        }
+
+        const prefs = buildPreferencesFromServer(data);
+        if (prefs) {
+          setUserPreferences(prefs);
+          // Preselect first chosen document if available
+          if (prefs.selectedDocuments?.length > 0) {
+            const firstDoc = documents.find((d) => d.id === prefs.selectedDocuments[0]);
+            if (firstDoc) setSelectedDocument(firstDoc);
+          }
+        }
+
+        // If a session is resolved (especially from URL), jump directly to session view
+        if (prefs && data.session?.id) {
+          setAppState("session");
         }
       } catch (error) {
         console.error("Error loading persisted study data", error);
@@ -153,7 +247,32 @@ export default function App() {
     };
 
     void loadPersistedData();
-  }, [searchParams, updateSessionUrl]);
+  }, [searchParams, documents, updateSessionUrl, sessionId]);
+
+  // Save new messages to database
+  const saveMessageToDb = useCallback(async (message: Message) => {
+    if (!sessionId) return;
+    try {
+      await fetch("/api/study-agent/me/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId,
+          originalId: message.id,
+          role: message.role,
+          content: message.content,
+          ttsContent: message.ttsContent,
+          attachedDocument: message.attachedDocument,
+          attachedDocumentId: message.attachedDocumentId,
+          attachedDocumentUrl: message.attachedDocumentUrl,
+          isVoice: message.isVoice,
+          createdAt: message.timestamp.toISOString(),
+        }),
+      });
+    } catch (e) {
+      console.error("Error saving message to database:", e);
+    }
+  }, [sessionId]);
 
   // Fetch documents from database on mount
   useEffect(() => {
@@ -309,7 +428,6 @@ export default function App() {
       if (sessionData.session?.id) {
         newSessionId = Number(sessionData.session.id);
         setSessionId(newSessionId);
-        updateSessionUrl(newSessionId);
       }
     } catch (error) {
       console.error("Error creating study session", error);
@@ -528,6 +646,7 @@ export default function App() {
     };
 
     setMessages((prev) => [...prev, userMessage]);
+    void saveMessageToDb(userMessage);
 
     // Get current messages for conversation history
     const currentMessages = [...messages, userMessage];
@@ -609,6 +728,38 @@ export default function App() {
         if (data.suggestedQuestions && data.suggestedQuestions.length > 0) {
           console.log("💡 [StudyAgent] Suggested questions:", data.suggestedQuestions);
         }
+        
+        // Handle pomodoro timer - trigger sync event for the timer component
+        if (data.toolsUsed?.includes("pomodoro_timer")) {
+          console.log("🍅 [StudyAgent] Pomodoro timer tool used, triggering sync...");
+          window.dispatchEvent(new CustomEvent("pomodoro-sync"));
+        }
+        
+        // Handle notes - refetch notes when take_notes tool is used
+        if (data.toolsUsed?.includes("take_notes")) {
+          console.log("📝 [StudyAgent] Notes tool used, refreshing notes...");
+          try {
+            const notesResponse = await fetch("/api/study-agent/me");
+            if (notesResponse.ok) {
+              const notesData = await notesResponse.json();
+              if (Array.isArray(notesData.notes)) {
+                setNotes(
+                  notesData.notes.map((note: { id?: string | number; title?: string; content?: string; tags?: string[]; createdAt: string; updatedAt: string }, index: number) => ({
+                    id: note.id?.toString?.() ?? String(note.id) ?? `note-${Date.now()}-${index}`,
+                    title: note.title ?? "",
+                    content: note.content ?? "",
+                    tags: note.tags ?? [],
+                    createdAt: new Date(note.createdAt),
+                    updatedAt: new Date(note.updatedAt),
+                  }))
+                );
+                console.log(`📒 [StudyAgent] Refreshed ${notesData.notes.length} notes from database`);
+              }
+            }
+          } catch (err) {
+            console.error("Error refreshing notes:", err);
+          }
+        }
       }
 
       const aiMessage: Message = {
@@ -620,6 +771,7 @@ export default function App() {
         isVoice: true,
       };
       setMessages((prev) => [...prev, aiMessage]);
+      void saveMessageToDb(aiMessage);
 
     } catch (error) {
       console.error("Error getting AI response:", error);
@@ -638,6 +790,7 @@ export default function App() {
         isVoice: true,
       };
       setMessages((prev) => [...prev, aiMessage]);
+      void saveMessageToDb(aiMessage);
     }
   };
 
@@ -707,47 +860,13 @@ export default function App() {
   };
 
   const handleAddNote = (note: Omit<Note, "id" | "createdAt" | "updatedAt">) => {
-    const tempId = `temp-${Date.now()}`;
-    const optimisticNote: Note = {
+    const newNote: Note = {
       ...note,
-      id: tempId,
+      id: Date.now().toString(), // fix this
       createdAt: new Date(),
       updatedAt: new Date(),
     };
-    setNotes((prev) => [...prev, optimisticNote]);
-
-    void (async () => {
-      try {
-        const response = await fetch("/api/study-agent/sync/notes", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "create",
-            data: {
-              title: note.title,
-              content: note.content,
-              tags: note.tags,
-            },
-            sessionId,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to save note");
-        }
-
-        const data = await response.json();
-        if (data.note) {
-          const savedNote = mapServerNote(data.note, 0);
-          setNotes((prev) =>
-            prev.map((existing) => (existing.id === tempId ? savedNote : existing))
-          );
-        }
-      } catch (error) {
-        console.error("Error saving note", error);
-        setNotes((prev) => prev.filter((existing) => existing.id !== tempId));
-      }
-    })();
+    setNotes((prev) => [...prev, newNote]);
   };
 
   const handleUpdateNote = async (noteId: string, updates: Partial<Note>) => {
@@ -760,7 +879,7 @@ export default function App() {
 
     // Sync with backend
     try {
-      const response = await fetch("/api/study-agent/sync/notes", {
+      await fetch("/api/study-agent/sync/notes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -770,16 +889,6 @@ export default function App() {
           sessionId,
         }),
       });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.note) {
-          const updatedNote = mapServerNote(data.note, 0);
-          setNotes((prev) =>
-            prev.map((note) => (note.id === noteId ? updatedNote : note))
-          );
-        }
-      }
     } catch (error) {
       console.error("Error syncing note update to backend:", error);
     }
@@ -933,7 +1042,6 @@ export default function App() {
             onToggleSidebar={() => setShowSidebar(!showSidebar)}
             isDark={isDark}
             errorMessage={studyPlanError}
-            sessionId={sessionId}
           />
         )}
       </ResizablePanel>

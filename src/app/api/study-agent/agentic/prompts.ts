@@ -17,7 +17,6 @@ export function getSystemPrompt(mode: StudyMode, state: StudyAgentState): string
   const baseContext = `
 Field of study: ${state.fieldOfStudy ?? "General"}
 Selected documents: ${state.selectedDocuments.length} document(s)
-Study plan items: ${state.studyPlan.length} item(s)
 `;
 
   const modePrompts: Record<StudyMode, string> = {
