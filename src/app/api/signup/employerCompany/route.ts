@@ -1,8 +1,7 @@
 import {db} from "~/server/db";
 import {company, users} from "~/server/db/schema";
-import {NextResponse} from "next/server";
-import console from "console";
 import {eq} from "drizzle-orm";
+import {handleApiError, createSuccessResponse, createValidationError} from "~/lib/api-utils";
 
 type PostBody = {
     userId: string;
@@ -27,9 +26,8 @@ export async function POST(request: Request) {
             .where(eq(company.name, companyName));
 
         if (existingCompany) {
-            return NextResponse.json(
-                { error: "Company already exists." },
-                { status: 400 }
+            return createValidationError(
+                "Company already exists. Please use a different company name."
             );
         }
 
@@ -45,9 +43,8 @@ export async function POST(request: Request) {
             .returning({ id: company.id });
 
         if(!newCompany) {
-            return NextResponse.json(
-                { error: "Could not create company." },
-                { status: 400 }
+            return createValidationError(
+                "Could not create company. Please try again later."
             );
         }
 
@@ -63,14 +60,13 @@ export async function POST(request: Request) {
             role: "owner",
         });
 
-        return NextResponse.json({ success: true });
-
+        return createSuccessResponse(
+            { userId, role: "owner" },
+            "Company and owner account created successfully."
+        );
     }
     catch (error: unknown) {
-        console.error(error);
-        return NextResponse.json({ error: error}, { status: 500 });
+        console.error("Error during employer company signup:", error);
+        return handleApiError(error);
     }
 }
-
-
-
