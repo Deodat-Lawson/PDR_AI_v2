@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
-import { ChatOpenAI } from "@langchain/openai";
+import { ChatOpenAI, OpenAIEmbeddings } from "@langchain/openai";
+import { ChatAnthropic } from "@langchain/anthropic";
+import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { SystemMessage, HumanMessage } from "@langchain/core/messages";
-import { OpenAIEmbeddings } from "@langchain/openai";
+import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { db } from "~/server/db/index";
 import { eq, sql } from "drizzle-orm";
 import ANNOptimizer from "../predictive-document-analysis/services/annOptimizer";
@@ -112,6 +114,33 @@ const qaAnnOptimizer = new ANNOptimizer({
 
 const COMPANY_SCOPE_ROLES = new Set(["employer", "owner"]);
 
+type AIModelType = "gpt4" | "claude" | "gemini";
+
+function getChatModel(modelType: AIModelType): BaseChatModel {
+    switch (modelType) {
+        case "claude":
+            return new ChatAnthropic({
+                anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+                modelName: "claude-sonnet-4-20250514",
+                temperature: 0.7,
+            });
+        case "gemini":
+            return new ChatGoogleGenerativeAI({
+                apiKey: process.env.GOOGLE_AI_API_KEY,
+                model: "gemini-2.0-flash",
+                temperature: 0.7,
+            });
+        case "gpt4":
+        default:
+            return new ChatOpenAI({
+                openAIApiKey: process.env.OPENAI_API_KEY,
+                modelName: "gpt-4o",
+                temperature: 0.7,
+                timeout: 600000,
+            });
+    }
+}
+
 export async function POST(request: Request) {
     // Apply rate limiting: 20 requests per 15 minutes for AI chat
     // This is an expensive operation that calls OpenAI APIs
@@ -149,6 +178,7 @@ export async function POST(request: Request) {
             searchScope,
             enableWebSearch,
             aiPersona,
+            aiModel,
         } = validation.data;
 
         console.log("searchScope", searchScope);
@@ -183,9 +213,9 @@ export async function POST(request: Request) {
         }
 
         const userCompanyId = requestingUser.companyId;
-        const numericCompanyId = Number.parseInt(userCompanyId, 10);
+        const numericCompanyId = userCompanyId ? Number(userCompanyId) : null;
 
-        if (Number.isNaN(numericCompanyId)) {
+        if (numericCompanyId === null || Number.isNaN(numericCompanyId)) {
             return NextResponse.json({
                 success: false,
                 message: "User is not associated with a valid company."
@@ -250,10 +280,9 @@ export async function POST(request: Request) {
                 };
                 
                 documents = await companyEnsembleSearch(
-                    numericCompanyId,
                     question,
-                    embeddings,
-                    companyOptions
+                    companyOptions,
+                    embeddings
                 );
             } else if (searchScope === "document" && documentId) {
                 const documentOptions: DocumentSearchOptions = {
@@ -263,10 +292,9 @@ export async function POST(request: Request) {
                 };
                 
                 documents = await documentEnsembleSearch(
-                    documentId,
                     question,
-                    embeddings,
-                    documentOptions
+                    documentOptions,
+                    embeddings
                 );
             } else {
                 throw new Error("Invalid search parameters");
@@ -304,7 +332,7 @@ export async function POST(request: Request) {
                             distance: 1 - result.confidence,
                             source: 'ann_fallback',
                             searchScope: 'document' as const,
-                            retrievalMethod: 'ann_fallback',
+                            retrievalMethod: 'ann_hybrid' as const,
                             timestamp: new Date().toISOString()
                         }
                     }));
@@ -337,7 +365,7 @@ export async function POST(request: Request) {
                             distance: row.distance,
                             source: 'traditional_fallback',
                             searchScope: 'document' as const,
-                            retrievalMethod: 'traditional_fallback',
+                            retrievalMethod: 'bm25_fallback' as const,
                             timestamp: new Date().toISOString()
                         }
                     }));
@@ -374,12 +402,9 @@ export async function POST(request: Request) {
             
         console.log(`✅ [AI] Built context with pages: ${documents.map(doc => doc.metadata?.page).join(', ')}`);
 
-        const chat = new ChatOpenAI({
-            openAIApiKey: process.env.OPENAI_API_KEY,
-            modelName: "gpt-5.2",
-            temperature: 0.7, // Increased for more natural, conversational responses
-            timeout: 600000
-        });
+        const selectedAiModel = aiModel ?? 'gpt4';
+        const chat = getChatModel(selectedAiModel);
+        console.log(`🤖 Using AI model: ${selectedAiModel}`);
 
         const selectedStyle = style ?? 'concise';
         const enableWebSearchFlag = enableWebSearch ?? false;
@@ -574,6 +599,7 @@ The user enabled web search, but no relevant results were found for this query. 
             chunksAnalyzed: documents.length,
             fusionWeights: [0.4, 0.6],
             searchScope,
+            aiModel: selectedAiModel,
             webSources: enableWebSearchFlag ? webSearchResults : undefined,
             webSearch: enableWebSearchFlag ? {
                 refinedQuery: refinedSearchQuery || question,

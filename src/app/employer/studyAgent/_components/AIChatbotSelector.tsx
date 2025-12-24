@@ -1,6 +1,6 @@
 "use client";
 
-import { Sparkles, Brain, Zap, Bot } from "lucide-react";
+import { Sparkles, Brain, Zap } from "lucide-react";
 import { Button } from "./ui/button";
 import {
   DropdownMenu,
@@ -12,7 +12,7 @@ import {
 } from "./ui/dropdown-menu";
 import { ChevronDown } from "lucide-react";
 
-export type AIModel = "gpt4" | "claude" | "gemini" | "llama";
+export type AIModel = "gpt4" | "claude" | "gemini";
 
 interface AIChatbotSelectorProps {
   selectedModel: AIModel;
@@ -44,14 +44,6 @@ const AI_MODELS = [
     color: "text-blue-600",
     bgColor: "bg-blue-50",
   },
-  {
-    id: "llama" as AIModel,
-    name: "LLaMA 3",
-    icon: Bot,
-    description: "Meta's open source model",
-    color: "text-purple-600",
-    bgColor: "bg-purple-50",
-  },
 ];
 
 export function AIChatbotSelector({ selectedModel, onSelectModel }: AIChatbotSelectorProps) {
@@ -73,7 +65,7 @@ export function AIChatbotSelector({ selectedModel, onSelectModel }: AIChatbotSel
           <ChevronDown className="w-4 h-4 text-gray-400" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-64">
+      <DropdownMenuContent className="w-64 bg-white">
         <DropdownMenuLabel>Select AI Model</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {AI_MODELS.map((model) => {

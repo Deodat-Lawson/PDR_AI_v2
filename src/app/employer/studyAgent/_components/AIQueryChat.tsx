@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Send, Sparkles } from "lucide-react";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
@@ -24,6 +24,7 @@ export function AIQueryChat({ isBuddy = false, isDark = false }: AIQueryChatProp
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [selectedModel, setSelectedModel] = useState<AIModel>("gpt4");
+  const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -35,28 +36,50 @@ export function AIQueryChat({ isBuddy = false, isDark = false }: AIQueryChatProp
     scrollToBottom();
   }, [messages]);
 
-  const generateAIResponse = (query: string): string => {
-    const lowerQuery = query.toLowerCase();
-    
-    if (lowerQuery.includes("explain") || lowerQuery.includes("what is")) {
-      return `Great question! Let me explain this concept in detail. Based on your study materials, here are the key points you should understand...`;
-    }
-    if (lowerQuery.includes("summary") || lowerQuery.includes("summarize")) {
-      return `Here's a comprehensive summary:\n\n1. Main concept overview\n2. Key supporting details\n3. Important examples and applications\n4. Practice recommendations`;
-    }
-    if (lowerQuery.includes("example")) {
-      return `Absolutely! Here's a practical example that illustrates this concept:\n\nConsider a real-world scenario where...`;
-    }
-    if (lowerQuery.includes("help") || lowerQuery.includes("confused")) {
-      return `I'm here to help! Let's break this down into simpler parts. Which specific aspect is causing confusion?`;
-    }
-    
-    return `That's an interesting question! Let me help you understand this better. Based on the context of your materials...`;
-  };
+  const callAIAssistantAPI = useCallback(async (userMessage: string, currentMessages: AIMessage[]) => {
+    try {
+      // Build conversation history string for context
+      const conversationHistory = currentMessages
+        .slice(-10)
+        .map((msg) => `${msg.role === "user" ? "User" : "Assistant"}: ${msg.content}`)
+        .join("\n");
 
-  const handleSubmit = (e: React.FormEvent) => {
+      const response = await fetch("/api/AIAssistant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question: userMessage,
+          searchScope: "company",
+          aiModel: selectedModel,
+          style: "concise",
+          conversationHistory: conversationHistory || undefined,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Request failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.message || "Failed to get AI response");
+      }
+
+      return {
+        content: data.summarizedAnswer || "I apologize, but I couldn't generate a response.",
+        model: data.aiModel || selectedModel,
+      };
+    } catch (err) {
+      console.error("Error calling AI Assistant API:", err);
+      throw err;
+    }
+  }, [selectedModel]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (input.trim()) {
+    if (input.trim() && !isTyping) {
       const userMessage: AIMessage = {
         id: Date.now().toString(),
         role: "user",
@@ -64,27 +87,46 @@ export function AIQueryChat({ isBuddy = false, isDark = false }: AIQueryChatProp
         timestamp: new Date(),
       };
       
-      setMessages((prev) => [...prev, userMessage]);
+      const currentInput = input.trim();
+      const currentMessages = [...messages, userMessage];
+      
+      setMessages(currentMessages);
       setInput("");
       setIsTyping(true);
+      setError(null);
       
       // Reset textarea height
       if (textareaRef.current) {
         textareaRef.current.style.height = "auto";
       }
 
-      // Simulate AI response
-      setTimeout(() => {
+      try {
+        const aiResponse = await callAIAssistantAPI(currentInput, currentMessages);
+        
         const aiMessage: AIMessage = {
           id: (Date.now() + 1).toString(),
           role: "ai",
-          content: generateAIResponse(input),
+          content: aiResponse.content,
+          timestamp: new Date(),
+          model: aiResponse.model,
+        };
+        setMessages((prev) => [...prev, aiMessage]);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : "Failed to get response";
+        setError(errorMessage);
+        
+        // Add error message to chat
+        const errorAiMessage: AIMessage = {
+          id: (Date.now() + 1).toString(),
+          role: "ai",
+          content: `I'm sorry, I encountered an error: ${errorMessage}. Please try again.`,
           timestamp: new Date(),
           model: selectedModel,
         };
-        setMessages((prev) => [...prev, aiMessage]);
+        setMessages((prev) => [...prev, errorAiMessage]);
+      } finally {
         setIsTyping(false);
-      }, 1000);
+      }
     }
   };
 
