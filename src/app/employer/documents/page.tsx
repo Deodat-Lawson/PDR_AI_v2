@@ -7,7 +7,7 @@ import { useAuth } from "@clerk/nextjs";
 
 import styles from "~/styles/Employer/DocumentViewer.module.css";
 import LoadingPage from "~/app/_components/loading";
-import { fetchWithRetries } from "./fetchWithRetries";
+import { fetchWithRetries } from "~/lib/fetchWithRetries";
 import { DocumentsSidebar } from "./DocumentsSidebar";
 import { DocumentContent } from "./DocumentContent";
 import { type ViewMode, type errorType } from "~/app/employer/documents/types";
