@@ -1,5 +1,6 @@
 import "~/styles/globals.css";
 import "@uploadthing/react/styles.css";
+import { Analytics } from '@vercel/analytics/next';
 
 
 import { GeistSans } from "geist/font/sans";
@@ -23,6 +24,7 @@ export default function RootLayout({
       <html lang="en" className={`${GeistSans.variable}`}>
       <body>
       {children}
+      <Analytics />
       </body>
       </html>
     </ClerkProvider>

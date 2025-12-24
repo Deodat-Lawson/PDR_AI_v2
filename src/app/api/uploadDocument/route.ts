@@ -206,7 +206,7 @@ export async function POST(request: Request) {
             }
 
             const rowsToInsert = chunkPayload.map((chunk) => ({
-                documentId: insertedDocument.id,
+                documentId: BigInt(insertedDocument.id),
                 page: chunk.page,
                 content: chunk.content,
                 embedding: sql`${chunk.embeddingVector}::vector(1536)`,
@@ -221,10 +221,18 @@ export async function POST(request: Request) {
             throw new UploadError("Failed to create document.", 500);
         }
 
+        // Convert BigInt fields to numbers for JSON serialization
+        const doc = createdDocument as DocumentRow;
+        const serializedDocument = {
+            ...doc,
+            id: Number(doc.id),
+            companyId: Number(doc.companyId),
+        };
+
         return NextResponse.json(
             {
                 message: "Document created and embeddings stored successfully",
-                document: createdDocument,
+                document: serializedDocument,
                 ocrProcessed: enableOCR ?? false,
             },
             { status: 201 }

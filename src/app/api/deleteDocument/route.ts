@@ -48,13 +48,13 @@ export async function DELETE(request: Request) {
         }
 
         // Delete related data in proper order to maintain referential integrity
-        await db.delete(ChatHistory).where(eq(ChatHistory.documentId, docId));
+        await db.delete(ChatHistory).where(eq(ChatHistory.documentId, BigInt(docId)));
         await db.delete(documentReferenceResolution).where(
             eq(documentReferenceResolution.resolvedInDocumentId, documentId)
         );
 
         // Delete PDF chunks associated with the document
-        await db.delete(pdfChunks).where(eq(pdfChunks.documentId, documentId));
+        await db.delete(pdfChunks).where(eq(pdfChunks.documentId, BigInt(documentId)));
         console.log(`Deleted PDF chunks for document ${documentId}`);
 
         // Finally delete the document itself

@@ -40,9 +40,15 @@ export async function POST() {
             timeStyle: "short",
         });
 
+        // Convert BigInt fields to numbers for JSON serialization
+        const serializedUserInfo = {
+            ...userInfo,
+            companyId: Number(userInfo.companyId),
+        };
+
         return NextResponse.json(
             {
-                ...userInfo,
+                ...serializedUserInfo,
                 company: companyRecord.name,
                 submissionDate: submissionDate,
             },

@@ -62,7 +62,7 @@ export async function POST(request: Request) {
             .where(
                 and(
                     eq(ChatHistory.UserId, userId),
-                    eq(ChatHistory.documentId, targetDocument.id.toString())
+                    eq(ChatHistory.documentId, BigInt(targetDocument.id))
                 )
             );
 

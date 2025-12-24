@@ -38,8 +38,15 @@ export async function GET(_request: Request) {
             .select()
             .from(category)
             .where(eq(category.companyId, companyId));
+            
+        // Convert BigInt fields to numbers for JSON serialization
+        const serializedCategories = categories.map((category) => ({
+            ...category,
+            id: Number(category.id),
+            companyId: Number(category.companyId),
+        }));
 
-        return NextResponse.json(categories, { status: 200 });
+        return NextResponse.json(serializedCategories, { status: 200 });
     } catch (error: unknown) {
         console.error("Error fetching documents:", error);
         return NextResponse.json(

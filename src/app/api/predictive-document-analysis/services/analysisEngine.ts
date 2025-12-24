@@ -149,7 +149,7 @@ export async function callAIAnalysis(
 
     const chat = new ChatOpenAI({
         openAIApiKey: process.env.OPENAI_API_KEY,
-        modelName: "gpt-5.1",
+        modelName: "gpt-5.2",
         temperature: 0.3,
     });
 
@@ -271,7 +271,7 @@ async function enhanceWithCompanyDocuments(
         id: document.id, 
         title: document.title 
     }).from(document).where(and(
-        eq(document.companyId, specification.companyId.toString()),
+        eq(document.companyId, BigInt(specification.companyId)),
         ne(document.id, specification.documentId)
     )));
     

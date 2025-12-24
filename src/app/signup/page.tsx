@@ -21,18 +21,29 @@ const RoleCard: React.FC<RoleCardProps> = ({
                                                icon,
                                                isSelected,
                                                onClick,
-                                           }) => (
-    <div
-        className={`${styles.roleCard} ${isSelected ? styles.selected : ''}`}
-        onClick={onClick}
-        role="button"
-        tabIndex={0}
-    >
-        <div className={styles.iconWrapper}>{icon}</div>
-        <h2 className={styles.cardTitle}>{title}</h2>
-        <p className={styles.cardDescription}>{description}</p>
-    </div>
-);
+                                           }) => {
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onClick();
+        }
+    };
+
+    return (
+        <div
+            className={`${styles.roleCard} ${isSelected ? styles.selected : ''}`}
+            onClick={onClick}
+            onKeyDown={handleKeyDown}
+            role="button"
+            tabIndex={0}
+            aria-pressed={isSelected}
+        >
+            <div className={styles.iconWrapper}>{icon}</div>
+            <h2 className={styles.cardTitle}>{title}</h2>
+            <p className={styles.cardDescription}>{description}</p>
+        </div>
+    );
+};
 
 const RoleSelection: React.FC = () => {
     const [selectedRole, setSelectedRole] = useState<'employer' | 'employee' | null>(null);

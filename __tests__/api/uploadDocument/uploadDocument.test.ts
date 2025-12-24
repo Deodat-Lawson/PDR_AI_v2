@@ -112,7 +112,7 @@ describe("POST /api/uploadDocument", () => {
       url: "https://example.com/doc.pdf",
       category: "contracts",
       title: "Example Document",
-      companyId: "5",
+      companyId: 5,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -198,7 +198,7 @@ describe("POST /api/uploadDocument", () => {
       url: "https://example.com/doc.pdf",
       category: "policies",
       title: "Example Document",
-      companyId: "9",
+      companyId: 9,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

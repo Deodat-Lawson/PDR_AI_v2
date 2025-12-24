@@ -106,7 +106,7 @@ describe("Chat history routes", () => {
             expect(response.status).toBe(201);
             expect(insertValues).toHaveBeenCalledWith({
                 UserId: "user-1",
-                documentId: "7",
+                documentId: 7n,
                 documentTitle: "Actual Title",
                 question: "Q?",
                 response: "Answer",

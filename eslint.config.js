@@ -26,6 +26,8 @@ const eslintConfig = [
             "eslint.config.js",
             "__tests__/**",
             "jest.config.mjs",
+            "public/vad/**",
+            "scripts/**",
         ],
     },
     ...compat.extends(

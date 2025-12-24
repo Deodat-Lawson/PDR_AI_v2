@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { Upload, FileText, BarChart, Brain, Settings, Users, HelpCircle } from "lucide-react";
+import { Upload, FileText, BarChart, Brain, Settings, Users, HelpCircle, GraduationCap } from "lucide-react";
 import styles from "~/styles/Employer/Home.module.css";
 import { useRouter } from "next/navigation";
 import ProfileDropdown from "~/app/employer/_components/ProfileDropdown";
@@ -60,36 +60,49 @@ const HomeScreen = () => {
             title: "Upload Documents",
             description: "Add new documents to the database for AI analysis",
             path: "/employer/upload",
+            isBeta: false,
         },
         {
             icon: <FileText className={styles.menuIcon} />,
             title: "View Documents",
             description: "Browse and manage your uploaded documents",
             path: "/employer/documents",
+            isBeta: false,
         },
         {
             icon: <BarChart className={styles.menuIcon} />,
             title: "Document Statistics",
             description: "View analytics and insights about document usage",
             path: "/unavailable",
+            isBeta: false,
+        },
+        {
+            icon: <GraduationCap className={styles.menuIcon} />,
+            title: "Study Agent",
+            description: "AI-powered study companion with teacher and study buddy modes",
+            path: "/employer/studyAgent",
+            isBeta: true,
         },
         {
             icon: <Users className={styles.menuIcon} />,
             title: "Manage Employees",
             description: "View and manage employees in your organization",
-            path: "/employer/employees", 
+            path: "/employer/employees",
+            isBeta: false,
         },
         {
             icon: <Settings className={styles.menuIcon} />,
             title: "User Settings",
             description: "Manage your profile, preferences, and account details",
             path: "/employer/settings",
+            isBeta: false,
         },
         {
             icon: <HelpCircle className={styles.menuIcon} />,
             title: "Contact Support",
             description: "Get help with technical difficulties and questions",
             path: "/employer/contact",
+            isBeta: false,
         },
     ];
 
@@ -130,10 +143,21 @@ const HomeScreen = () => {
                             key={index}
                             className={styles.menuCard}
                             onClick={() => handleNavigation(option.path)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    handleNavigation(option.path);
+                                }
+                            }}
                             role="button"
                             tabIndex={0}
                         >
-                            <div className={styles.iconContainer}>{option.icon}</div>
+                            <div className={styles.cardHeader}>
+                                <div className={styles.iconContainer}>{option.icon}</div>
+                                {option.isBeta && (
+                                    <span className={styles.betaBadge}>Beta</span>
+                                )}
+                            </div>
                             <h2 className={styles.menuTitle}>{option.title}</h2>
                             <p className={styles.menuDescription}>{option.description}</p>
                             <div className={styles.cardFooter}>

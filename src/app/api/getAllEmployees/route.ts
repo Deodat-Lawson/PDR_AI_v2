@@ -37,7 +37,14 @@ export async function GET() {
                 )
             );
 
-        return NextResponse.json(docs, { status: 200 });
+        // Convert BigInt fields to numbers for JSON serialization
+        const serializedDocs = docs.map((doc) => ({
+            ...doc,
+            id: Number(doc.id),
+            companyId: Number(doc.companyId),
+        }));
+
+        return NextResponse.json(serializedDocs, { status: 200 });
     } catch (error: unknown) {
         console.error("Error fetching documents:", error);
         return NextResponse.json(

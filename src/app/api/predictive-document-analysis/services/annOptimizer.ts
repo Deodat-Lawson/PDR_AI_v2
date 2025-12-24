@@ -233,7 +233,7 @@ export class ANNOptimizer {
         const chunks = await db.select({
             id: pdfChunks.id,
             embedding: pdfChunks.embedding
-        }).from(pdfChunks).where(eq(pdfChunks.documentId, documentId));
+        }).from(pdfChunks).where(eq(pdfChunks.documentId, BigInt(documentId)));
 
         if (chunks.length === 0) {
             return {

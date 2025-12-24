@@ -66,6 +66,7 @@ export const PredictiveAnalysisSchema = z.object({
 }));
 
 const aiPersonaOptions = ["general", "learning-coach", "financial-expert", "legal-expert", "math-reasoning"] as const;
+const aiModelOptions = ["gpt4", "claude", "gemini"] as const;
 
 export const QuestionSchema = z.object({
   documentId: z.number().int().positive().optional(),
@@ -83,6 +84,7 @@ export const QuestionSchema = z.object({
     z.boolean().optional()
   ),
   aiPersona: z.enum(aiPersonaOptions).optional(),
+  aiModel: z.enum(aiModelOptions).optional(),
   conversationHistory: z.string().optional(),
 }).transform((data) => ({
   documentId: data.documentId,
@@ -92,6 +94,7 @@ export const QuestionSchema = z.object({
   searchScope: data.searchScope ?? "document" as const,
   enableWebSearch: data.enableWebSearch ?? false,
   aiPersona: data.aiPersona ?? "general",
+  aiModel: data.aiModel ?? "gpt4" as const,
   conversationHistory: data.conversationHistory,
 }));
 

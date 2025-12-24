@@ -63,7 +63,7 @@ async function getCachedAnalysis(documentId: number, analysisType: string, inclu
         .from(predictiveDocumentAnalysisResults)
         .where(
             and(
-                eq(predictiveDocumentAnalysisResults.documentId, documentId),
+                eq(predictiveDocumentAnalysisResults.documentId, BigInt(documentId)),
                 eq(predictiveDocumentAnalysisResults.analysisType, analysisType),
                 eq(predictiveDocumentAnalysisResults.includeRelatedDocs, includeRelatedDocs),
                 gt(
@@ -80,7 +80,7 @@ async function getCachedAnalysis(documentId: number, analysisType: string, inclu
 
 async function storeAnalysisResult(documentId: number, analysisType: string, includeRelatedDocs: boolean, resultJson: PredictiveAnalysisOutput) {
     const result = await db.insert(predictiveDocumentAnalysisResults).values({
-        documentId,
+        documentId: BigInt(documentId),
         analysisType,
         includeRelatedDocs,
         resultJson,
@@ -95,7 +95,7 @@ async function getDocumentDetails(documentId: number) : Promise<DocumentDetails 
         .where(eq(document.id, documentId))
         .limit(1);
 
-    return results[0] ?? null;
+    return results[0] ? { ...results[0], companyId: results[0].companyId.toString() } : null;
 }
 
 export async function POST(request: Request) {
@@ -187,7 +187,7 @@ export async function POST(request: Request) {
                 page: pdfChunks.page
             })
             .from(pdfChunks)
-            .where(eq(pdfChunks.documentId, documentId))
+            .where(eq(pdfChunks.documentId, BigInt(documentId)))
             .orderBy(pdfChunks.id);
 
         if (chunksResults.length === 0) {

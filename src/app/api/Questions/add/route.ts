@@ -58,7 +58,7 @@ export async function POST(request: Request) {
 
         await db.insert(ChatHistory).values({
             UserId: userId,
-            documentId: targetDocument.id.toString(),
+            documentId: BigInt(targetDocument.id),
             documentTitle: targetDocument.title ?? documentTitle,
             question,
             response,

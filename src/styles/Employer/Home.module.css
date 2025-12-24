@@ -71,9 +71,13 @@
     transform hover:-translate-y-2 hover:shadow-2xl;
 }
 
+.cardHeader {
+    @apply flex items-start justify-between mb-6;
+}
+
 .iconContainer {
     @apply w-16 h-16 bg-gradient-to-br from-purple-100 to-indigo-100 
-    rounded-2xl flex items-center justify-center mb-6
+    rounded-2xl flex items-center justify-center flex-shrink-0
     transition-transform duration-300;
 }
 
@@ -103,6 +107,14 @@
 .getStarted::after {
     content: "→";
     @apply ml-2 transition-transform duration-300;
+}
+
+/* Beta Badge Styles */
+.betaBadge {
+    @apply px-3 py-1 text-xs font-bold rounded-full
+    bg-gradient-to-r from-orange-500 to-pink-500 text-white
+    shadow-lg animate-pulse;
+    animation-duration: 2s;
 }
 
 /* Statistics Container - Enhanced Design */
@@ -246,6 +258,10 @@
 
 [data-theme="dark"] .menuCard:hover .getStarted {
     @apply text-purple-300;
+}
+
+[data-theme="dark"] .betaBadge {
+    @apply bg-gradient-to-r from-orange-600 to-pink-600;
 }
 
 [data-theme="dark"] .stat {

@@ -39,7 +39,7 @@ export async function findSuggestedCompanyDocuments(
             id: document.id, 
             title: document.title 
         }).from(document).where(and(
-            eq(document.companyId, companyId.toString()),
+            eq(document.companyId, BigInt(companyId)),
             ne(document.id, currentDocumentId)
         ));
         
@@ -143,7 +143,7 @@ async function findExactReferenceMatches(
             page: pdfChunks.page,
             documentId: pdfChunks.documentId,
         }).from(pdfChunks).where(and(
-            inArray(pdfChunks.documentId, docIds),
+            inArray(pdfChunks.documentId, docIds.map(id => BigInt(id))),
             sql`LOWER(${pdfChunks.content}) LIKE ${`%${term.replace(/"/g, '')}%`}`
         )).limit(3);
 
@@ -157,7 +157,7 @@ async function findExactReferenceMatches(
                 const snippet = truncateText(result.content, 120);
                 
                 matches.push({
-                    documentId: result.documentId,
+                    documentId: Number(result.documentId),
                     confidence,
                     page: result.page,
                     snippet,
@@ -247,7 +247,7 @@ async function findOptimizedContextualMatches(
 
             for (const result of annResults) {
                 allMatches.push({
-                    documentId: result.documentId,
+                    documentId: Number(result.documentId),
                     page: result.page,
                     snippet: truncateText(result.content, 150),
                     similarity: result.confidence,
@@ -287,7 +287,7 @@ async function findTraditionalContextualMatches(
         documentId: pdfChunks.documentId,
         distance: distanceSql
     }).from(pdfChunks).where(and(
-        inArray(pdfChunks.documentId, docIds),
+        inArray(pdfChunks.documentId, docIds.map(id => BigInt(id))),
         sql`${distanceSql} < 0.3`
     )).orderBy(distanceSql).limit(5);
 
@@ -296,7 +296,7 @@ async function findTraditionalContextualMatches(
         const similarity = Math.max(0, (1 - distance) * 0.7);
         
         return {
-            documentId: result.documentId,
+            documentId: Number(result.documentId),
             page: result.page,
             snippet: truncateText(result.content, 150),
             similarity,

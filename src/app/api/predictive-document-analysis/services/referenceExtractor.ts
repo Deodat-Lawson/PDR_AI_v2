@@ -45,7 +45,7 @@ export async function extractReferences(
     
     const chat = new ChatOpenAI({
         openAIApiKey: process.env.OPENAI_API_KEY,
-        modelName: "gpt-5.1",
+        modelName: "gpt-5.2",
         temperature: 0.1,
     });
 
