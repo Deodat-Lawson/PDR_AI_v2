@@ -8,7 +8,7 @@ import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 
-import { studyAgentPreferences, studyAgentPomodoroSettings } from "~/server/db/schema";
+import { studyAgentPomodoroSettings } from "~/server/db/schema";
 import { db } from "~/server/db";
 import { resolveSessionForUser } from "~/server/study-agent/session";
 import type { PomodoroSession, PomodoroSettings, PomodoroPhase, PomodoroInput } from "../types";
@@ -32,6 +32,7 @@ type StoredPomodoroState = {
     completedPomodoros: number;
     totalWorkMinutes: number;
     currentTaskId?: string;
+    remainingSeconds: number;
 };
 
 const DEFAULT_STATE: StoredPomodoroState = {
@@ -40,6 +41,7 @@ const DEFAULT_STATE: StoredPomodoroState = {
     isPaused: false,
     completedPomodoros: 0,
     totalWorkMinutes: 0,
+    remainingSeconds: 0,
 };
 
 const PomodoroSchema = z.object({
@@ -95,18 +97,11 @@ function getNextPhase(session: PomodoroSession): PomodoroPhase {
     return "work";
 }
 
-/**
- * Format remaining time nicely
- */
-function formatTimeRemaining(endsAt: Date): string {
-    const now = new Date();
+function calcRemainingSeconds(endsAt?: Date, pausedAt?: Date, isPaused?: boolean): number {
+    if (!endsAt) return 0;
+    const now = isPaused && pausedAt ? new Date(pausedAt) : new Date();
     const remainingMs = endsAt.getTime() - now.getTime();
-
-    if (remainingMs <= 0) return "0:00";
-
-    const minutes = Math.floor(remainingMs / 60000);
-    const seconds = Math.floor((remainingMs % 60000) / 1000);
-    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+    return remainingMs > 0 ? Math.floor(remainingMs / 1000) : 0;
 }
 
 /**
@@ -156,61 +151,50 @@ export async function managePomodoro(
           }
         : DEFAULT_SETTINGS;
 
-    const [preferencesRow] = await db
-        .select()
-        .from(studyAgentPreferences)
-        .where(
-            and(
-                eq(studyAgentPreferences.userId, input.userId),
-                eq(studyAgentPreferences.sessionId, BigInt(session.id))
-            )
-        );
-
-    const storedState = (
-        preferencesRow?.preferences as { pomodoroState?: StoredPomodoroState } | undefined
-    )?.pomodoroState ?? { ...DEFAULT_STATE };
-
-    const persistState = async (state: StoredPomodoroState) => {
-        const preferences = {
-            ...(preferencesRow?.preferences ?? {}),
-            pomodoroState: state,
-        };
-
-        if (preferencesRow) {
-            await db
-                .update(studyAgentPreferences)
-                .set({ preferences })
-                .where(
-                    and(
-                        eq(studyAgentPreferences.userId, input.userId),
-                        eq(studyAgentPreferences.sessionId, BigInt(session.id))
-                    )
-                );
-        } else {
-            await db.insert(studyAgentPreferences).values({
-                userId: input.userId,
-                sessionId: BigInt(session.id),
-                preferences,
-            });
-        }
+    const rowPhase = settingsRow?.phase as PomodoroPhase | undefined;
+    const storedState: StoredPomodoroState = {
+        ...DEFAULT_STATE,
+        phase: rowPhase && ["work", "short_break", "long_break", "idle"].includes(rowPhase)
+            ? rowPhase
+            : DEFAULT_STATE.phase,
+        isRunning: settingsRow?.isRunning ?? DEFAULT_STATE.isRunning,
+        isPaused: settingsRow?.isPaused ?? DEFAULT_STATE.isPaused,
+        startedAt: settingsRow?.startedAt ? settingsRow.startedAt.toISOString() : undefined,
+        pausedAt: settingsRow?.pausedAt ? settingsRow.pausedAt.toISOString() : undefined,
+        endsAt: settingsRow?.endsAt ? settingsRow.endsAt.toISOString() : undefined,
+        completedPomodoros: settingsRow?.completedPomodoros ?? DEFAULT_STATE.completedPomodoros,
+        totalWorkMinutes: settingsRow?.totalWorkMinutes ?? DEFAULT_STATE.totalWorkMinutes,
+        currentTaskId: settingsRow?.currentTaskId ?? DEFAULT_STATE.currentTaskId,
+        remainingSeconds: settingsRow?.remainingTime ?? 0,
     };
 
-    const persistSettings = async (newSettings: PomodoroSettings) => {
+    const persistState = async (state: StoredPomodoroState, newSettings?: PomodoroSettings) => {
         const payload = {
             userId: input.userId,
-            sessionId: session.id,
-            focusMinutes: newSettings.workDuration,
-            shortBreakMinutes: newSettings.shortBreakDuration,
-            longBreakMinutes: newSettings.longBreakDuration,
-            sessionsBeforeLongBreak: newSettings.sessionsBeforeLongBreak,
-            autoStartBreaks: newSettings.autoStartBreaks,
-            autoStartPomodoros: newSettings.autoStartWork,
+            sessionId: BigInt(session.id),
+            focusMinutes: newSettings?.workDuration ?? settings.workDuration,
+            shortBreakMinutes: newSettings?.shortBreakDuration ?? settings.shortBreakDuration,
+            longBreakMinutes: newSettings?.longBreakDuration ?? settings.longBreakDuration,
+            sessionsBeforeLongBreak:
+                newSettings?.sessionsBeforeLongBreak ?? settings.sessionsBeforeLongBreak,
+            autoStartBreaks: newSettings?.autoStartBreaks ?? settings.autoStartBreaks,
+            autoStartPomodoros: newSettings?.autoStartWork ?? settings.autoStartWork,
+            remainingTime: state.remainingSeconds,
+            phase: state.phase,
+            isRunning: state.isRunning,
+            isPaused: state.isPaused,
+            startedAt: state.startedAt ? new Date(state.startedAt) : null,
+            pausedAt: state.pausedAt ? new Date(state.pausedAt) : null,
+            endsAt: state.endsAt ? new Date(state.endsAt) : null,
+            completedPomodoros: state.completedPomodoros,
+            totalWorkMinutes: state.totalWorkMinutes,
+            currentTaskId: state.currentTaskId ?? null,
         };
 
         if (settingsRow) {
             await db
                 .update(studyAgentPomodoroSettings)
-                .set({ ...payload, sessionId: BigInt(session.id) })
+                .set(payload)
                 .where(
                     and(
                         eq(studyAgentPomodoroSettings.userId, input.userId),
@@ -218,24 +202,33 @@ export async function managePomodoro(
                     )
                 );
         } else {
-            await db.insert(studyAgentPomodoroSettings).values({ ...payload, sessionId: BigInt(session.id) });
+            await db.insert(studyAgentPomodoroSettings).values(payload);
         }
     };
 
-    const sessionFromState = (state: StoredPomodoroState): PomodoroSession => ({
-        id: `${session.id}`,
-        userId: input.userId,
-        phase: state.phase,
-        isRunning: state.isRunning,
-        isPaused: state.isPaused,
-        startedAt: state.startedAt ? new Date(state.startedAt) : undefined,
-        pausedAt: state.pausedAt ? new Date(state.pausedAt) : undefined,
-        endsAt: state.endsAt ? new Date(state.endsAt) : undefined,
-        completedPomodoros: state.completedPomodoros,
-        totalWorkMinutes: state.totalWorkMinutes,
-        currentTaskId: state.currentTaskId,
-        settings,
-    });
+    const sessionFromState = (state: StoredPomodoroState): PomodoroSession => {
+        const startedAt = state.startedAt ? new Date(state.startedAt) : undefined;
+        const pausedAt = state.pausedAt ? new Date(state.pausedAt) : undefined;
+        const endsAt = state.endsAt ? new Date(state.endsAt) : undefined;
+        const remainingSeconds =
+            state.remainingSeconds || calcRemainingSeconds(endsAt, pausedAt, state.isPaused);
+
+        return {
+            id: `${session.id}`,
+            userId: input.userId,
+            phase: state.phase,
+            isRunning: state.isRunning,
+            isPaused: state.isPaused,
+            startedAt,
+            pausedAt,
+            endsAt,
+            completedPomodoros: state.completedPomodoros,
+            totalWorkMinutes: state.totalWorkMinutes,
+            currentTaskId: state.currentTaskId,
+            remainingSeconds,
+            settings,
+        };
+    };
 
     switch (input.action) {
         case "start": {
@@ -243,6 +236,7 @@ export async function managePomodoro(
             const phase: PomodoroPhase = input.phase ?? "work";
             const duration = getPhaseDuration(phase, settings);
             const endsAt = new Date(now.getTime() + duration * 60000);
+            const durationSeconds = duration * 60;
 
             const newState: StoredPomodoroState = {
                 phase,
@@ -254,10 +248,10 @@ export async function managePomodoro(
                 totalWorkMinutes: storedState.totalWorkMinutes,
                 currentTaskId: input.taskId,
                 pausedAt: undefined,
+                remainingSeconds: durationSeconds,
             };
 
-            await persistState(newState);
-            await persistSettings(settings);
+            await persistState(newState, settings);
             console.log(`🍅 [Pomodoro] Started ${duration} minute work session`);
 
             return {
@@ -274,24 +268,30 @@ export async function managePomodoro(
                 return { success: false, message: "No active Pomodoro session to pause" };
             }
 
-            const remaining = storedState.endsAt
-                ? formatTimeRemaining(new Date(storedState.endsAt))
-                : "unknown";
+            const remainingSeconds = calcRemainingSeconds(
+                storedState.endsAt ? new Date(storedState.endsAt) : undefined,
+                undefined,
+                false
+            );
             const updatedState: StoredPomodoroState = {
                 ...storedState,
                 isPaused: true,
                 isRunning: false,
                 pausedAt: now.toISOString(),
+                remainingSeconds,
             };
 
-            await persistState(updatedState);
-            console.log(`⏸️ [Pomodoro] Paused with ${remaining} remaining`);
+            await persistState(updatedState, settings);
+            const remainingLabel = `${Math.floor(remainingSeconds / 60)}:${(remainingSeconds % 60)
+                .toString()
+                .padStart(2, "0")}`;
+            console.log(`⏸️ [Pomodoro] Paused with ${remainingLabel} remaining`);
 
             return {
                 success: true,
                 session: sessionFromState(updatedState),
-                message: `Paused your Pomodoro timer with ${remaining} remaining`,
-                timeRemaining: remaining,
+                message: `Paused your Pomodoro timer with ${remainingLabel} remaining`,
+                timeRemaining: remainingLabel,
                 encouragement: "Take a quick breather, then let's get back to it~",
             };
         }
@@ -301,35 +301,34 @@ export async function managePomodoro(
                 return { success: false, message: "No paused Pomodoro session to resume" };
             }
 
-            // Calculate remaining time and set new end time
-            let newEnd: string | undefined;
-            if (storedState.pausedAt && storedState.endsAt) {
-                const remainingMs =
-                    new Date(storedState.endsAt).getTime() -
-                    new Date(storedState.pausedAt).getTime();
-                newEnd = new Date(now.getTime() + remainingMs).toISOString();
-            }
+            const remainingSeconds = storedState.remainingSeconds ?? calcRemainingSeconds(
+                storedState.endsAt ? new Date(storedState.endsAt) : undefined,
+                storedState.pausedAt ? new Date(storedState.pausedAt) : undefined,
+                true
+            );
+            const newEnd = new Date(now.getTime() + remainingSeconds * 1000).toISOString();
 
             const updatedState: StoredPomodoroState = {
                 ...storedState,
                 isPaused: false,
                 isRunning: true,
                 pausedAt: undefined,
-                endsAt: newEnd ?? storedState.endsAt,
+                endsAt: newEnd,
+                remainingSeconds,
             };
 
-            await persistState(updatedState);
+            await persistState(updatedState, settings);
 
-            const remaining = updatedState.endsAt
-                ? formatTimeRemaining(new Date(updatedState.endsAt))
-                : "unknown";
-            console.log(`▶️ [Pomodoro] Resumed with ${remaining} remaining`);
+            const remainingLabel = `${Math.floor(remainingSeconds / 60)}:${(remainingSeconds % 60)
+                .toString()
+                .padStart(2, "0")}`;
+            console.log(`▶️ [Pomodoro] Resumed with ${remainingLabel} remaining`);
 
             return {
                 success: true,
                 session: sessionFromState(updatedState),
-                message: `Resumed your Pomodoro timer! ${remaining} remaining`,
-                timeRemaining: remaining,
+                message: `Resumed your Pomodoro timer! ${remainingLabel} remaining`,
+                timeRemaining: remainingLabel,
                 encouragement: "Welcome back! Let's finish strong~ 🎯",
             };
         }
@@ -360,9 +359,10 @@ export async function managePomodoro(
                 completedPomodoros,
                 totalWorkMinutes,
                 currentTaskId: storedState.currentTaskId,
+                remainingSeconds: 0,
             };
 
-            await persistState(resetState);
+            await persistState(resetState, settings);
 
             console.log(
                 `🛑 [Pomodoro] Stopped. Total: ${completedPomodoros} pomodoros, ${totalMinutes} min`
@@ -411,9 +411,10 @@ export async function managePomodoro(
                 completedPomodoros,
                 totalWorkMinutes,
                 currentTaskId: storedState.currentTaskId,
+                remainingSeconds: nextDuration * 60,
             };
 
-            await persistState(nextState);
+            await persistState(nextState, settings);
 
             const phaseLabel =
                 nextPhase === "work"
@@ -450,9 +451,17 @@ export async function managePomodoro(
                 : storedState.isPaused
                   ? "paused"
                   : "idle";
-            const remaining = storedState.endsAt
-                ? formatTimeRemaining(new Date(storedState.endsAt))
-                : null;
+            const remainingSeconds = storedState.remainingSeconds ?? calcRemainingSeconds(
+                storedState.endsAt ? new Date(storedState.endsAt) : undefined,
+                storedState.pausedAt ? new Date(storedState.pausedAt) : undefined,
+                storedState.isPaused
+            );
+            const remaining =
+                remainingSeconds > 0
+                    ? `${Math.floor(remainingSeconds / 60)}:${(remainingSeconds % 60)
+                          .toString()
+                          .padStart(2, "0")}`
+                    : null;
             const phaseLabel =
                 storedState.phase === "work"
                     ? "work session"
@@ -495,7 +504,7 @@ export async function managePomodoro(
                 ...input.settings,
             };
 
-            await persistSettings(newSettings);
+            await persistState(storedState, newSettings);
 
             console.log(`⚙️ [Pomodoro] Updated settings:`, newSettings);
 

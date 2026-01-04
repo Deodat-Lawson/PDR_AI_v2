@@ -121,6 +121,15 @@ export const studyAgentPomodoroSettings = pgTable(
             .default(4),
         autoStartBreaks: boolean("auto_start_breaks").notNull().default(false),
         autoStartPomodoros: boolean("auto_start_pomodoros").notNull().default(false),
+        phase: text("phase").notNull().default("idle"),
+        isRunning: boolean("is_running").notNull().default(false),
+        isPaused: boolean("is_paused").notNull().default(false),
+        startedAt: timestamp("started_at", { withTimezone: true }),
+        pausedAt: timestamp("paused_at", { withTimezone: true }),
+        endsAt: timestamp("ends_at", { withTimezone: true }),
+        completedPomodoros: integer("completed_pomodoros").notNull().default(0),
+        totalWorkMinutes: integer("total_work_minutes").notNull().default(0),
+        currentTaskId: text("current_task_id"),
         createdAt: timestamp("created_at", { withTimezone: true })
             .default(sql`CURRENT_TIMESTAMP`)
             .notNull(),
@@ -197,7 +206,7 @@ export const studyAgentSessionRelations = relations(studyAgentSessions, ({ many 
     messages: many(studyAgentMessages),
 }));
 
-export const studyAgentProfileRelations = relations(studyAgentProfile, ({ one, many }) => ({
+export const studyAgentProfileRelations = relations(studyAgentProfile, ({ one }) => ({
     session: one(studyAgentSessions, {
         fields: [studyAgentProfile.sessionId],
         references: [studyAgentSessions.id],

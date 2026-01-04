@@ -57,7 +57,7 @@ export async function manageNotes(
   }
 
   const mapRowToNote = (row: (typeof studyAgentNotes)["$inferSelect"]) => ({
-    id: row.id.toString(),
+    id: row.id,
     userId: row.userId,
     title: row.title ?? "",
     content: row.content ?? "",

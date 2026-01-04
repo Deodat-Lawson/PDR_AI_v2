@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { and, eq } from "drizzle-orm";
 
 import { db } from "~/server/db";
 import { studyAgentNotes } from "~/server/db/schema";

@@ -325,6 +325,7 @@ export interface PomodoroSession {
   completedPomodoros: number;
   totalWorkMinutes: number;
   currentTaskId?: string;
+  remainingSeconds: number;
   settings: PomodoroSettings;
 }
 
@@ -340,7 +341,7 @@ export interface PomodoroInput {
 // ============================================================================
 
 export interface StudyNote {
-  id: string;
+  id: number;
   userId: string;
   title: string;
   content: string;

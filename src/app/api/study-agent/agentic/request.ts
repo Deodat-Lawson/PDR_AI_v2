@@ -30,6 +30,7 @@ const ConversationHistorySchema = z
 const IncomingStudyAgentSchema = z.object({
   message: z.string().min(1, "message is required"),
   mode: StudyModeSchema.default("study-buddy"),
+  sessionId: z.number().int().positive("sessionId must be a positive number"),
   fieldOfStudy: z.string().optional(),
   selectedDocuments: z.array(z.string()).default([]),
   conversationHistory: ConversationHistorySchema,
@@ -63,6 +64,10 @@ export function buildAgentRequest(
   userId: string,
   payload: IncomingStudyAgentPayload
 ): StudyAgentRequest {
+  if (payload.sessionId === undefined || Number.isNaN(payload.sessionId)) {
+    throw new Error("Invalid request: sessionId is required");
+  }
+
   return {
     ...payload,
     userId,
