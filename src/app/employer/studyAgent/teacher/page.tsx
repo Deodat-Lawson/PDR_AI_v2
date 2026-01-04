@@ -288,6 +288,7 @@ function TeacherPageContent() {
           selectedDocuments: prefs?.selectedDocuments ?? [],
           studyPlan: plan,
           conversationHistory: [],
+          sessionId,
         }),
       });
 
@@ -398,6 +399,7 @@ function TeacherPageContent() {
             role: msg.role,
             content: msg.content,
           })),
+          sessionId,
         }),
       });
 

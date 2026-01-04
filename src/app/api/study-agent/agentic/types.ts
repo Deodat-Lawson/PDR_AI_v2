@@ -171,7 +171,7 @@ export interface StudyAgentRequest {
   message: string;
   mode: StudyMode;
   userId: string;
-  sessionId?: string;
+  sessionId: number;
   fieldOfStudy?: string;
   selectedDocuments?: string[];
   conversationHistory?: Array<{

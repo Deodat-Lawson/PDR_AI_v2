@@ -227,6 +227,7 @@ Only supported note actions are: "create" and "update".
 Call the take_notes tool with:
 - action: "${action}"
 - userId: "${state.userId}"
+- sessionId: "${state.sessionId ?? ""}"
 
 Extract any note content, title, or tags from the user's message.
 After calling the tool, respond with the result in an encouraging way.`;

@@ -146,6 +146,7 @@ export async function runStudyBuddyAgent(
       selectedDocuments: request.selectedDocuments,
       learningStyle: request.preferences?.learningStyle,
       preferredDifficulty: request.preferences?.preferredDifficulty,
+      sessionId: request.sessionId,
     });
 
     traceStep(trace, "init_state", {
@@ -408,6 +409,7 @@ export async function* streamStudyBuddyAgent(
     const initialState = createInitialState(request.userId, request.mode, {
       fieldOfStudy: request.fieldOfStudy,
       selectedDocuments: request.selectedDocuments,
+      sessionId: request.sessionId,
     });
 
     const messages = [new HumanMessage(request.message)];

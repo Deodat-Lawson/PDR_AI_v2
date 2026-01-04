@@ -320,6 +320,7 @@ function StudyBuddyPageContent() {
           selectedDocuments: prefs?.selectedDocuments ?? [],
           studyPlan: plan,
           conversationHistory: [],
+          sessionId,
         }),
       });
 
@@ -480,6 +481,7 @@ function StudyBuddyPageContent() {
             role: msg.role,
             content: msg.content,
           })),
+          sessionId,
         }),
       });
 
@@ -623,14 +625,45 @@ function StudyBuddyPageContent() {
     void persistGoalDelete(itemId);
   };
 
-  const handleAddNote = (note: Omit<Note, "id" | "createdAt" | "updatedAt">) => {
-    const newNote: Note = {
+  const handleAddNote = async (note: Omit<Note, "id" | "createdAt" | "updatedAt">) => {
+    const tempId = `temp-${Date.now()}`;
+    const optimisticNote: Note = {
       ...note,
-      id: Date.now().toString(),
+      id: tempId,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
-    setNotes((prev) => [...prev, newNote]);
+    setNotes((prev) => [...prev, optimisticNote]);
+
+    try {
+      const res = await fetch("/api/study-agent/me/notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId,
+          title: note.title,
+          content: note.content,
+          tags: note.tags,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to save note");
+      }
+
+      const data = (await res.json()) as { note?: { id?: string | number } };
+      const newId =
+        typeof data.note?.id === "number" || typeof data.note?.id === "string"
+          ? data.note.id.toString()
+          : tempId;
+
+      setNotes((prev) =>
+        prev.map((n) => (n.id === tempId ? { ...n, id: newId } : n))
+      );
+    } catch (error) {
+      console.error("Error saving note:", error);
+      setNotes((prev) => prev.filter((n) => n.id !== tempId));
+    }
   };
 
   const handleUpdateNote = async (noteId: string, updates: Partial<Note>) => {

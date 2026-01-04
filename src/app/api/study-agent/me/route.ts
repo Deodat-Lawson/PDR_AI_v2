@@ -57,7 +57,12 @@ export async function GET(request: Request) {
         const [preferences] = await db
             .select()
             .from(studyAgentPreferences)
-            .where(eq(studyAgentPreferences.sessionId, sessionIdBigInt));
+            .where(
+                and(
+                    eq(studyAgentPreferences.sessionId, sessionIdBigInt),
+                    eq(studyAgentPreferences.userId, userId)
+                )
+            );
 
         const goals = await db
             .select()
@@ -80,10 +85,39 @@ export async function GET(request: Request) {
             .where(eq(studyAgentMessages.sessionId, sessionIdBigInt))
             .orderBy(asc(studyAgentMessages.createdAt));
 
+        const normalizedProfile = profile
+            ? {
+                  aiName: profile.aiName ?? undefined,
+                  aiGender: profile.aiGender ?? undefined,
+                  aiPersonality:
+                      profile.aiExtroversion !== null &&
+                      profile.aiIntuition !== null &&
+                      profile.aiThinking !== null &&
+                      profile.aiJudging !== null
+                          ? {
+                                extroversion: Number(profile.aiExtroversion),
+                                intuition: Number(profile.aiIntuition),
+                                thinking: Number(profile.aiThinking),
+                                judging: Number(profile.aiJudging),
+                            }
+                          : undefined,
+              }
+            : null;
+
+        const normalizedPreferences = preferences
+            ? {
+                  selectedDocuments: preferences.selectedDocuments ?? [],
+                  name: preferences.userName ?? undefined,
+                  grade: preferences.userGrade ?? undefined,
+                  gender: preferences.userGender ?? undefined,
+                  fieldOfStudy: preferences.fieldOfStudy ?? undefined,
+              }
+            : null;
+
         return NextResponse.json({
             session: serializeBigInt(session),
-            profile: serializeBigInt(profile) ?? null,
-            preferences: preferences?.preferences ?? null,
+            profile: normalizedProfile,
+            preferences: normalizedPreferences,
             goals: goals.map((goal) => serializeBigInt({ ...goal, id: goal.id.toString() })),
             notes: notes.map((note) => serializeBigInt({ ...note, id: note.id.toString() })),
             pomodoroSettings: serializeBigInt(pomodoroSettings) ?? null,

@@ -24,6 +24,7 @@ const ChatRequestSchema = z.object({
   mode: z.enum(["teacher", "study-buddy"]).default("study-buddy"),
   fieldOfStudy: z.string().optional(),
   selectedDocuments: z.array(z.string()).default([]),
+  sessionId: z.number().default(0),
   studyPlan: z.array(StudyPlanItemSchema).optional(),
   conversationHistory: z.array(ConversationMessageSchema).default([]),
 });

@@ -78,13 +78,12 @@ export default function OnboardingPage() {
     setPreferencesError(null);
 
     try {
-      // Create session with mode
+      // Create session with full preferences payload (server will persist profile & prefs)
       const sessionResponse = await fetch("/api/study-agent/me/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
-          name: preferences.name ? `${preferences.name}'s Session` : undefined,
-          mode: preferences.mode,
+          preferences
         }),
       });
 
@@ -103,28 +102,6 @@ export default function OnboardingPage() {
         throw new Error("No session ID returned");
       }
 
-      // Save profile
-      await fetch("/api/study-agent/me/profile", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: preferences.name,
-          grade: preferences.grade,
-          gender: preferences.gender,
-          fieldOfStudy: preferences.fieldOfStudy,
-          sessionId,
-        }),
-      });
-
-      // Save preferences
-      await fetch("/api/study-agent/me/preferences", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId,
-          preferences,
-        }),
-      });
       // Generate initial study plan
       const initialPlan = preferences.selectedDocuments.map((docId, index) => {
         const doc = documents.find(d => d.id === docId);

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { and, eq } from "drizzle-orm";
+import { z } from "zod";
 
 import { db } from "~/server/db";
 import { studyAgentProfile } from "~/server/db/schema";
@@ -27,6 +28,19 @@ function parseSessionId(request: Request) {
     return Number.isNaN(parsedSessionId) ? undefined : parsedSessionId;
 }
 
+const aiProfileSchema = z.object({
+    aiName: z.string().trim().optional(),
+    aiGender: z.string().trim().optional(),
+    aiPersonality: z
+        .object({
+            extroversion: z.number(),
+            intuition: z.number(),
+            thinking: z.number(),
+            judging: z.number(),
+        })
+        .optional(),
+});
+
 export async function GET(request: Request) {
     try {
         const { userId } = await auth();
@@ -49,7 +63,26 @@ export async function GET(request: Request) {
                 )
             );
 
-        return NextResponse.json({ profile: serializeBigInt(profile) ?? null, session: serializeBigInt(session) });
+        const aiProfile = profile
+            ? {
+                  aiName: profile.aiName ?? undefined,
+                  aiGender: profile.aiGender ?? undefined,
+                  aiPersonality:
+                      profile.aiExtroversion !== null &&
+                      profile.aiIntuition !== null &&
+                      profile.aiThinking !== null &&
+                      profile.aiJudging !== null
+                          ? {
+                                extroversion: Number(profile.aiExtroversion),
+                                intuition: Number(profile.aiIntuition),
+                                thinking: Number(profile.aiThinking),
+                                judging: Number(profile.aiJudging),
+                            }
+                          : undefined,
+              }
+            : null;
+
+        return NextResponse.json({ profile: aiProfile, session: serializeBigInt(session) });
     } catch (error) {
         console.error("Error fetching study agent profile", error);
         return NextResponse.json(
@@ -66,19 +99,32 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const body = (await request.json()) as {
+        const rawBody = (await request.json().catch(() => ({}))) as {
             sessionId?: number | string;
-            name?: string | null;
-            grade?: string | null;
-            gender?: string | null;
-            fieldOfStudy?: string | null;
+            aiName?: string | null;
+            aiGender?: string | null;
+            aiPersonality?: {
+                extroversion?: number | null;
+                intuition?: number | null;
+                thinking?: number | null;
+                judging?: number | null;
+            } | null;
         };
+
+        const parsed = aiProfileSchema.safeParse(rawBody);
+        if (!parsed.success) {
+            return NextResponse.json(
+                { error: "Invalid profile payload", details: parsed.error.flatten() },
+                { status: 400 }
+            );
+        }
+
         const session = await resolveSessionForUser(
             userId,
-            typeof body.sessionId === "number"
-                ? body.sessionId
-                : typeof body.sessionId === "string"
-                ? Number(body.sessionId)
+            typeof rawBody.sessionId === "number"
+                ? rawBody.sessionId
+                : typeof rawBody.sessionId === "string"
+                ? Number(rawBody.sessionId)
                 : parseSessionId(request)
         );
 
@@ -87,10 +133,12 @@ export async function POST(request: Request) {
         }
 
         const payload = {
-            name: body.name ?? null,
-            grade: body.grade ?? null,
-            gender: body.gender ?? null,
-            fieldOfStudy: body.fieldOfStudy ?? null,
+            aiName: parsed.data.aiName ?? null,
+            aiGender: parsed.data.aiGender ?? null,
+            aiExtroversion: parsed.data.aiPersonality?.extroversion ?? null,
+            aiIntuition: parsed.data.aiPersonality?.intuition ?? null,
+            aiThinking: parsed.data.aiPersonality?.thinking ?? null,
+            aiJudging: parsed.data.aiPersonality?.judging ?? null,
         };
 
         const [existing] = await db

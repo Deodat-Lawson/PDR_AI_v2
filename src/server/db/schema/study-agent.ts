@@ -32,10 +32,12 @@ export const studyAgentProfile = pgTable(
         sessionId: bigint("session_id", { mode: "bigint" })
             .notNull()
             .references(() => studyAgentSessions.id, { onDelete: "cascade" }),
-        name: text("name"),
-        grade: text("grade"),
-        gender: text("gender"),
-        fieldOfStudy: text("field_of_study"),
+        aiName: text("ai_name"),
+        aiGender: text("ai_gender"),
+        aiExtroversion: integer("ai_extroversion"),
+        aiIntuition: integer("ai_intuition"),
+        aiThinking: integer("ai_thinking"),
+        aiJudging: integer("ai_judging"),
         createdAt: timestamp("created_at", { withTimezone: true })
             .default(sql`CURRENT_TIMESTAMP`)
             .notNull(),
@@ -57,7 +59,11 @@ export const studyAgentPreferences = pgTable(
         sessionId: bigint("session_id", { mode: "bigint" })
             .notNull()
             .references(() => studyAgentSessions.id, { onDelete: "cascade" }),
-        preferences: jsonb("preferences").notNull().default({}),
+        selectedDocuments: text("selected_documents").array().notNull().default([]),
+        userName: text("user_name"),
+        userGrade: text("user_grade"),
+        userGender: text("user_gender"),
+        fieldOfStudy: text("field_of_study"),
         createdAt: timestamp("created_at", { withTimezone: true })
             .default(sql`CURRENT_TIMESTAMP`)
             .notNull(),
@@ -196,10 +202,6 @@ export const studyAgentProfileRelations = relations(studyAgentProfile, ({ one, m
         fields: [studyAgentProfile.sessionId],
         references: [studyAgentSessions.id],
     }),
-    preferences: many(studyAgentPreferences),
-    goals: many(studyAgentGoals),
-    pomodoroSettings: many(studyAgentPomodoroSettings),
-    notes: many(studyAgentNotes),
 }));
 
 export type StudyAgentSession = InferSelectModel<typeof studyAgentSessions>;

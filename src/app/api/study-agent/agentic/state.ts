@@ -136,6 +136,14 @@ export const StudyAgentStateAnnotation = Annotation.Root({
     default: () => undefined,
   }),
 
+  /**
+   * Session ID provided by the caller (frontend/api), used by tools
+   */
+  sessionId: Annotation<number>({
+    reducer: (_, y) => y,
+    default: () => 0,
+  }),
+
   // ============================================================================
   // Generated Content
   // ============================================================================
@@ -277,6 +285,7 @@ export function createInitialState(
     selectedDocuments?: string[];
     learningStyle?: "visual" | "auditory" | "kinesthetic" | "reading";
     preferredDifficulty?: "beginner" | "intermediate" | "advanced";
+    sessionId: number;
   }
 ): Partial<StudyAgentState> {
   return {
@@ -286,6 +295,7 @@ export function createInitialState(
     selectedDocuments: options?.selectedDocuments ?? [],
     learningStyle: options?.learningStyle,
     preferredDifficulty: options?.preferredDifficulty,
+    sessionId: options?.sessionId,
     currentStep: "understand",
     emotion: "calm",
     confidence: 0.8,

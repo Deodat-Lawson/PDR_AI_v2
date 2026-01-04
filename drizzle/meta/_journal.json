@@ -78,6 +78,13 @@
       "when": 1735084800000,
       "tag": "0010_add_session_mode",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1767510691773,
+      "tag": "0011_large_pet_avengers",
+      "breakpoints": true
     }
   ]
 }

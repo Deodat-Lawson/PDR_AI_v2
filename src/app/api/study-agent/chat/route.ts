@@ -109,7 +109,15 @@ export async function POST(request: Request) {
     }
 
     const parsedBody = parseChatRequest(await request.json());
-    const { message, mode, fieldOfStudy, selectedDocuments, studyPlan, conversationHistory } =
+    const {
+      message,
+      mode,
+      fieldOfStudy,
+      selectedDocuments,
+      studyPlan,
+      conversationHistory,
+      sessionId,
+    } =
       parsedBody;
 
     console.log("💬 [StudyAgent Chat API] Received request:");
@@ -141,7 +149,7 @@ export async function POST(request: Request) {
         message,
         mode: agenticMode,
         userId,
-        // sessionId: sessionId, ignore sessionID for now, all users share the same session
+        sessionId,
         fieldOfStudy,
         selectedDocuments,
         conversationHistory: conversationHistory?.map((msg) => ({

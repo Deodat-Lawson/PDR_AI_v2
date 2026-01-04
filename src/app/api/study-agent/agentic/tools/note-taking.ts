@@ -29,6 +29,7 @@ const NoteSchema = z.object({
     })
     .optional()
     .describe("Note data for create/update actions"),
+  sessionId: z.number().describe("Session ID to associate the note"),
 });
 
 /**
@@ -39,7 +40,7 @@ const NoteSchema = z.object({
  * - delete
  */
 export async function manageNotes(
-  input: NoteInput & { userId: string; sessionId?: number | null }
+  input: NoteInput & { userId: string; sessionId: number }
 ): Promise<{
   success: boolean;
   note?: StudyNote;
@@ -47,11 +48,11 @@ export async function manageNotes(
 }> {
   const now = new Date();
 
-  const session = await resolveSessionForUser(input.userId, input.sessionId ?? undefined);
+  const session = await resolveSessionForUser(input.userId, input.sessionId);
   if (!session) {
     return {
       success: false,
-      message: "Unable to find a study session for this user",
+      message: "Unable to find a study session for this user. Please provide a valid sessionId.",
     };
   }
 
@@ -184,6 +185,7 @@ export const noteTakingTool = tool(
         userId: input.userId,
         noteId: input.noteId,
         data: input.data,
+        sessionId: input.sessionId,
       });
 
       return JSON.stringify(result);
