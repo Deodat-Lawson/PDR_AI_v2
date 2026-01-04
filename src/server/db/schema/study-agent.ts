@@ -1,7 +1,7 @@
 
 import { relations, sql } from "drizzle-orm";
 import type { InferSelectModel } from "drizzle-orm";
-import { boolean, index, integer, jsonb, serial, text, timestamp, varchar, bigint } from "drizzle-orm/pg-core";
+import { boolean, index, integer, serial, text, timestamp, varchar, bigint } from "drizzle-orm/pg-core";
 
 import { pgTable } from "./helpers";
 
@@ -209,6 +209,47 @@ export const studyAgentSessionRelations = relations(studyAgentSessions, ({ many 
 export const studyAgentProfileRelations = relations(studyAgentProfile, ({ one }) => ({
     session: one(studyAgentSessions, {
         fields: [studyAgentProfile.sessionId],
+        references: [studyAgentSessions.id],
+    }),
+}));
+
+export const studyAgentPreferencesRelations = relations(
+    studyAgentPreferences,
+    ({ one }) => ({
+        session: one(studyAgentSessions, {
+            fields: [studyAgentPreferences.sessionId],
+            references: [studyAgentSessions.id],
+        }),
+    })
+);
+
+export const studyAgentGoalsRelations = relations(studyAgentGoals, ({ one }) => ({
+    session: one(studyAgentSessions, {
+        fields: [studyAgentGoals.sessionId],
+        references: [studyAgentSessions.id],
+    }),
+}));
+
+export const studyAgentPomodoroRelations = relations(
+    studyAgentPomodoroSettings,
+    ({ one }) => ({
+        session: one(studyAgentSessions, {
+            fields: [studyAgentPomodoroSettings.sessionId],
+            references: [studyAgentSessions.id],
+        }),
+    })
+);
+
+export const studyAgentNotesRelations = relations(studyAgentNotes, ({ one }) => ({
+    session: one(studyAgentSessions, {
+        fields: [studyAgentNotes.sessionId],
+        references: [studyAgentSessions.id],
+    }),
+}));
+
+export const studyAgentMessagesRelations = relations(studyAgentMessages, ({ one }) => ({
+    session: one(studyAgentSessions, {
+        fields: [studyAgentMessages.sessionId],
         references: [studyAgentSessions.id],
     }),
 }));
