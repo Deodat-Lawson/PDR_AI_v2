@@ -19,6 +19,7 @@ const preferencesSchema = z.object({
   mode: z.enum(["teacher", "study-buddy"]),
   aiGender: z.string().optional(),
   aiName: z.string().trim().optional(),
+  aiAvatarUrl: z.string().trim().optional(),
   aiPersonality: z
     .object({
       extroversion: z.number(),
@@ -75,6 +76,7 @@ export async function POST(request: Request) {
           sessionId,
           aiName: preferences.aiName ?? null,
           aiGender: preferences.aiGender ?? null,
+          aiAvatarUrl: preferences.aiAvatarUrl ?? null,
           aiExtroversion: preferences.aiPersonality?.extroversion ?? null,
           aiIntuition: preferences.aiPersonality?.intuition ?? null,
           aiThinking: preferences.aiPersonality?.thinking ?? null,
@@ -111,6 +113,7 @@ export async function POST(request: Request) {
       mode: preferences.mode,
       aiGender: preferences.aiGender,
       aiName: preferences.aiName,
+      aiAvatarUrl: preferences.aiAvatarUrl,
       aiPersonality: preferences.aiPersonality,
     };
 

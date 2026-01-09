@@ -47,6 +47,7 @@ export interface UserPreferences {
   fieldOfStudy: string;
   mode: "teacher" | "study-buddy";
   aiGender?: string;
+  aiAvatarUrl?: string;
   aiPersonality?: {
     extroversion: number;
     intuition: number;

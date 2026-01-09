@@ -31,6 +31,7 @@ function parseSessionId(request: Request) {
 const aiProfileSchema = z.object({
     aiName: z.string().trim().optional(),
     aiGender: z.string().trim().optional(),
+    aiAvatarUrl: z.string().trim().optional(),
     aiPersonality: z
         .object({
             extroversion: z.number(),
@@ -67,6 +68,7 @@ export async function GET(request: Request) {
             ? {
                   aiName: profile.aiName ?? undefined,
                   aiGender: profile.aiGender ?? undefined,
+                  aiAvatarUrl: profile.aiAvatarUrl ?? undefined,
                   aiPersonality:
                       profile.aiExtroversion !== null &&
                       profile.aiIntuition !== null &&
@@ -103,6 +105,7 @@ export async function POST(request: Request) {
             sessionId?: number | string;
             aiName?: string | null;
             aiGender?: string | null;
+            aiAvatarUrl?: string | null;
             aiPersonality?: {
                 extroversion?: number | null;
                 intuition?: number | null;
@@ -135,6 +138,7 @@ export async function POST(request: Request) {
         const payload = {
             aiName: parsed.data.aiName ?? null,
             aiGender: parsed.data.aiGender ?? null,
+            aiAvatarUrl: parsed.data.aiAvatarUrl ?? null,
             aiExtroversion: parsed.data.aiPersonality?.extroversion ?? null,
             aiIntuition: parsed.data.aiPersonality?.intuition ?? null,
             aiThinking: parsed.data.aiPersonality?.thinking ?? null,

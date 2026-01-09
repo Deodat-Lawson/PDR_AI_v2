@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { db } from "~/server/db/index";
 import { users, company } from "~/server/db/schema";
 import { and, eq } from "drizzle-orm";

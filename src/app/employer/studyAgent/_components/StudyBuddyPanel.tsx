@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import type { Message, Document, StudyPlanItem, Note } from "../page";
+import type { StudyPlanItem, Note } from "../types";
 import { Button } from "./ui/button";
 import { BookOpen, CheckCircle2, Circle, Plus, Edit2, Trash2, Timer, FileText, Menu } from "lucide-react";
 import { VoiceChat } from "./VoiceChat";
@@ -12,28 +12,7 @@ import { AIQueryChat } from "./AIQueryChat";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { PomodoroTimer } from "./PomodoroTimer";
 import { NotesTab } from "./NotesTab";
-
-interface StudyBuddyPanelProps {
-  messages: Message[];
-  studyPlan: StudyPlanItem[];
-  documents: Document[];
-  notes: Note[];
-  sessionId?: number | null;
-  selectedDocument: Document | null;
-  onSendMessage: (content: string) => void;
-  onEndCall?: () => void;
-  onPullUpMaterial: (docId: string) => void;
-  onToggleStudyItem: (itemId: string) => void;
-  onAddStudyItem: (item: Omit<StudyPlanItem, "id">) => void;
-  onEditStudyItem: (itemId: string, updates: Partial<StudyPlanItem>) => void;
-  onDeleteStudyItem: (itemId: string) => void;
-  onAddNote: (note: Omit<Note, "id" | "createdAt" | "updatedAt">) => void;
-  onUpdateNote: (noteId: string, updates: Partial<Note>) => void;
-  onDeleteNote: (noteId: string) => void;
-  onToggleSidebar?: () => void;
-  isDark?: boolean;
-  errorMessage?: string | null;
-}
+import { type StudyBuddyPanelProps } from "./types/StudyBuddyPanelTypes";
 
 export function StudyBuddyPanel({
   messages,
@@ -55,6 +34,7 @@ export function StudyBuddyPanel({
   isDark = false,
   errorMessage,
   sessionId,
+  avatarUrl,
 }: StudyBuddyPanelProps) {
   void _selectedDocument; // Unused but required by interface
   const [isCreating, setIsCreating] = useState(false);
@@ -197,6 +177,7 @@ export function StudyBuddyPanel({
           onEndCall={onEndCall} 
           isBuddy 
           documents={documents} 
+          avatarUrl={avatarUrl}
         />
       </div>
 
