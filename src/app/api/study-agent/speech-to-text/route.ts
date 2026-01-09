@@ -45,7 +45,20 @@ export async function POST(request: Request) {
     // Convert to buffer for Node.js File creation
     const audioBuffer = await audioFile.arrayBuffer();
     const buffer = Buffer.from(audioBuffer);
-    
+
+    // Quick guard: avoid sending zero-duration/header-only audio to OpenAI
+    const MIN_AUDIO_BYTES = 45; // WAV header is 44 bytes; anything at/below is empty
+    if (!buffer.length || buffer.length < MIN_AUDIO_BYTES) {
+      console.warn("🎤 [Speech-to-Text] Skipping transcription: audio too short", {
+        mimeType: audioFile.type,
+        size: buffer.length,
+      });
+      return NextResponse.json(
+        { error: "Audio too short. Please record at least 0.1 seconds before sending." },
+        { status: 400 }
+      );
+    }
+
     // Determine file extension from MIME type
     const mimeType = audioFile.type || "audio/webm";
     let extension = "webm";

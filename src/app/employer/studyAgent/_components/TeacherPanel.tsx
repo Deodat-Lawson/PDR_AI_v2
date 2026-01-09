@@ -19,6 +19,7 @@ interface TeacherPanelProps {
   currentView?: "documents" | "docs" | "whiteboard";
   onToggleSidebar?: () => void;
   isDark?: boolean;
+  avatarUrl?: string;
 }
 
 export function TeacherPanel({
@@ -33,6 +34,7 @@ export function TeacherPanel({
   currentView = "docs",
   onToggleSidebar,
   isDark = false,
+  avatarUrl,
 }: TeacherPanelProps) {
   const completedCount = studyPlan.filter((item) => item.completed).length;
   const totalCount = studyPlan.length;
@@ -112,7 +114,8 @@ export function TeacherPanel({
           messages={messages} 
           onSendMessage={onSendMessage} 
           onEndCall={onEndCall} 
-          documents={documents} 
+          documents={documents}
+          avatarUrl={avatarUrl}
         />
       </div>
 

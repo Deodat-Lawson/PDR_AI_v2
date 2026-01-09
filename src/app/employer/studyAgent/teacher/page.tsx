@@ -67,6 +67,7 @@ function TeacherPageContent() {
       gender?: string;
       fieldOfStudy?: string;
       aiGender?: string;
+      aiAvatarUrl?: string;
       aiPersonality?: string | AiPersonalityObject;
     };
     profile?: {
@@ -74,6 +75,7 @@ function TeacherPageContent() {
       grade?: string;
       gender?: string;
       fieldOfStudy?: string;
+      aiAvatarUrl?: string;
     };
   }
 
@@ -123,6 +125,7 @@ function TeacherPageContent() {
       mode: "teacher",
       aiGender: prefs.aiGender,
       aiPersonality: parseAiPersonality(prefs.aiPersonality),
+      aiAvatarUrl: profile.aiAvatarUrl ?? prefs.aiAvatarUrl,
     };
   };
 
@@ -572,6 +575,7 @@ function TeacherPageContent() {
           currentView={teacherView}
           onToggleSidebar={() => setShowSidebar(!showSidebar)}
           isDark={isDark}
+          avatarUrl={userPreferences?.aiAvatarUrl}
         />
       </ResizablePanel>
       

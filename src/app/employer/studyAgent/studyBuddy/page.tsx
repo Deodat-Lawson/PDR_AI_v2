@@ -54,6 +54,7 @@ interface ServerPreferencesData {
     gender?: string;
     fieldOfStudy?: string;
     aiGender?: string;
+    aiAvatarUrl?: string;
     aiPersonality?: string | AiPersonalityObject;
   };
   profile?: {
@@ -61,6 +62,7 @@ interface ServerPreferencesData {
     grade?: string;
     gender?: string;
     fieldOfStudy?: string;
+    aiAvatarUrl?: string;
   };
 }
 
@@ -130,6 +132,7 @@ const buildPreferencesFromServer = (data: ServerPreferencesData): UserPreference
     mode: "study-buddy",
     aiGender: prefs.aiGender,
     aiPersonality: parseAiPersonality(prefs.aiPersonality),
+    aiAvatarUrl: profile.aiAvatarUrl ?? prefs.aiAvatarUrl,
   };
 };
 
@@ -777,6 +780,7 @@ function StudyBuddyPageContent() {
           onToggleSidebar={() => setShowSidebar(!showSidebar)}
           isDark={isDark}
           errorMessage={studyPlanError}
+          avatarUrl={userPreferences?.aiAvatarUrl}
         />
       </ResizablePanel>
       

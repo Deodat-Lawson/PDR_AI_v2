@@ -8,6 +8,7 @@ import { StepUserInfo } from "./OnboardingScreen/StepUserInfo";
 import { StepModeSelection } from "./OnboardingScreen/StepModeSelection";
 import { StepAiPersonality } from "./OnboardingScreen/StepAiPersonality";
 import type { AiPersonalitySettings, LearningMode } from "./OnboardingScreen/types";
+import { getAvatarUrl} from "./utils/AvatarSelect";
 
 interface OnboardingScreenProps {
   documents: Document[];
@@ -30,7 +31,7 @@ export function OnboardingScreen({
   const [grade, setGrade] = useState("");
   const [gender, setGender] = useState("");
   const [fieldOfStudy, setFieldOfStudy] = useState("");
-  const [mode, setMode] = useState<LearningMode>(null);
+  const [mode, setMode] = useState<LearningMode>("study-buddy");
   const [customizePersonality, setCustomizePersonality] = useState(false);
   const [aiGender, setAiGender] = useState("");
   const [aiPersonality, setAiPersonality] = useState<AiPersonalitySettings>({
@@ -52,6 +53,7 @@ export function OnboardingScreen({
     } else if (step === 3 && mode) {
       setStep(4);
     } else if (step === 4) {
+      const avatarUrl = getAvatarUrl(aiGender, mode);
       onComplete({
         selectedDocuments,
         name,
@@ -60,6 +62,7 @@ export function OnboardingScreen({
         fieldOfStudy,
         mode: mode!,
         aiGender,
+        aiAvatarUrl: avatarUrl,
         aiPersonality,
       });
     }

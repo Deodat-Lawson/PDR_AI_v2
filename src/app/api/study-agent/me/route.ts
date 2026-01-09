@@ -89,6 +89,7 @@ export async function GET(request: Request) {
             ? {
                   aiName: profile.aiName ?? undefined,
                   aiGender: profile.aiGender ?? undefined,
+                  aiAvatarUrl: profile.aiAvatarUrl ?? undefined,
                   aiPersonality:
                       profile.aiExtroversion !== null &&
                       profile.aiIntuition !== null &&

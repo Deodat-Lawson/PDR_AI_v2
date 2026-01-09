@@ -37,7 +37,7 @@ export function Sidebar({
   };
 
   // Group documents by folder
-  const folders = documents.reduce((acc, doc) => {
+  const folders = documents.reduce((acc: Record<string, Document[]>, doc: Document) => {
     const folder = doc.folder ?? "Uncategorized";
     acc[folder] ??= [];
     acc[folder].push(doc);

@@ -34,6 +34,7 @@ export const studyAgentProfile = pgTable(
             .references(() => studyAgentSessions.id, { onDelete: "cascade" }),
         aiName: text("ai_name"),
         aiGender: text("ai_gender"),
+        aiAvatarUrl: text("ai_avatar_url"),
         aiExtroversion: integer("ai_extroversion"),
         aiIntuition: integer("ai_intuition"),
         aiThinking: integer("ai_thinking"),
