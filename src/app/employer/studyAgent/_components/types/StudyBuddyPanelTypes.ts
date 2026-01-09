@@ -1,4 +1,4 @@
-import { Note, StudyPlanItem, Document, Message } from "../../types";
+import { type Note, type StudyPlanItem, type Document, type Message } from "../../types";
 
 export interface StudyBuddyPanelProps {
   messages: Message[];

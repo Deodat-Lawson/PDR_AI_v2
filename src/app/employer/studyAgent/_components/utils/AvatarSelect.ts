@@ -1,4 +1,4 @@
-import { LearningMode } from "../OnboardingScreen/types";
+import { type LearningMode } from "../OnboardingScreen/types";
 
 export type AvatarRole = "buddy" | "teacher";
 export type AvatarGender = "men" | "women";

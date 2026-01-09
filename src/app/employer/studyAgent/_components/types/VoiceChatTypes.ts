@@ -1,5 +1,4 @@
-import { Message } from "../../page";
-import { Document } from "../../page";
+import { type Message, type Document } from "../../types";
 
 export interface VoiceChatProps {
     messages: Message[];

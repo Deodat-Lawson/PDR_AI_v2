@@ -34,7 +34,6 @@ export function OnboardingScreen({
   const [mode, setMode] = useState<LearningMode>("study-buddy");
   const [customizePersonality, setCustomizePersonality] = useState(false);
   const [aiGender, setAiGender] = useState("");
-  const [aiAvatarUrl, setAiAvatarUrl] = useState("");
   const [aiPersonality, setAiPersonality] = useState<AiPersonalitySettings>({
     extroversion: 50,
     intuition: 50,
@@ -54,7 +53,7 @@ export function OnboardingScreen({
     } else if (step === 3 && mode) {
       setStep(4);
     } else if (step === 4) {
-      const avatarUrl = getAvatarUrl(aiGender, mode!);
+      const avatarUrl = getAvatarUrl(aiGender, mode);
       onComplete({
         selectedDocuments,
         name,

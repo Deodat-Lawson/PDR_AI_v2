@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import type { Message, Document, StudyPlanItem, Note } from "../page";
+import type { StudyPlanItem, Note } from "../types";
 import { Button } from "./ui/button";
 import { BookOpen, CheckCircle2, Circle, Plus, Edit2, Trash2, Timer, FileText, Menu } from "lucide-react";
 import { VoiceChat } from "./VoiceChat";
@@ -12,7 +12,7 @@ import { AIQueryChat } from "./AIQueryChat";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { PomodoroTimer } from "./PomodoroTimer";
 import { NotesTab } from "./NotesTab";
-import { StudyBuddyPanelProps } from "./types/StudyBuddyPanelTypes";
+import { type StudyBuddyPanelProps } from "./types/StudyBuddyPanelTypes";
 
 export function StudyBuddyPanel({
   messages,

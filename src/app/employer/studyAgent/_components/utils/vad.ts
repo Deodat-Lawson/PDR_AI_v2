@@ -255,8 +255,8 @@ export function useVAD(options: UseVADOptions = {}) {
     return () => {
       if (vadRef.current) {
         console.log("🎤 [VAD] Cleanup on unmount");
-        vadRef.current.pause().catch(() => {});
-        vadRef.current.destroy().catch(() => {});
+        vadRef.current.pause().catch((err) => console.error("❌ [VAD] Pause cleanup failed:", err));
+        vadRef.current.destroy().catch((err) => console.error("❌ [VAD] Destroy cleanup failed:", err));
         vadRef.current = null;
       }
     };

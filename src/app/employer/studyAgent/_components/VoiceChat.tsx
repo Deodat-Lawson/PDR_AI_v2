@@ -6,7 +6,7 @@ import { ExpandedVoiceCall } from "./ExpandedVoiceCall";
 import { useVAD } from "./utils/vad";
 import { processVadAudio } from "./utils/voiceChatVad";
 import { playTextToSpeech } from "./utils/voiceChatPlayback";
-import { VoiceChatProps, CallState } from "./types/VoiceChatTypes";
+import type { VoiceChatProps, CallState } from "./types/VoiceChatTypes";
 
 
 
@@ -24,7 +24,7 @@ export function VoiceChat({ messages, onSendMessage, onEndCall, isBuddy = false,
   const isProcessingRef = useRef(false);
   const isGeneratingTTSRef = useRef(false);
   const defaultAvatar = isBuddy ? "/study-buddy-icon/women/icon1.png" : "/teacher-icon/women/icon1.png";
-  const effectiveAvatar = avatarUrl || defaultAvatar;
+  const effectiveAvatar = avatarUrl ?? defaultAvatar;
   const isMutedRef = useRef(isMuted);
 
   useEffect(() => {
@@ -71,11 +71,11 @@ export function VoiceChat({ messages, onSendMessage, onEndCall, isBuddy = false,
         lastPlayedMessageId.current = lastMessage.id;
       }
     }
-  }, [isPlayingAudio, messages, isMuted]);
+  }, [isPlayingAudio, messages]);
 
   const handleProcessVadAudio = useCallback(
     (audio: Float32Array, forceProcessing?: boolean) => {
-      processVadAudio({
+      void processVadAudio({
         audio,
         isProcessingRef,
         onSendMessage,
@@ -102,7 +102,7 @@ export function VoiceChat({ messages, onSendMessage, onEndCall, isBuddy = false,
 
   // Handle ending the call
   const handleEndCall = () => {
-    vad.stop();
+    void vad.stop();
     
     if (audioRef.current) {
       audioRef.current.pause();
@@ -128,12 +128,12 @@ export function VoiceChat({ messages, onSendMessage, onEndCall, isBuddy = false,
   useEffect(() => {
     if (isMuted) {
       console.log("🎤 [VoiceChat] Muted, pausing VAD");
-      vad.pause();
+      void vad.pause();
     } else if (continuousListening && !isPlayingAudio && !isProcessingRef.current) {
       console.log("🎤 [VoiceChat] Unmuted, starting VAD");
-      vad.resume();
+      void vad.resume();
     }
-  }, [isMuted]);
+  }, [isMuted, continuousListening, isPlayingAudio, vad]);
 
   // Play AI voice responses using ElevenLabs TTS v3
   useEffect(() => {
