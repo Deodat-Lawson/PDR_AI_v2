@@ -10,8 +10,7 @@ import LoadingPage from "~/app/_components/loading";
 import { fetchWithRetries } from "./fetchWithRetries";
 import { DocumentsSidebar } from "./DocumentsSidebar";
 import { DocumentContent } from "./DocumentContent";
-import { type ViewMode, type errorType } from "~/app/employer/documents/types";
-import { type QAHistoryEntry } from "./ChatHistory";
+import type { QAHistoryEntry, ViewMode, errorType } from "./types";
 import clsx from "clsx";
 
 const SYSTEM_PROMPTS = {

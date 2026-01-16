@@ -46,7 +46,7 @@ interface SendMessageParams {
   parentMessageId?: string;
 }
 
-export function useAgentChatbot() {
+export function useAIChatbot() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

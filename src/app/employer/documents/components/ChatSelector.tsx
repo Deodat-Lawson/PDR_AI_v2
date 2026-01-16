@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Plus, MessageSquare, Trash2, Edit2, Check, X } from 'lucide-react';
-import { useAgentChatbot } from '../hooks/useAgentChatbot';
+import { useAgentChatbot } from '../hooks/useAIChatbot';
 
 interface Chat {
   id: string;

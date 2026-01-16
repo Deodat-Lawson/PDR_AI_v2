@@ -1,7 +1,7 @@
  
 import React, { useState, useEffect, useRef } from 'react';
 import { Brain, Send, ThumbsUp, ThumbsDown, Plus, Search, ExternalLink } from 'lucide-react';
-import { useAgentChatbot, type Message } from '../hooks/useAgentChatbot';
+import { useAgentChatbot, type Message } from '../hooks/useAIChatbot';
 import MarkdownMessage from "~/app/_components/MarkdownMessage";
 import clsx from 'clsx';
 
