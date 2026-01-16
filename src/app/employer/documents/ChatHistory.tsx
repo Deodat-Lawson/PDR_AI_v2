@@ -4,27 +4,7 @@ import React from "react";
 import { Clock, ChevronDown, ChevronUp } from "lucide-react";
 import dayjs from "dayjs";
 import MarkdownMessage from "~/app/_components/MarkdownMessage";
-
-/**
- * Shared interface for QA history entries.
- */
-export interface QAHistoryEntry {
-    id: string;
-    question: string;
-    response: string;
-    createdAt: string;
-    documentTitle: string;
-    documentId: number;
-    pages: number[];
-}
-
-interface QAHistoryProps {
-    history: QAHistoryEntry[];
-    onQuestionSelect: (question: string) => void;
-    documentTitle: string;
-    selectedDoc: { title: string } | null;
-    setPdfPageNumber: (page: number) => void;
-}
+import type { QAHistoryProps } from "./types";
 
 const QAHistory: React.FC<QAHistoryProps> = ({
     history,

@@ -11,6 +11,7 @@ interface TeacherPanelProps {
   messages: Message[];
   studyPlan: StudyPlanItem[];
   documents: Document[];
+  selectedDocument?: Document | null;
   onSendMessage: (content: string) => void;
   onEndCall?: () => void;
   onPullUpMaterial: (docId: string) => void;
@@ -26,6 +27,7 @@ export function TeacherPanel({
   messages,
   studyPlan,
   documents,
+  selectedDocument,
   onSendMessage,
   onEndCall,
   onPullUpMaterial,
@@ -229,6 +231,7 @@ export function TeacherPanel({
           <AIQueryChat 
             isBuddy={false}
             isDark={isDark}
+            selectedDocumentId={selectedDocument?.id}
           />
         </TabsContent>
       </Tabs>

@@ -16,7 +16,7 @@ import {
     Trash2,
 } from "lucide-react";
 import styles from "~/styles/Employer/DocumentViewer.module.css";
-import { type ViewMode } from "./types";
+import { type ViewMode } from "./types/index";
 import { ThemeToggle } from "~/app/_components/ThemeToggle";    
 import clsx from "clsx";
 

@@ -5,7 +5,7 @@ import { Brain } from "lucide-react";
 import clsx from "clsx";
 import styles from "~/styles/Employer/DocumentViewer.module.css";
 import MarkdownMessage from "~/app/_components/MarkdownMessage";
-import type { DocumentType } from "./types";
+import type { DocumentType } from "../../types";
 
 interface SimpleQueryLayoutProps {
   selectedDoc: DocumentType | null;

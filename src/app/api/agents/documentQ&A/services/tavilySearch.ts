@@ -1,11 +1,5 @@
 import { env } from "~/env";
-
-export type WebSearchResult = {
-    title: string;
-    url: string;
-    snippet: string;
-    relevanceScore?: number; // Optional relevance score (1-10) from agent synthesis
-};
+import type { WebSearchResult } from "./types";
 
 /**
  * Performs a web search using the Tavily API

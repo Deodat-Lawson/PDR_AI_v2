@@ -3,113 +3,17 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Brain, Clock, FileSearch, AlertTriangle, CheckCircle, AlertCircle, RefreshCw, Check, ChevronLeft, ChevronRight, FileText } from "lucide-react";
 import styles from "~/styles/Employer/DocumentViewer.module.css";
-import { type ViewMode } from "./types";
 import MarkdownMessage from "~/app/_components/MarkdownMessage";
 import clsx from "clsx";
 
-// Import the QAHistory component AND the QAHistoryEntry interface
-import QAHistory, { type QAHistoryEntry } from "./ChatHistory";
+import QAHistory from "./ChatHistory";
+import type { PredictiveAnalysisResponse, DocumentContentProps } from "./types/index";
+
 // Import agent chatbot components
-import { useAgentChatbot } from "./hooks/useAgentChatbot";
+import { useAIChatbot } from "./hooks/useAIChatbot";
 import { ChatSelector } from "./components/ChatSelector";
 import { AgentChatInterface } from "./components/AgentChatInterface";
 
-interface DocumentType {
-  id: number;
-  title: string;
-  category: string;
-  aiSummary?: string;
-  url: string;
-}
-
-// Updated to match backend response
-interface PredictiveAnalysisResponse {
-  success: boolean;
-  documentId: number;
-  analysisType: string;
-  summary: {
-    totalMissingDocuments: number;
-    highPriorityItems: number;
-    totalRecommendations: number;
-    totalSuggestedRelated: number;
-    analysisTimestamp: string;
-  };
-  analysis: {
-    missingDocuments: Array<{
-      documentName: string;
-      documentType: string;
-      reason: string;
-      page: number;
-      priority: "high" | "medium" | "low";
-      suggestedLinks?: Array<{
-        title: string;
-        link: string;
-        snippet: string;
-      }>;
-      suggestedCompanyDocuments?: Array<{
-        documentId: number;
-        documentTitle: string;
-        similarity: number;
-        page: number;
-        snippet: string;
-      }>;
-      resolvedIn?: {
-        documentId: number;
-        page: number;
-        documentTitle?: string; // Optional, if provided by backend
-      };
-    }>;
-    recommendations: string[];
-    suggestedRelatedDocuments?: Array<{
-      title: string;
-      link: string;
-      snippet: string;
-    }>;
-    resolvedDocuments?: Array<{
-      documentName: string;
-      documentType: string;
-      reason: string;
-      originalPage: number;
-      resolvedDocumentId: number;
-      resolvedPage: number;
-      resolvedDocumentTitle?: string;
-      priority: "high" | "medium" | "low";
-    }>;
-  };
-  metadata: {
-    pagesAnalyzed: number;
-    existingDocumentsChecked: number;
-  };
-  fromCache?: boolean;
-}
-
-interface DocumentContentProps {
-  selectedDoc: DocumentType | null;
-  viewMode: ViewMode;
-  aiQuestion: string;
-  setAiQuestion: React.Dispatch<React.SetStateAction<string>>;
-  aiAnswer: string;
-  aiError: string;
-  aiLoading: boolean;
-  handleAiSearch: (e: React.FormEvent) => void;
-  referencePages: number[];
-  pdfPageNumber: number;
-  setPdfPageNumber: React.Dispatch<React.SetStateAction<number>>;
-  qaHistory: QAHistoryEntry[];
-  aiStyle: string;
-  setAiStyle: React.Dispatch<React.SetStateAction<string>>;
-  styleOptions: Record<string, string>;
-  predictiveAnalysis: PredictiveAnalysisResponse | null;
-  predictiveLoading: boolean;
-  predictiveError: string;
-  onRefreshAnalysis: () => void;
-  onSelectDocument?: (docId: number, page: number) => void;
-  searchScope: "document" | "company";
-  setSearchScope: React.Dispatch<React.SetStateAction<"document" | "company">>;
-  companyId: number | null;
-  userId: string | null;
-  onCollapseMainSidebar?: () => void;
-}
 
 export const DocumentContent: React.FC<DocumentContentProps> = ({
   selectedDoc,
@@ -155,7 +59,7 @@ export const DocumentContent: React.FC<DocumentContentProps> = ({
   // Track if sidebar has been auto-collapsed for this chat session
   const hasAutoCollapsedRef = useRef(false);
   // Agent Chatbot state
-  const { createChat, getMessages, getChat, updateChat } = useAgentChatbot();
+  const { createChat, getMessages, getChat, updateChat } = useAIChatbot();
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   // AI Chat persona/expertise selector
   type AiPersona = 'general' | 'learning-coach' | 'financial-expert' | 'legal-expert' | 'math-reasoning';

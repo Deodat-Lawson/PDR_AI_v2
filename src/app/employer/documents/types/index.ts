@@ -1,6 +1,7 @@
-export type ViewMode = "document-only" | "with-summary" | "with-ai-qa" | "with-ai-qa-history" | "predictive-analysis";
-export type errorType = {
-    error: string;
-    message: string;
-    details: string;
-}
+// Re-export all types from separate files for convenience
+// This maintains backward compatibility with existing imports
+
+export * from "./document";
+export * from "./predictive-analysis";
+export * from "./qa-history";
+export * from "./common";

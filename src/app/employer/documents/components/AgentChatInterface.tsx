@@ -1,7 +1,8 @@
  
 import React, { useState, useEffect, useRef } from 'react';
 import { Brain, Send, ThumbsUp, ThumbsDown, Plus, Search, ExternalLink } from 'lucide-react';
-import { useAgentChatbot, type Message } from '../hooks/useAgentChatbot';
+import { useAIChatbot, type Message } from '../hooks/useAIChatbot';
+import { useAIChat } from '../hooks/useAIChat';
 import MarkdownMessage from "~/app/_components/MarkdownMessage";
 import clsx from 'clsx';
 
@@ -30,7 +31,8 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
   aiPersona = 'general',
   onPageClick,
 }) => {
-  const { getMessages, sendMessage, voteMessage, error } = useAgentChatbot();
+  const { getMessages, sendMessage, voteMessage, error } = useAIChatbot();
+  const { sendQuery: sendAIChatQuery, error: aiChatError } = useAIChat();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -151,49 +153,21 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
           })
           .join('\n\n');
 
-        const requestBody: {
-          question: string;
-          style?: string;
-          searchScope: 'document' | 'company';
-          conversationHistory?: string;
-          enableWebSearch: boolean;
-          aiPersona?: string;
-          documentId?: number;
-          companyId?: number;
-        } = {
+        const aiData = await sendAIChatQuery({
           question: userMessage,
-          style: aiStyle,
           searchScope,
-          conversationHistory: conversationContext || undefined, // Include conversation context
-          enableWebSearch: Boolean(enableWebSearch), // Explicitly convert to boolean
-          aiPersona: aiPersona, // Include AI persona for learning coach mode
-        };
-
-        // Console log web search status
-        console.log('🔍 Frontend: enableWebSearch =', enableWebSearch, 'type:', typeof enableWebSearch);
-        console.log('📤 Frontend: Sending requestBody with enableWebSearch:', requestBody.enableWebSearch);
-
-        if (searchScope === "document" && selectedDocId) {
-          requestBody.documentId = selectedDocId;
-        } else if (searchScope === "company" && companyId) {
-          requestBody.companyId = companyId;
-        }
-
-        const aiServiceResponse = await fetch("/api/AIAssistant", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(requestBody),
+          style: aiStyle as 'concise' | 'detailed' | 'academic' | 'bullet-points',
+          conversationHistory: conversationContext || undefined,
+          enableWebSearch: Boolean(enableWebSearch),
+          aiPersona: aiPersona as 'general' | 'learning-coach' | 'financial-expert' | 'legal-expert' | 'math-reasoning' | undefined,
+          documentId: searchScope === "document" && selectedDocId ? selectedDocId : undefined,
+          companyId: searchScope === "company" && companyId ? companyId : undefined,
         });
 
-        if (!aiServiceResponse.ok) {
-          throw new Error("Failed to get AI response");
+        if (!aiData) {
+          throw new Error(aiChatError ?? "Failed to get AI response");
         }
 
-        const aiData = await aiServiceResponse.json() as {
-          summarizedAnswer?: string;
-          recommendedPages?: number[];
-          webSources?: Array<{ title: string; url: string; snippet: string }>;
-        };
         const aiAnswer = aiData.summarizedAnswer ?? "I'm sorry, I couldn't generate a response right now. Could you try rephrasing your question?";
         const pages = aiData.recommendedPages ?? [];
         const webSources = aiData.webSources ?? [];

@@ -9,11 +9,11 @@ import styles from "../../../styles/Employee/DocumentViewer.module.css";
 import LoadingDoc from "~/app/employee/documents/loading-doc";
 import LoadingPage from "~/app/_components/loading";
 
-import { fetchWithRetries } from "./fetchWithRetries";
 import { DocumentsSidebar } from "./DocumentsSidebar";
 import { DocumentContent } from "./DocumentContent";
-import { type QAHistoryEntry } from "~/app/employer/documents/ChatHistory";
 import { type ViewMode } from "~/app/employee/documents/types";
+import { useAIQuery } from "~/app/employer/documents/hooks/useAIQuery";
+import type { QAHistoryEntry } from "~/app/employer/documents/types";
 
 const SYSTEM_PROMPTS = {
     concise: "Concise & Direct",
@@ -36,26 +36,7 @@ interface CategoryGroup {
     documents: DocumentType[];
 }
 
-interface LangChainResponse {
-    success: boolean;
-    summarizedAnswer: string;
-    recommendedPages: number[];
-}
 
-interface chatHistoryProp {
-    id: string;
-    question: string;
-    response: string;
-    createdAt: string;
-    documentId: string;
-    documentTitle: string;
-    pages: number[];
-}
-
-interface fetchHistoryProp {
-    status: string;
-    chatHistory: chatHistoryProp[];
-}
 
 interface PredictiveAnalysisResponse {
   success: boolean;
@@ -131,52 +112,16 @@ const DocumentViewer: React.FC = () => {
     const [aiQuestion, setAiQuestion] = useState("");
     const [aiAnswer, setAiAnswer] = useState("");
     const [aiError, setAiError] = useState("");
-    const [aiLoading, setAiLoading] = useState(false);
     const [referencePages, setReferencePages] = useState<number[]>([]);
     const [aiStyle, setAiStyle] = useState<string>("concise");
+    const { sendQuery: sendAIQuery, loading: aiLoading } = useAIQuery();
     const [pdfPageNumber, setPdfPageNumber] = useState<number>(1);
-    const [qaHistory, setQaHistory] = useState<QAHistoryEntry[]>([]);
+    const [qaHistory] = useState<QAHistoryEntry[]>([]); // Q&A history not used for AI query
     const [predictiveAnalysis, setPredictiveAnalysis] = useState<PredictiveAnalysisResponse | null>(null);
     const [isPredictiveLoading, setIsPredictiveLoading] = useState(false);
     const [predictiveError, setPredictiveError] = useState("");
 
 
-    const saveToDatabase = async (Entry: QAHistoryEntry) => {
-        try {
-            const response = await fetch("/api/Questions/add", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ userId, documentId: Entry.documentId, documentTitle: Entry.documentTitle, question: Entry.question, response: Entry.response, pages: Entry.pages }),
-            });
-
-            if (!response.ok) {
-                throw new Error("Failed to add Q&A to history");
-            }
-
-        } catch (error) {
-            console.error("Error checking employee role:", error);
-            window.alert("Authentication failed! You are not an employee.");
-            router.push("/");
-        } finally {
-            setRoleLoading(false);
-        }
-    };
-
-    const saveToHistory = async (question: string, response: string, pages: number[]) => {
-        // Example logic - you can adapt this to your real data
-        const newEntry: QAHistoryEntry = {
-            id: crypto.randomUUID(), // or any unique ID generator
-            question: question,
-            response: response,
-            documentId: selectedDoc!.id,
-            createdAt: new Date().toLocaleString(),
-            documentTitle: selectedDoc?.title ?? "",
-            pages: pages,
-        };
-
-        await saveToDatabase(newEntry);
-        setQaHistory((prev) => [...prev, newEntry]);
-    };
 
     useEffect(() => {
         if (!isLoaded) return;
@@ -287,38 +232,32 @@ const DocumentViewer: React.FC = () => {
         setReferencePages([]);
 
         if (!aiQuestion.trim()) return; // skip if empty question
+        if (!selectedDoc?.id) {
+            setAiError("Please select a document first");
+            return;
+        }
 
         try {
-            setAiLoading(true);
+            const data = await sendAIQuery({
+                documentId: selectedDoc.id,
+                question: aiQuestion,
+                style: aiStyle as 'concise' | 'detailed' | 'academic' | 'bullet-points',
+            });
 
-            // Use our fetchWithRetries
-            const data = (await fetchWithRetries(
-                "/api/AIAssistant",
-                {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        documentId: selectedDoc?.id,
-                        question: aiQuestion,
-                        style: aiStyle,
-                    }),
-                },
-                5
-            )) as LangChainResponse;
+            if (!data) {
+                throw new Error("Failed to get AI response");
+            }
 
-            setAiAnswer(data.summarizedAnswer);
+            setAiAnswer(data.summarizedAnswer ?? "");
 
             if (Array.isArray(data.recommendedPages)) {
                 const uniquePages = Array.from(new Set(data.recommendedPages));
                 setReferencePages(uniquePages);
-
-                await saveToHistory(aiQuestion, data.summarizedAnswer, uniquePages);
             }
 
         } catch (err: unknown) {
-            setAiError("Timeout error: Please try again later." + (err instanceof Error ? err.message : "Unknown error"));
-        } finally {
-            setAiLoading(false);
+            const errorMessage = err instanceof Error ? err.message : "Timeout error: Please try again later.";
+            setAiError(errorMessage);
         }
     };
 
@@ -383,39 +322,7 @@ const DocumentViewer: React.FC = () => {
 
 
 
-    useEffect(() => {
-
-        const fetchHistory = async () => {
-            console.log("doc id", selectedDoc?.id)
-            try {
-
-                console.log("doc", selectedDoc)
-                const response = await fetch("/api/Questions/fetch", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ userId, documentId: selectedDoc?.id }),
-                });
-
-                if (!response.ok) {
-                    throw new Error("Failed to fetch Q&A history");
-                }
-
-                const data: unknown = await response.json();
-
-                const processedData = data as fetchHistoryProp;
-
-                console.log(processedData);
-
-                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-                // @ts-expect-error
-                setQaHistory(processedData.chatHistory);
-            } catch (error) {
-                console.error("Error fetching Q&A history:", error);
-            }
-        };
-
-        fetchHistory().catch(console.error);
-    }, [userId, selectedDoc]);
+    // Q&A history fetching removed - not needed for AI query
 
     useEffect(() => {
         if (viewMode !== "predictive-analysis" || !selectedDoc?.id) return;

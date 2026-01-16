@@ -22,9 +22,9 @@ jest.mock("@langchain/openai", () => {
     };
 });
 
-import * as AnalysisEngine from "~/app/api/predictive-document-analysis/services/analysisEngine";
-import { createChunkBatches } from "~/app/api/predictive-document-analysis/utils/batching";
-import type { PdfChunk, AnalysisSpecification } from "~/app/api/predictive-document-analysis/types";
+import * as AnalysisEngine from "~/app/api/agents/predictive-document-analysis/services/analysisEngine";
+import { createChunkBatches } from "~/app/api/agents/predictive-document-analysis/utils/batching";
+import type { PdfChunk, AnalysisSpecification } from "~/app/api/agents/predictive-document-analysis/types";
 
 describe("predictive analysis batching", () => {
     beforeEach(() => {

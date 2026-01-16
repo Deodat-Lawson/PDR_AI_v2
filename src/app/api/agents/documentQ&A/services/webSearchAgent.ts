@@ -1,7 +1,8 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { SystemMessage, HumanMessage } from "@langchain/core/messages";
-import { performTavilySearch, type WebSearchResult } from "./tavilySearch";
+import { performTavilySearch } from "./tavilySearch";
 import { env } from "~/env";
+import type { WebSearchResult, WebSearchAgentInput, WebSearchAgentResult } from "./types";
 
 /**
  * Web Search Agent using LangChain and LangSmith
@@ -15,72 +16,67 @@ import { env } from "~/env";
  * LangSmith tracing is automatically enabled if LANGCHAIN_TRACING_V2=true
  */
 
-export interface WebSearchAgentInput {
-    userQuestion: string;
-    documentContext?: string;
-    maxResults?: number;
-    searchDepth?: "basic" | "advanced";
-}
+const QUERY_REFINEMENT_PROMPT = 
+    `You are an expert search query optimizer. Your task is to refine user questions into highly effective web search queries.
 
-const QUERY_REFINEMENT_PROMPT = `You are an expert search query optimizer. Your task is to refine user questions into highly effective web search queries.
+    Guidelines:
+    1. Extract the core intent and key concepts from the user's question
+    2. Remove redundant words and focus on essential search terms
+    3. Add relevant context terms if document context is provided
+    4. Use specific, searchable keywords rather than conversational language
+    5. Keep queries concise (5-10 words ideal) while maintaining clarity
+    6. If the question references specific document content, incorporate relevant terms from that context
+    7. Prioritize terms that are likely to appear in authoritative sources
 
-Guidelines:
-1. Extract the core intent and key concepts from the user's question
-2. Remove redundant words and focus on essential search terms
-3. Add relevant context terms if document context is provided
-4. Use specific, searchable keywords rather than conversational language
-5. Keep queries concise (5-10 words ideal) while maintaining clarity
-6. If the question references specific document content, incorporate relevant terms from that context
-7. Prioritize terms that are likely to appear in authoritative sources
+    Examples:
+    - "What is the warranty period for this product?" → "product warranty period terms"
+    - "How do I calculate depreciation?" → "depreciation calculation methods accounting"
+    - "What are the safety requirements?" → "safety requirements regulations compliance"
 
-Examples:
-- "What is the warranty period for this product?" → "product warranty period terms"
-- "How do I calculate depreciation?" → "depreciation calculation methods accounting"
-- "What are the safety requirements?" → "safety requirements regulations compliance"
+    Return ONLY the refined search query, nothing else.`;
 
-Return ONLY the refined search query, nothing else.`;
+const RESULT_SYNTHESIS_PROMPT = 
+    `You are an expert information analyst specializing in evaluating and synthesizing web search results.
 
-const RESULT_SYNTHESIS_PROMPT = `You are an expert information analyst specializing in evaluating and synthesizing web search results.
+    Your task is to:
+    1. Analyze search results for relevance to the user's question
+    2. Identify the most authoritative and informative sources
+    3. Filter out low-quality, irrelevant, or redundant results
+    4. Rank results by relevance and quality
+    5. Provide reasoning for your selections
 
-Your task is to:
-1. Analyze search results for relevance to the user's question
-2. Identify the most authoritative and informative sources
-3. Filter out low-quality, irrelevant, or redundant results
-4. Rank results by relevance and quality
-5. Provide reasoning for your selections
+    Evaluation Criteria:
+    - Relevance: How well does the result address the user's question?
+    - Authority: Is the source credible and trustworthy?
+    - Recency: Is the information current (if timeliness matters)?
+    - Completeness: Does the result provide substantial information?
+    - Uniqueness: Does it add value not covered by other results?
 
-Evaluation Criteria:
-- Relevance: How well does the result address the user's question?
-- Authority: Is the source credible and trustworthy?
-- Recency: Is the information current (if timeliness matters)?
-- Completeness: Does the result provide substantial information?
-- Uniqueness: Does it add value not covered by other results?
+    Document Context (if provided):
+    {documentContext}
 
-Document Context (if provided):
-{documentContext}
+    User Question: {userQuestion}
 
-User Question: {userQuestion}
+    Search Results:
+    {searchResults}
 
-Search Results:
-{searchResults}
+    Analyze these results and return:
+    1. A JSON array of the most relevant results (up to {maxResults} items)
+    2. For each result, include: title, url, snippet, and a relevance score (1-10)
+    3. A brief reasoning statement explaining why these results were selected
 
-Analyze these results and return:
-1. A JSON array of the most relevant results (up to {maxResults} items)
-2. For each result, include: title, url, snippet, and a relevance score (1-10)
-3. A brief reasoning statement explaining why these results were selected
-
-Format your response as JSON:
-{
-  "selectedResults": [
+    Format your response as JSON:
     {
-      "title": "...",
-      "url": "...",
-      "snippet": "...",
-      "relevanceScore": 8
-    }
-  ],
-  "reasoning": "Brief explanation of selection criteria"
-}`;
+    "selectedResults": [
+        {
+        "title": "...",
+        "url": "...",
+        "snippet": "...",
+        "relevanceScore": 8
+        }
+    ],
+    "reasoning": "Brief explanation of selection criteria"
+    }`;
 
 /**
  * Refines the user's question into an optimized search query
@@ -280,11 +276,7 @@ async function synthesizeResults(
  */
 export async function executeWebSearchAgent(
     input: WebSearchAgentInput
-): Promise<{
-    results: WebSearchResult[];
-    refinedQuery: string;
-    reasoning?: string;
-}> {
+): Promise<WebSearchAgentResult> {
     const maxResults = input.maxResults ?? 5;
 
     try {
