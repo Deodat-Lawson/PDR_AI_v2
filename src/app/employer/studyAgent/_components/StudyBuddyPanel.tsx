@@ -19,7 +19,7 @@ export function StudyBuddyPanel({
   studyPlan,
   documents,
   notes,
-  selectedDocument: _selectedDocument,
+  selectedDocument,
   onSendMessage,
   onEndCall,
   onPullUpMaterial,
@@ -36,7 +36,6 @@ export function StudyBuddyPanel({
   sessionId,
   avatarUrl,
 }: StudyBuddyPanelProps) {
-  void _selectedDocument; // Unused but required by interface
   const [isCreating, setIsCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -421,6 +420,7 @@ export function StudyBuddyPanel({
           <AIQueryChat 
             isBuddy={true}
             isDark={isDark}
+            selectedDocumentId={selectedDocument?.id}
           />
         </TabsContent>
 

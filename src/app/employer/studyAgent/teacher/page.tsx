@@ -567,6 +567,7 @@ function TeacherPageContent() {
           messages={messages}
           studyPlan={studyPlan}
           documents={documents}
+          selectedDocument={selectedDocument}
           onSendMessage={handleSendMessage}
           onEndCall={handleEndCall}
           onPullUpMaterial={handlePullUpMaterial}

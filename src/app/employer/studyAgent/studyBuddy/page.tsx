@@ -182,6 +182,72 @@ function StudyBuddyPageContent() {
     }
   }, [sessionId]);
 
+  // Generate introduction message for new sessions
+  const generateIntroduction = useCallback(async (prefs: UserPreferences | null, plan: StudyPlanItem[]) => {
+    try {
+      const response = await fetch("/api/study-agent/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Please introduce yourself and discuss the study materials. Also mention that I can create a study plan.",
+          mode: "study-buddy",
+          fieldOfStudy: prefs?.fieldOfStudy,
+          selectedDocuments: prefs?.selectedDocuments ?? [],
+          studyPlan: plan,
+          conversationHistory: [],
+          sessionId,
+        }),
+      });
+
+      if (response.ok) {
+        interface ChatResponse {
+          originalResponse?: string;
+          response?: string;
+        }
+        const data = await response.json() as ChatResponse;
+        const originalResponse = data.originalResponse ?? data.response ?? "Hey! I'm your AI study buddy. Let's learn together!";
+        const ttsResponse = data.response ?? originalResponse;
+        
+        const introMessage: Message = {
+          id: "1",
+          role: "buddy",
+          content: originalResponse,
+          ttsContent: ttsResponse,
+          timestamp: new Date(),
+          isVoice: true,
+        };
+        setMessages([introMessage]);
+      } else {
+        const fallbackContent = `Hey! I'm your AI study buddy! I see you're studying ${prefs?.fieldOfStudy ?? "new topics"}. I've created a study plan based on your materials. Let's work through this together!`;
+        
+        const welcomeMessage: Message = {
+          id: "1",
+          role: "buddy",
+          content: fallbackContent,
+          ttsContent: `[happy] ${fallbackContent}`,
+          timestamp: new Date(),
+          isVoice: true,
+        };
+        setMessages([welcomeMessage]);
+      }
+    } catch (error) {
+      console.error("Error generating introduction:", error);
+      const fallbackContent = `Hey! I'm your AI study buddy! Let's work through your study materials together!`;
+      
+      const welcomeMessage: Message = {
+        id: "1",
+        role: "buddy",
+        content: fallbackContent,
+        ttsContent: `[happy] ${fallbackContent}`,
+        timestamp: new Date(),
+        isVoice: true,
+      };
+      setMessages([welcomeMessage]);
+    } finally {
+      setIsConnecting(false);
+    }
+  }, [sessionId, setMessages, setIsConnecting]);
+
   // Fetch documents on mount
   useEffect(() => {
     const fetchDocuments = async () => {
@@ -299,7 +365,7 @@ function StudyBuddyPageContent() {
     };
 
     void loadSessionData();
-  }, [searchParams, router]);
+  }, [searchParams, router, generateIntroduction]);
 
   // Select the first document once both documents and preferences are available
   useEffect(() => {
@@ -310,73 +376,6 @@ function StudyBuddyPageContent() {
       }
     }
   }, [userPreferences, documents, selectedDocument]);
-
-  const generateIntroduction = async (prefs: UserPreferences | null, plan: StudyPlanItem[]) => {
-    try {
-      const response = await fetch("/api/study-agent/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: "Please introduce yourself and discuss the study materials. Also mention that I can create a study plan.",
-          mode: "study-buddy",
-          fieldOfStudy: prefs?.fieldOfStudy,
-          selectedDocuments: prefs?.selectedDocuments ?? [],
-          studyPlan: plan,
-          conversationHistory: [],
-          sessionId,
-        }),
-      });
-
-      if (response.ok) {
-        interface ChatResponse {
-          originalResponse?: string;
-          response?: string;
-        }
-        const data = await response.json() as ChatResponse;
-        const originalResponse = data.originalResponse ?? data.response ?? "Hey! I'm your AI study buddy. Let's learn together!";
-        const ttsResponse = data.response ?? originalResponse;
-        
-        const introMessage: Message = {
-          id: "1",
-          role: "buddy",
-          content: originalResponse,
-          ttsContent: ttsResponse,
-          timestamp: new Date(),
-          isVoice: true,
-        };
-        setMessages([introMessage]);
-      } else {
-        const fallbackContent = `Hey! I'm your AI study buddy! I see you're studying ${prefs?.fieldOfStudy ?? "new topics"}. I've created a study plan based on your materials. Let's work through this together!`;
-        
-        const welcomeMessage: Message = {
-          id: "1",
-          role: "buddy",
-          content: fallbackContent,
-          ttsContent: `[happy] ${fallbackContent}`,
-          timestamp: new Date(),
-          isVoice: true,
-        };
-        setMessages([welcomeMessage]);
-      }
-    } catch (error) {
-      console.error("Error generating introduction:", error);
-      const fallbackContent = `Hey! I'm your AI study buddy! Let's work through your study materials together!`;
-      
-      const welcomeMessage: Message = {
-        id: "1",
-        role: "buddy",
-        content: fallbackContent,
-        ttsContent: `[happy] ${fallbackContent}`,
-        timestamp: new Date(),
-        isVoice: true,
-      };
-      setMessages([welcomeMessage]);
-    }
-
-    setTimeout(() => {
-      setIsConnecting(false);
-    }, 3000);
-  };
 
   const persistGoalUpdate = async (goalId: string, updates: Partial<StudyPlanItem>) => {
     try {

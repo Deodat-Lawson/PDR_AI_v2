@@ -6,7 +6,7 @@ import clsx from "clsx";
 import styles from "~/styles/Employer/DocumentViewer.module.css";
 import { ChatSelector } from "../ChatSelector";
 import { AgentChatInterface } from "../AgentChatInterface";
-import type { DocumentType, AiPersona } from "./types";
+import type { DocumentType, AiPersona } from "../../types";
 
 interface AiChatLayoutProps {
   selectedDoc: DocumentType | null;

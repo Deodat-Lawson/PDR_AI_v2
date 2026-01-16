@@ -1,4 +1,4 @@
-import { db } from "../../../../server/db/index";
+import { db } from "../../../../../server/db/index";
 import { eq, sql } from "drizzle-orm";
 import { pdfChunks } from "~/server/db/schema";
 

@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import type { MissingDocument, ResolvedDocument } from "./types";
+import type { MissingDocument, ResolvedDocument } from "../../types";
 
 interface MissingItemProps {
   doc: MissingDocument;

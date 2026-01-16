@@ -66,7 +66,7 @@ export const PredictiveAnalysisSchema = z.object({
 }));
 
 const aiPersonaOptions = ["general", "learning-coach", "financial-expert", "legal-expert", "math-reasoning"] as const;
-const aiModelOptions = ["gpt4", "claude", "gemini"] as const;
+const aiModelOptions = ["gpt-4o", "claude-sonnet-4", "claude-opus-4.5", "gpt-5.2", "gpt-5.1", "gemini-2.5-flash", "gemini-3-flash", "gemini-3-pro"] as const;
 
 export const QuestionSchema = z.object({
   documentId: z.number().int().positive().optional(),
@@ -74,15 +74,7 @@ export const QuestionSchema = z.object({
   question: z.string().min(1, "Question is required"),
   style: z.enum(["concise", "detailed", "academic", "bullet-points"]).optional(),
   searchScope: z.enum(["document", "company"]).optional(),
-  enableWebSearch: z.preprocess(
-    (value) => {
-      if (value === undefined || value === null || value === "") return undefined;
-      if (typeof value === "string") return value === "true" || value === "1";
-      if (typeof value === "number") return value === 1;
-      return Boolean(value);
-    },
-    z.boolean().optional()
-  ),
+  enableWebSearch: z.boolean().optional().default(false),
   aiPersona: z.enum(aiPersonaOptions).optional(),
   aiModel: z.enum(aiModelOptions).optional(),
   conversationHistory: z.string().optional(),
@@ -94,7 +86,7 @@ export const QuestionSchema = z.object({
   searchScope: data.searchScope ?? "document" as const,
   enableWebSearch: data.enableWebSearch ?? false,
   aiPersona: data.aiPersona ?? "general",
-  aiModel: data.aiModel ?? "gpt4" as const,
+  aiModel: data.aiModel ?? "gpt-4o" as const,
   conversationHistory: data.conversationHistory,
 }));
 

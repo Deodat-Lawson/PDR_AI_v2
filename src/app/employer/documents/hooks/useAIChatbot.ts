@@ -46,7 +46,7 @@ interface SendMessageParams {
   parentMessageId?: string;
 }
 
-export function useAgentChatbot() {
+export function useAIChatbot() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,7 +55,7 @@ export function useAgentChatbot() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/agent-ai-chatbot/chats', {
+      const response = await fetch('/api/agents/documentQ&A/AIChat/chats', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(params),
@@ -65,7 +65,10 @@ export function useAgentChatbot() {
         throw new Error('Failed to create chat');
       }
 
-      const data = await response.json() as { chat: Chat };
+      const data = await response.json() as { success: boolean; chat: Chat };
+      if (!data.success || !data.chat) {
+        throw new Error('Invalid response format');
+      }
       return data.chat;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create chat');
@@ -80,13 +83,16 @@ export function useAgentChatbot() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/agent-ai-chatbot/chats?userId=${userId}`);
+      const response = await fetch(`/api/agents/documentQ&A/AIChat/chats?userId=${userId}`);
 
       if (!response.ok) {
         throw new Error('Failed to fetch chats');
       }
 
-      const data = await response.json() as { chats?: Chat[] };
+      const data = await response.json() as { success: boolean; chats?: Chat[] };
+      if (!data.success) {
+        throw new Error('Invalid response format');
+      }
       return data.chats ?? [];
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch chats');
@@ -101,13 +107,16 @@ export function useAgentChatbot() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/agent-ai-chatbot/chats/${chatId}`);
+      const response = await fetch(`/api/agents/documentQ&A/AIChat/chats/${chatId}`);
 
       if (!response.ok) {
         throw new Error('Failed to fetch chat');
       }
 
-      const data = await response.json() as { chat?: Chat; messages?: Message[]; tasks?: unknown[] };
+      const data = await response.json() as { success: boolean; chat?: Chat; messages?: Message[]; tasks?: unknown[] };
+      if (!data.success) {
+        throw new Error('Invalid response format');
+      }
       return data;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch chat');
@@ -122,7 +131,7 @@ export function useAgentChatbot() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/agent-ai-chatbot/messages', {
+      const response = await fetch('/api/agents/documentQ&A/AIChat/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(params),
@@ -132,7 +141,10 @@ export function useAgentChatbot() {
         throw new Error('Failed to send message');
       }
 
-      const data = await response.json() as { message: Message };
+      const data = await response.json() as { success: boolean; message: Message };
+      if (!data.success || !data.message) {
+        throw new Error('Invalid response format');
+      }
       return data.message;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send message');
@@ -147,13 +159,16 @@ export function useAgentChatbot() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/agent-ai-chatbot/messages?chatId=${chatId}`);
+      const response = await fetch(`/api/agents/documentQ&A/AIChat/messages?chatId=${chatId}`);
 
       if (!response.ok) {
         throw new Error('Failed to fetch messages');
       }
 
-      const data = await response.json() as { messages?: Message[] };
+      const data = await response.json() as { success: boolean; messages?: Message[] };
+      if (!data.success) {
+        throw new Error('Invalid response format');
+      }
       return data.messages ?? [];
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch messages');
@@ -168,7 +183,7 @@ export function useAgentChatbot() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/agent-ai-chatbot/chats/${chatId}`, {
+      const response = await fetch(`/api/agents/documentQ&A/AIChat/chats/${chatId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates),
@@ -178,7 +193,10 @@ export function useAgentChatbot() {
         throw new Error('Failed to update chat');
       }
 
-      const data = await response.json() as { chat: Chat };
+      const data = await response.json() as { success: boolean; chat: Chat };
+      if (!data.success || !data.chat) {
+        throw new Error('Invalid response format');
+      }
       return data.chat;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update chat');
@@ -193,7 +211,7 @@ export function useAgentChatbot() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/agent-ai-chatbot/chats/${chatId}`, {
+      const response = await fetch(`/api/agents/documentQ&A/AIChat/chats/${chatId}`, {
         method: 'DELETE',
       });
 
@@ -201,6 +219,10 @@ export function useAgentChatbot() {
         throw new Error('Failed to delete chat');
       }
 
+      const data = await response.json() as { success: boolean };
+      if (!data.success) {
+        throw new Error('Invalid response format');
+      }
       return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete chat');
@@ -213,7 +235,7 @@ export function useAgentChatbot() {
   // Vote on a message
   const voteMessage = useCallback(async (chatId: string, messageId: string, isUpvoted: boolean, feedback?: string) => {
     try {
-      const response = await fetch('/api/agent-ai-chatbot/votes', {
+      const response = await fetch('/api/agents/documentQ&A/AIChat/votes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ chatId, messageId, isUpvoted, feedback }),
@@ -223,7 +245,11 @@ export function useAgentChatbot() {
         throw new Error('Failed to vote');
       }
 
-      return await response.json() as { success: boolean; vote?: unknown; updated?: boolean };
+      const data = await response.json() as { success: boolean; vote?: unknown; updated?: boolean };
+      if (!data.success) {
+        throw new Error('Invalid response format');
+      }
+      return data;
     } catch (err) {
       console.error('Failed to vote:', err);
       return null;
@@ -243,4 +269,3 @@ export function useAgentChatbot() {
     voteMessage,
   };
 }
-

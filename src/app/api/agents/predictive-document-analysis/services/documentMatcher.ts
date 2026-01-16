@@ -1,4 +1,4 @@
-import { db } from "../../../../server/db/index";
+import { db } from "../../../../../server/db/index";
 import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import { pdfChunks, document } from "~/server/db/schema";
 import type { 
