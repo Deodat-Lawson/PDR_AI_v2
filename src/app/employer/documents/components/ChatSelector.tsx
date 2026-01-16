@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Plus, MessageSquare, Trash2, Edit2, Check, X } from 'lucide-react';
-import { useAgentChatbot } from '../hooks/useAIChatbot';
+import { useAIChatbot } from '../hooks/useAIChatbot';
 
 interface Chat {
   id: string;
@@ -22,7 +22,7 @@ export const ChatSelector: React.FC<ChatSelectorProps> = ({
   onSelectChat,
   onNewChat,
 }) => {
-  const { getChats, deleteChat, updateChat, loading } = useAgentChatbot();
+  const { getChats, deleteChat, updateChat, loading } = useAIChatbot();
   const [chats, setChats] = useState<Chat[]>([]);
   const [editingChatId, setEditingChatId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');

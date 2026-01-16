@@ -6,7 +6,8 @@
 
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
-import { performTavilySearch, type WebSearchResult } from "~/app/api/AIAssistant/services/tavilySearch";
+import { performTavilySearch } from "~/app/api/agents/documentQ&A/services/tavilySearch";
+import type { WebSearchResult } from "~/app/api/agents/documentQ&A/services/types";
 
 const WebResearchSchema = z.object({
   query: z.string().describe("The search query for web research"),

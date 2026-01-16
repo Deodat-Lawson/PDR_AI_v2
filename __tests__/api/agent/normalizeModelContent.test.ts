@@ -1,4 +1,4 @@
-import { normalizeModelContent } from "~/app/api/AIAssistant/normalizeModelContent";
+import { normalizeModelContent } from "~/app/api/agents/documentQ&A/services/normalizeModelContent";
 
 describe("normalizeModelContent", () => {
   it("returns strings unchanged", () => {

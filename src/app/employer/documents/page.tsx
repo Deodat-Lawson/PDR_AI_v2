@@ -7,10 +7,10 @@ import { useAuth } from "@clerk/nextjs";
 
 import styles from "~/styles/Employer/DocumentViewer.module.css";
 import LoadingPage from "~/app/_components/loading";
-import { fetchWithRetries } from "./fetchWithRetries";
 import { DocumentsSidebar } from "./DocumentsSidebar";
 import { DocumentContent } from "./DocumentContent";
 import type { QAHistoryEntry, ViewMode, errorType } from "./types";
+import { useAIChat } from "./hooks/useAIChat";
 import clsx from "clsx";
 
 const SYSTEM_PROMPTS = {
@@ -19,14 +19,6 @@ const SYSTEM_PROMPTS = {
   academic: "Academic & Analytical",
   "bullet-points": "Organized Bullet Points",
 } as const;
-
-interface RequestBody {
-  question: string;
-  style: string;
-  searchScope: "document" | "company";
-  documentId?: number;
-  companyId?: number;
-}
 
 interface DocumentType {
   id: number;
@@ -40,17 +32,6 @@ interface CategoryGroup {
   name: string;
   isOpen: boolean;
   documents: DocumentType[];
-}
-
-interface LangChainResponse {
-  success: boolean;
-  summarizedAnswer: string;
-  recommendedPages: number[];
-}
-
-interface FetchHistoryProp {
-  status: string;
-  chatHistory: QAHistoryEntry[];
 }
 
 
@@ -130,11 +111,11 @@ const DocumentViewer: React.FC = () => {
   const [aiQuestion, setAiQuestion] = useState("");
   const [aiAnswer, setAiAnswer] = useState("");
   const [aiError, setAiError] = useState("");
-  const [isAiLoading, setIsAiLoading] = useState(false);
   const [referencePages, setReferencePages] = useState<number[]>([]);
   const [aiStyle, setAiStyle] = useState<string>("concise");
   const [searchScope, setSearchScope] = useState<"document" | "company">("document");
   const [companyId, setCompanyId] = useState<number | null>(null);
+  const { sendQuery: sendAIChatQuery, loading: isAiLoading } = useAIChat();
   const [pdfPageNumber, setPdfPageNumber] = useState<number>(1);
   const [qaHistory, setQaHistory] = useState<QAHistoryEntry[]>([]);
   const [predictiveAnalysis, setPredictiveAnalysis] = useState<PredictiveAnalysisResponse | null>(null);
@@ -146,45 +127,7 @@ const DocumentViewer: React.FC = () => {
   const [isMainSidebarCollapsed, setIsMainSidebarCollapsed] = useState(false);
   const [mainSidebarExpandedWidth, setMainSidebarExpandedWidth] = useState(384);
 
-  const saveToDatabase = async (entry: QAHistoryEntry) => {
-    try {
-      const response = await fetch("/api/Questions/add", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId,
-          documentId: entry.documentId,
-          documentTitle: entry.documentTitle,
-          question: entry.question,
-          response: entry.response,
-          pages: entry.pages,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to add Q&A to history");
-      }
-    } catch (error) {
-      console.error("Error saving Q&A to database:", error);
-    }
-  };
-
-  const saveToHistory = async (question: string, response: string, pages: number[]) => {
-    if (!selectedDoc) return;
-
-    const newEntry: QAHistoryEntry = {
-      id: crypto.randomUUID(),
-      question,
-      response,
-      documentId: selectedDoc.id,
-      createdAt: new Date().toLocaleString(),
-      documentTitle: selectedDoc.title,
-      pages,
-    };
-
-    await saveToDatabase(newEntry);
-    setQaHistory((prev) => [...prev, newEntry]);
-  };
+  // Q&A history saving removed - not needed for AI query
 
   const fetchDocuments = useCallback(async () => {
     try {
@@ -255,58 +198,7 @@ const DocumentViewer: React.FC = () => {
     fetchDocuments().catch(console.error);
   }, [userId, isRoleLoading, fetchDocuments]);
 
-  useEffect(() => {
-    if (!userId) return;
-
-    if (viewMode === "with-ai-qa-history" && !selectedDoc) {
-      const fetchAllHistory = async () => {
-        try {
-          const response = await fetch("/api/Questions/fetch", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ userId }), // Fetch all history for user
-          });
-
-          if (!response.ok) {
-            throw new Error("Failed to fetch Q&A history");
-          }
-
-          const rawData: unknown = await response.json();
-          const { chatHistory } = rawData as FetchHistoryProp;
-          setQaHistory(chatHistory);
-        } catch (error) {
-          console.error("Error fetching Q&A history:", error);
-        }
-      };
-
-      fetchAllHistory().catch(console.error);
-      return;
-    }
-
-    if (!selectedDoc?.id) return;
-
-    const fetchHistory = async () => {
-      try {
-        const response = await fetch("/api/Questions/fetch", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId, documentId: selectedDoc.id }),
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch Q&A history");
-        }
-
-        const rawData: unknown = await response.json();
-        const { chatHistory } = rawData as FetchHistoryProp;
-        setQaHistory(chatHistory);
-      } catch (error) {
-        console.error("Error fetching Q&A history:", error);
-      }
-    };
-
-    fetchHistory().catch(console.error);
-  }, [userId, selectedDoc, viewMode]);
+  // Q&A history fetching removed - not needed for AI query
 
   const toggleCategory = (categoryName: string) => {
     setOpenCategories(prev => {
@@ -441,50 +333,34 @@ const DocumentViewer: React.FC = () => {
     setAiError("");
     setAiAnswer("");
     setReferencePages([]);
-    setIsAiLoading(true);
 
     const currentQuestion = aiQuestion;
     setAiQuestion("");
 
     try {
-      const requestBody: RequestBody = {
+      const data = await sendAIChatQuery({
         question: currentQuestion,
-        style: aiStyle,
         searchScope,
-      };
+        style: aiStyle as 'concise' | 'detailed' | 'academic' | 'bullet-points',
+        documentId: searchScope === "document" && selectedDoc ? selectedDoc.id : undefined,
+        companyId: searchScope === "company" ? companyId ?? undefined : undefined,
+      });
 
-      if (searchScope === "document" && selectedDoc) {
-        requestBody.documentId = selectedDoc.id;
-      } else if (searchScope === "company") {
-        requestBody.companyId = companyId ?? undefined;
+      if (!data) {
+        throw new Error("Failed to get AI response");
       }
 
-      const data = (await fetchWithRetries(
-        "/api/AIAssistant",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(requestBody),
-        },
-        5
-      )) as LangChainResponse;
-
-      setAiAnswer(data.summarizedAnswer);
+      setAiAnswer(data.summarizedAnswer ?? "");
 
       if (Array.isArray(data.recommendedPages)) {
         const uniquePages = Array.from(new Set(data.recommendedPages));
         setReferencePages(uniquePages);
-        // Only save to history for document-specific searches
-        if (searchScope === "document" && selectedDoc) {
-          await saveToHistory(currentQuestion, data.summarizedAnswer, uniquePages);
-        }
       }
     } catch (error: unknown) {
-      setAiError("Timeout or fetch error: Please try again later." + (error as Error).toString());
+      const errorMessage = error instanceof Error ? error.message : "Timeout or fetch error: Please try again later.";
+      setAiError(errorMessage);
       // Restore question on error
       setAiQuestion(currentQuestion);
-    } finally {
-      setIsAiLoading(false);
     }
   };
 

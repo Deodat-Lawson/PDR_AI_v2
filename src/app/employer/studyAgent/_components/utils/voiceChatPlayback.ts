@@ -1,4 +1,4 @@
-import { MutableRefObject, Dispatch, SetStateAction } from "react";
+import type { MutableRefObject, Dispatch, SetStateAction } from "react";
 import type { CallState } from "../types/VoiceChatTypes";
 
 interface PlayTextToSpeechParams {

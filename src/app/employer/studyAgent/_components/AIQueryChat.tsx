@@ -1,32 +1,35 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Send, Sparkles } from "lucide-react";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
 import { AIChatbotSelector, type AIModel } from "./AIChatbotSelector";
+import { useAIQuery } from "~/app/employer/documents/hooks/useAIQuery";
+import type { AIModelType } from "~/app/api/agents/documentQ&A/services/types";
 
 interface AIMessage {
   id: string;
   role: "user" | "ai";
   content: string;
   timestamp: Date;
-  model?: string;
+  model: AIModelType;
 }
 
 interface AIQueryChatProps {
   isBuddy?: boolean;
   isDark?: boolean;
+  selectedDocumentId?: string | null;
 }
 
-export function AIQueryChat({ isBuddy = false, isDark = false }: AIQueryChatProps) {
+export function AIQueryChat({ isBuddy = false, isDark = false, selectedDocumentId }: AIQueryChatProps) {
   const [messages, setMessages] = useState<AIMessage[]>([]);
   const [input, setInput] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
-  const [selectedModel, setSelectedModel] = useState<AIModel>("gpt4");
-  const [, setError] = useState<string | null>(null);
+  // Default to the first model in AIChatbotSelector (gpt-5.2)
+  const [selectedModel, setSelectedModel] = useState<AIModel>("gpt-5.2");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { sendQuery, loading: isTyping, error } = useAIQuery();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -36,62 +39,28 @@ export function AIQueryChat({ isBuddy = false, isDark = false }: AIQueryChatProp
     scrollToBottom();
   }, [messages]);
 
-  const callAIAssistantAPI = useCallback(async (userMessage: string, currentMessages: AIMessage[]) => {
-    try {
-      // Build conversation history string for context
-      const conversationHistory = currentMessages
-        .slice(-10)
-        .map((msg) => `${msg.role === "user" ? "User" : "Assistant"}: ${msg.content}`)
-        .join("\n");
-
-      const response = await fetch("/api/AIAssistant", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          question: userMessage,
-          searchScope: "company",
-          aiModel: selectedModel,
-          style: "concise",
-          conversationHistory: conversationHistory || undefined,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = (await response.json().catch(() => ({}))) as {
-          message?: string;
-        };
-        throw new Error(errorData.message ?? `Request failed with status ${response.status}`);
-      }
-
-      const data = (await response.json()) as {
-        success?: boolean;
-        message?: string;
-        summarizedAnswer?: string;
-        aiModel?: string;
-      };
-      
-      if (!data.success) {
-        throw new Error(data.message ?? "Failed to get AI response");
-      }
-
-      return {
-        content: data.summarizedAnswer ?? "I apologize, but I couldn't generate a response.",
-        model: data.aiModel ?? selectedModel,
-      };
-    } catch (err) {
-      console.error("Error calling AI Assistant API:", err);
-      throw err;
-    }
-  }, [selectedModel]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim() && !isTyping) {
+      if (!selectedDocumentId) {
+        const errorMessage = "Please select a document first to ask questions about it.";
+        const errorAiMessage: AIMessage = {
+          id: Date.now().toString(),
+          role: "ai",
+          content: errorMessage,
+          timestamp: new Date(),
+          model: selectedModel as AIModelType,
+        };
+        setMessages((prev) => [...prev, errorAiMessage]);
+        return;
+      }
+
       const userMessage: AIMessage = {
         id: Date.now().toString(),
         role: "user",
         content: input.trim(),
         timestamp: new Date(),
+        model: selectedModel as AIModelType,
       };
       
       const currentInput = input.trim();
@@ -99,40 +68,61 @@ export function AIQueryChat({ isBuddy = false, isDark = false }: AIQueryChatProp
       
       setMessages(currentMessages);
       setInput("");
-      setIsTyping(true);
-      setError(null);
       
       // Reset textarea height
       if (textareaRef.current) {
         textareaRef.current.style.height = "auto";
       }
 
-      try {
-        const aiResponse = await callAIAssistantAPI(currentInput, currentMessages);
-        
-        const aiMessage: AIMessage = {
-          id: (Date.now() + 1).toString(),
-          role: "ai",
-          content: aiResponse.content,
-          timestamp: new Date(),
-          model: aiResponse.model,
-        };
-        setMessages((prev) => [...prev, aiMessage]);
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : "Failed to get response";
-        setError(errorMessage);
-        
-        // Add error message to chat
+      // Build conversation history string for context
+      const conversationHistory = currentMessages
+        .slice(-10)
+        .map((msg) => `${msg.role === "user" ? "User" : "Assistant"}: ${msg.content}`)
+        .join("\n");
+
+      // Convert documentId string to number
+      const documentIdNum = parseInt(selectedDocumentId, 10);
+      if (isNaN(documentIdNum)) {
+        const errorMessage = "Invalid document ID";
         const errorAiMessage: AIMessage = {
           id: (Date.now() + 1).toString(),
           role: "ai",
           content: `I'm sorry, I encountered an error: ${errorMessage}. Please try again.`,
           timestamp: new Date(),
-          model: selectedModel,
+          model: selectedModel as AIModelType,
         };
         setMessages((prev) => [...prev, errorAiMessage]);
-      } finally {
-        setIsTyping(false);
+        return;
+      }
+
+      const response = await sendQuery({
+        documentId: documentIdNum,
+        question: currentInput,
+        aiModel: selectedModel as AIModelType,
+        style: "concise",
+        enableWebSearch: false,
+        conversationHistory: conversationHistory || undefined,
+      });
+
+      if (response) {
+        const aiMessage: AIMessage = {
+          id: (Date.now() + 1).toString(),
+          role: "ai",
+          content: response.summarizedAnswer ?? "I apologize, but I couldn't generate a response.",
+          timestamp: new Date(),
+          model: response.aiModel as AIModelType,
+        };
+        setMessages((prev) => [...prev, aiMessage]);
+      } else if (error) {
+        // Add error message to chat
+        const errorAiMessage: AIMessage = {
+          id: (Date.now() + 1).toString(),
+          role: "ai",
+          content: `I'm sorry, I encountered an error: ${error}. Please try again.`,
+          timestamp: new Date(),
+          model: selectedModel as AIModelType,
+        };
+        setMessages((prev) => [...prev, errorAiMessage]);
       }
     }
   };
@@ -183,7 +173,11 @@ export function AIQueryChat({ isBuddy = false, isDark = false }: AIQueryChatProp
           <div className={`text-center py-12 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
             <Sparkles className={`w-12 h-12 mx-auto mb-3 opacity-50 ${isDark ? 'text-gray-600' : ''}`} />
             <p className="text-sm">Ask me anything about your studies</p>
-            <p className="text-xs mt-1">This is a separate AI assistant for quick queries</p>
+            <p className="text-xs mt-1">
+              {selectedDocumentId 
+                ? "This is a separate AI assistant for quick queries about the selected document"
+                : "Please select a document first to ask questions about it"}
+            </p>
           </div>
         ) : (
           <>
@@ -249,21 +243,22 @@ export function AIQueryChat({ isBuddy = false, isDark = false }: AIQueryChatProp
             value={input}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            placeholder="Ask a question... (Shift+Enter for new line)"
+            placeholder={selectedDocumentId ? "Ask a question... (Shift+Enter for new line)" : "Select a document first to ask questions"}
+            disabled={!selectedDocumentId}
             className={`min-h-[44px] max-h-[120px] resize-none ${
               isDark ? 'bg-gray-900 border-gray-700 text-white placeholder:text-gray-500' : ''
-            }`}
+            } ${!selectedDocumentId ? 'opacity-50 cursor-not-allowed' : ''}`}
             rows={1}
           />
           <Button
             type="submit"
             size="sm"
-            disabled={!input.trim() || isTyping}
+            disabled={!input.trim() || isTyping || !selectedDocumentId}
             className={`self-end h-11 px-4 ${
               isBuddy
                 ? "bg-blue-600 hover:bg-blue-700"
                 : "bg-purple-600 hover:bg-purple-700"
-            }`}
+            } ${!selectedDocumentId ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             <Send className="w-4 h-4" />
           </Button>

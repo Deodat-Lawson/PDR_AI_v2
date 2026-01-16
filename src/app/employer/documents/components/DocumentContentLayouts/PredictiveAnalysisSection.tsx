@@ -3,7 +3,8 @@
 import React from "react";
 import { FileSearch, AlertTriangle, CheckCircle, AlertCircle, RefreshCw, Check } from "lucide-react";
 import styles from "~/styles/Employer/DocumentViewer.module.css";
-import type { DocumentType, PredictiveAnalysisResponse } from "../../types";
+import type { DocumentType } from "../../types/document";
+import type { PredictiveAnalysisResponse } from "../../types/predictive-analysis";
 import { MissingItem, ResolvedItem, RecommendationItem } from "./AnalysisItems";
 import { Modal } from "./Modal";
 
