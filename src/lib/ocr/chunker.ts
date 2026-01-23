@@ -108,7 +108,7 @@ function chunkTextBlocks(
 function chunkTables(
   tables: ExtractedTable[],
   pageNumber: number,
-  config: Required<ChunkingConfig>
+  _config: Required<ChunkingConfig>
 ): DocumentChunk[] {
   return tables.map((table, tableIndex) => {
     // Generate table description for context injection

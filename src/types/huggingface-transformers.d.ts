@@ -15,17 +15,15 @@ declare module "@huggingface/transformers" {
 
   export type ImageInput = string | Buffer | Uint8Array | ArrayBuffer;
 
-  export interface ZeroShotImageClassificationPipeline {
-    (
-      images: ImageInput | ImageInput[],
-      candidateLabels: string[],
-      options?: { hypothesis_template?: string }
-    ): Promise<ClassificationResult[] | ClassificationResult[][]>;
-  }
+  export type ZeroShotImageClassificationPipeline = (
+    images: ImageInput | ImageInput[],
+    candidateLabels: string[],
+    options?: { hypothesis_template?: string }
+  ) => Promise<ClassificationResult[] | ClassificationResult[][]>;
 
-  export interface TextClassificationPipeline {
-    (text: string | string[]): Promise<ClassificationResult[]>;
-  }
+  export type TextClassificationPipeline = (
+    text: string | string[]
+  ) => Promise<ClassificationResult[]>;
 
   export type Pipeline =
     | ZeroShotImageClassificationPipeline

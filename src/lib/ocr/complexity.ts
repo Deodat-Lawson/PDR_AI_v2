@@ -1,7 +1,7 @@
 import type { OCRProvider } from "~/lib/ocr/types";
+import type { ZeroShotImageClassificationPipeline, ClassificationResult } from "@huggingface/transformers";
 import { pipeline } from "@huggingface/transformers";
 import { PDFDocument } from "pdf-lib";
-import { createCanvas } from "@napi-rs/canvas";
 import { fromBuffer } from "pdf2pic";
 
 // --- Configuration ---
@@ -44,9 +44,9 @@ export interface RoutingDecision {
 }
 
 // --- Singleton Vision Model ---
-let visionClassifier: any = null;
+let visionClassifier: ZeroShotImageClassificationPipeline | null = null;
 
-async function getVisionClassifier() {
+async function getVisionClassifier(): Promise<ZeroShotImageClassificationPipeline> {
   if (!visionClassifier) {
     console.log("Loading Vision Model (SigLIP)...");
     visionClassifier = await pipeline("zero-shot-image-classification", SAMPLING_CONFIG.VISION_MODEL_ID);
@@ -81,10 +81,10 @@ async function runVisionCheck(images: Uint8Array[]): Promise<VisionClassificatio
   let dominantLabel = "digital text document";
 
   for (const image of images) {
-    const result: any = await classifier(image, ALL_COMPLEXITY_LABELS);
+    const result = await classifier(image, ALL_COMPLEXITY_LABELS) as ClassificationResult[];
     const topMatch = result[0];
 
-    if (COMPLEX_LABELS.includes(topMatch.label)) {
+    if (topMatch && COMPLEX_LABELS.includes(topMatch.label)) {
       if (topMatch.score > maxComplexityScore) {
         maxComplexityScore = topMatch.score;
         dominantLabel = topMatch.label;
@@ -93,8 +93,11 @@ async function runVisionCheck(images: Uint8Array[]): Promise<VisionClassificatio
   }
   
   if (maxComplexityScore === 0 && images.length > 0) {
-     const result: any = await classifier(images[0], ALL_COMPLEXITY_LABELS);
-     return { label: result[0].label, score: result[0].score };
+     const result = await classifier(images[0]!, ALL_COMPLEXITY_LABELS) as ClassificationResult[];
+     const firstResult = result[0];
+     if (firstResult) {
+       return { label: firstResult.label, score: firstResult.score };
+     }
   }
 
   return { label: dominantLabel, score: maxComplexityScore };
@@ -117,17 +120,19 @@ async function renderPagesToImages(buffer: ArrayBuffer, pageIndices: number[]): 
         if (result?.buffer) {
           images.push(result.buffer);
         }
-      } catch (pageError: any) {
+      } catch (pageError: unknown) {
         // Only log if it's not a common error
-        if (!pageError?.message?.includes('page number')) {
+        const errorMessage = pageError instanceof Error ? pageError.message : String(pageError);
+        if (!errorMessage.includes('page number')) {
           console.warn(`Failed to render page ${pageIndex}:`, pageError);
         }
       }
     }
 
     return images;
-  } catch (error: any) {
-    console.warn(`PDF rendering unavailable (${error?.message || 'unknown error'}), falling back to OCR`);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'unknown error';
+    console.warn(`PDF rendering unavailable (${errorMessage}), falling back to OCR`);
     return [];
   }
 }
@@ -161,7 +166,7 @@ export async function determineDocumentRouting(documentUrl: string): Promise<Rou
 try {
     // Use pdf-parse to extract text sample (dynamic import to avoid test file issues)
     const { default: pdfParse } = await import("pdf-parse");
-    const data = await pdfParse(buffer);
+    const data = await pdfParse(new Uint8Array(buffer));
     const sampleText = data.text.substring(0, 200).trim();
 
     // If we have substantial text, trust the native parser
@@ -173,9 +178,10 @@ try {
         pageCount: pageCount || data.numpages
       };
     }
-  } catch (e: any) {
+  } catch (e: unknown) {
     // Suppress pdf-parse debug mode test file errors (harmless)
-    if (e?.code !== 'ENOENT' || !e?.path?.includes('test/data')) {
+    const err = e as { code?: string; path?: string };
+    if (err.code !== 'ENOENT' || !err.path?.includes('test/data')) {
       console.warn("Text extraction failed, proceeding to vision check.", e);
     }
   }
@@ -217,10 +223,11 @@ try {
       pageCount
     };
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Only log unexpected errors
-    if (!error?.message?.includes('ENOENT')) {
-      console.warn("Vision routing failed, defaulting to Azure OCR:", error?.message || error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (!errorMessage.includes('ENOENT')) {
+      console.warn("Vision routing failed, defaulting to Azure OCR:", errorMessage);
     }
     return {
       provider: "AZURE",

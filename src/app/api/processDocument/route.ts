@@ -8,7 +8,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "~/server/db";
-import { users, ocrJobs } from "~/server/db/schema";
+import { users, ocrJobs, document } from "~/server/db/schema";
 import { triggerDocumentProcessing, parseProvider } from "~/lib/ocr/trigger";
 import { validateRequestBody } from "~/lib/validation";
 import { withRateLimit } from "~/lib/rate-limit-middleware";
@@ -65,6 +65,32 @@ export async function POST(request: Request) {
 
       const companyId = userInfo.companyId.toString();
 
+      // Create document record if documentId is not provided
+      let finalDocumentId = documentId;
+      if (!finalDocumentId) {
+        const [newDocument] = await db
+          .insert(document)
+          .values({
+            url: documentUrl,
+            category: category ?? "Uncategorized",
+            title: documentName,
+            companyId: userInfo.companyId,
+            ocrEnabled: true,
+            ocrProcessed: false,
+          })
+          .returning();
+
+        if (!newDocument) {
+          return NextResponse.json(
+            { error: "Failed to create document record" },
+            { status: 500 }
+          );
+        }
+
+        finalDocumentId = newDocument.id;
+        console.log(`[ProcessDocument] Created new document with ID: ${finalDocumentId}`);
+      }
+
       // Trigger the pipeline
       const { jobId, eventIds } = await triggerDocumentProcessing(
         documentUrl,
@@ -74,7 +100,7 @@ export async function POST(request: Request) {
         {
           forceOCR,
           preferredProvider: parseProvider(preferredProvider),
-          documentId,
+          documentId: finalDocumentId,
           category,
         }
       );
@@ -82,7 +108,7 @@ export async function POST(request: Request) {
       // Create OCR job record for tracking
       await db.insert(ocrJobs).values({
         id: jobId,
-        documentId: documentId ? BigInt(documentId) : null,
+        documentId: BigInt(finalDocumentId),
         companyId: userInfo.companyId,
         userId,
         status: "queued",
@@ -95,6 +121,7 @@ export async function POST(request: Request) {
           success: true,
           jobId,
           eventIds,
+          documentId: finalDocumentId,
           message: "Document processing started",
         },
         { status: 202 }

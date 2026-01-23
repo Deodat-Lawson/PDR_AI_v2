@@ -49,12 +49,13 @@ export const processDocument = inngest.createFunction(
     name: "OCR-to-Vector Document Pipeline",
     retries: 4,
     onFailure: async ({ error, event }) => {
-      console.error(`[ProcessDocument] Pipeline failed for job ${event.data}:`, error);
+      console.error(`[ProcessDocument] Pipeline failed for job ${JSON.stringify(event.data)}:`, error);
     },
   },
   { event: "document/process.requested" },
   async ({ event, step }) => {
-    const { jobId, documentUrl, documentId, options } = event.data;
+    const eventData = event.data as ProcessDocumentEventData;
+    const { jobId, documentUrl, documentId, options } = eventData;
     const pipelineStartTime = Date.now();
 
     // ========================================================================
@@ -65,7 +66,7 @@ export const processDocument = inngest.createFunction(
 
       const isNativePDF = decision.provider === "NATIVE_PDF";
 
-      if (options?.forceOCR && isNativePDF) {
+      if (options?.forceOCR === true && isNativePDF) {
         const isComplex = decision.visionResult?.label 
           ? ["handwritten", "complex", "blurry", "messy"].some(k => decision.visionResult?.label.includes(k))
           : false;
@@ -129,12 +130,25 @@ export const processDocument = inngest.createFunction(
     // STEP C: Intelligent Chunking
     // ========================================================================
     const chunks = await step.run("step-c-chunking", async () => {
+      // Log page content sizes for debugging
+      const pageSizes = normalizationResult.pages.map((page, idx) => {
+        const textLength = page.textBlocks.join("").length;
+        return `Page ${idx + 1}: ${textLength} chars, ${page.textBlocks.length} blocks, ${page.tables.length} tables`;
+      });
+      console.log(`[Step C] Page content sizes:\n${pageSizes.join("\n")}`);
+
       const documentChunks = chunkDocument(normalizationResult.pages, {
         maxTokens: 500,
         overlapTokens: 50,
         includePageContext: true,
       });
       console.log(`[Step C] Created ${documentChunks.length} chunks`);
+
+      // Log chunk details
+      documentChunks.forEach((chunk, idx) => {
+        console.log(`[Step C] Chunk ${idx}: ${chunk.content.length} chars, page ${chunk.metadata.pageNumber}, type ${chunk.type}`);
+      });
+
       return documentChunks;
     });
 
@@ -167,8 +181,9 @@ export const processDocument = inngest.createFunction(
 
       // Iterate and insert chunks one by one
       for (const chunk of vectorizedChunks) {
+        const docId = typeof documentId === 'number' ? documentId : Number(documentId);
         const record = {
-          documentId: BigInt(documentId),
+          documentId: BigInt(docId),
           page: chunk.metadata.pageNumber,
           chunkIndex: chunk.metadata.chunkIndex,
           content: chunk.content,
@@ -193,7 +208,7 @@ export const processDocument = inngest.createFunction(
             processedAt: new Date().toISOString(),
           },
         })
-        .where(eq(documentTable.id, documentId));
+        .where(eq(documentTable.id, typeof documentId === 'number' ? documentId : Number(documentId)));
 
       // Update OCR job status to completed
       await db

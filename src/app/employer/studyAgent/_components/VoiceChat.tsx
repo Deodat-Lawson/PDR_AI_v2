@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, memo } from "react";
+import Image from "next/image";
 import { Mic, MicOff, PhoneOff, MessageSquare } from "lucide-react";
 import { ExpandedVoiceCall } from "./ExpandedVoiceCall";
 import { useVAD } from "./utils/vad";
@@ -224,10 +225,12 @@ export function VoiceChat({ messages, onSendMessage, onEndCall, isBuddy = false,
             <div className="relative">
               <div className="w-16 h-16 rounded-full bg-white shadow-lg overflow-hidden relative">
                 <div className={`absolute inset-0 bg-gradient-to-br ${isBuddy ? "from-blue-200 to-blue-300" : "from-purple-200 to-purple-300"}`} />
-                <img
+                <Image
                   src={effectiveAvatar}
                   alt={isBuddy ? "AI Study Buddy avatar" : "AI Teacher avatar"}
                   className="relative z-10 w-full h-full object-cover"
+                  width={64}
+                  height={64}
                   onError={(e) => { e.currentTarget.src = defaultAvatar; }}
                 />
               </div>

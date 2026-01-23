@@ -129,13 +129,16 @@ export class AzureDocumentIntelligenceAdapter implements OCRAdapter {
       );
     }
 
+    console.log(`[Azure] Starting document processing for: ${documentUrl}`);
     const startTime = Date.now();
 
     // Submit document for analysis
     const operationLocation = await this.submitForAnalysis(documentUrl, options);
+    console.log(`[Azure] Document submitted, polling for results...`);
 
     // Poll for completion
     const result = await this.pollForResult(operationLocation);
+    console.log(`[Azure] Analysis completed in ${Date.now() - startTime}ms`);
 
     if (!result.analyzeResult) {
       throw new Error("Azure analysis completed but no result returned");
@@ -219,6 +222,8 @@ export class AzureDocumentIntelligenceAdapter implements OCRAdapter {
     maxPolls = 60,
     pollIntervalMs = 2000
   ): Promise<AzureOperationResponse> {
+    console.log(`[Azure] Starting polling (max ${maxPolls} attempts, ${pollIntervalMs}ms interval)`);
+
     for (let attempt = 0; attempt < maxPolls; attempt++) {
       const response = await fetch(operationLocation, {
         method: "GET",
@@ -234,6 +239,7 @@ export class AzureDocumentIntelligenceAdapter implements OCRAdapter {
       const result = (await response.json()) as AzureOperationResponse;
 
       if (result.status === "succeeded") {
+        console.log(`[Azure] Analysis succeeded after ${attempt + 1} polls`);
         return result;
       }
 
@@ -244,6 +250,9 @@ export class AzureDocumentIntelligenceAdapter implements OCRAdapter {
       }
 
       // Still processing, wait before next poll
+      if (attempt % 5 === 0) {
+        console.log(`[Azure] Still processing... (attempt ${attempt + 1}/${maxPolls}, status: ${result.status})`);
+      }
       await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
     }
 
@@ -254,6 +263,11 @@ export class AzureDocumentIntelligenceAdapter implements OCRAdapter {
    * Normalize Azure response to PageContent array
    */
   private normalizePages(analyzeResult: AzureAnalyzeResult): PageContent[] {
+    console.log(`[Azure] Received ${analyzeResult.pages.length} pages from Azure`);
+    console.log(`[Azure] Content length: ${analyzeResult.content?.length ?? 0} characters`);
+    console.log(`[Azure] Paragraphs: ${analyzeResult.paragraphs?.length ?? 0}`);
+    console.log(`[Azure] Tables: ${analyzeResult.tables?.length ?? 0}`);
+
     const pages: PageContent[] = [];
 
     // Group content by page
@@ -266,6 +280,8 @@ export class AzureDocumentIntelligenceAdapter implements OCRAdapter {
       // Extract tables for this page
       const tables = this.extractTables(analyzeResult, pageNumber);
 
+      console.log(`[Azure] Page ${pageNumber}: ${textBlocks.length} text blocks, ${tables.length} tables`);
+
       pages.push({
         pageNumber,
         textBlocks,
@@ -273,6 +289,7 @@ export class AzureDocumentIntelligenceAdapter implements OCRAdapter {
       });
     }
 
+    console.log(`[Azure] Normalized ${pages.length} pages total`);
     return pages;
   }
 
@@ -341,8 +358,8 @@ export class AzureDocumentIntelligenceAdapter implements OCRAdapter {
         const rowIdx = cell.rowIndex;
         const colIdx = cell.columnIndex;
 
-        if (rows[rowIdx] && colIdx < (rows[rowIdx]?.length ?? 0)) {
-          rows[rowIdx]![colIdx] = cell.content.trim();
+        if (rows[rowIdx] && colIdx < rows[rowIdx].length) {
+          rows[rowIdx][colIdx] = cell.content.trim();
         }
 
         // Handle row/column spans by repeating content
@@ -356,7 +373,7 @@ export class AzureDocumentIntelligenceAdapter implements OCRAdapter {
         if (cell.columnSpan && cell.columnSpan > 1) {
           for (let c = 1; c < cell.columnSpan; c++) {
             if (rows[rowIdx]) {
-              rows[rowIdx]![colIdx + c] = cell.content.trim();
+              rows[rowIdx][colIdx + c] = cell.content.trim();
             }
           }
         }

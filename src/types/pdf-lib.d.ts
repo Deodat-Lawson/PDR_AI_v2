@@ -11,8 +11,8 @@ declare module "pdf-lib" {
   }
 
   export interface PDFDict {
-    lookup(key: string[]): unknown | undefined;
-    get(key: string): unknown | undefined;
+    lookup(key: string[]): unknown;
+    get(key: string): unknown;
   }
 
   export interface PDFFont {

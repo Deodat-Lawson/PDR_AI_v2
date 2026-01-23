@@ -78,7 +78,7 @@ export async function generateEmbeddings(
   }
 
   const batches = createBatches(chunks, cfg.batchSize);
-  const allEmbeddings: number[][] = new Array(chunks.length);
+  const allEmbeddings: number[][] = new Array<number[]>(chunks.length);
   let totalTokens = 0;
 
   console.log(

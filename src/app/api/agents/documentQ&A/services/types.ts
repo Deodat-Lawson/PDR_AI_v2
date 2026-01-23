@@ -176,7 +176,9 @@ export function isSearchScope(value: string): value is SearchScope {
  * Extract keys from SYSTEM_PROMPTS object type
  * This ensures type safety when referencing prompt styles
  */
-export type PromptStyle = keyof typeof import("./prompts").SYSTEM_PROMPTS;
+import type { SYSTEM_PROMPTS } from "./prompts";
+
+export type PromptStyle = keyof typeof SYSTEM_PROMPTS;
 
 /**
  * Helper type for optional properties
