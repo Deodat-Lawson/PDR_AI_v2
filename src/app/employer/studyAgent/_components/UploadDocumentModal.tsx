@@ -142,15 +142,14 @@ export function UploadDocumentModal({
     const finalTitle = documentTitle.trim() || fileName.replace(/\.[^/.]+$/, "");
 
     try {
-      const response = await fetch("/api/uploadDocument", {
+      const response = await fetch("/api/processDocument", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId,
           documentName: finalTitle,
-          documentCategory: category,
+          category: category,
           documentUrl: fileUrl,
-          enableOCR,
         }),
       });
 

@@ -75,15 +75,14 @@ const UploadForm: React.FC<UploadFormProps> = ({ categories }) => {
         try {
             setIsSubmitting(true);
 
-            const response = await fetch("/api/uploadDocument", {
+            const response = await fetch("/api/processDocument", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     userId,
                     documentName: formData.title,
-                    documentCategory: formData.category,
+                    category: formData.category,
                     documentUrl: formData.fileUrl,
-                    enableOCR: formData.enableOCR,
                 }),
             });
 

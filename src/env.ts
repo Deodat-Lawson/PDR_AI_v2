@@ -19,6 +19,11 @@ const serverSchema = z.object({
   UPLOADTHING_TOKEN: requiredString(),
   DATALAB_API_KEY: optionalString(),
   TAVILY_API_KEY: requiredString(),
+  // Azure Document Intelligence (for OCR pipeline)
+  AZURE_DOC_INTELLIGENCE_ENDPOINT: optionalString(),
+  AZURE_DOC_INTELLIGENCE_KEY: optionalString(),
+  // Landing.AI (fallback OCR for complex documents)
+  LANDING_AI_API_KEY: optionalString(),
   // LangSmith configuration (optional, for tracing and monitoring)
   LANGCHAIN_TRACING_V2: z.preprocess(
     (val) => val === "true" || val === "1",
@@ -61,6 +66,9 @@ export const env = {
     UPLOADTHING_TOKEN: process.env.UPLOADTHING_TOKEN,
     DATALAB_API_KEY: process.env.DATALAB_API_KEY,
     TAVILY_API_KEY: process.env.TAVILY_API_KEY,
+    AZURE_DOC_INTELLIGENCE_ENDPOINT: process.env.AZURE_DOC_INTELLIGENCE_ENDPOINT,
+    AZURE_DOC_INTELLIGENCE_KEY: process.env.AZURE_DOC_INTELLIGENCE_KEY,
+    LANDING_AI_API_KEY: process.env.LANDING_AI_API_KEY,
     LANGCHAIN_TRACING_V2: process.env.LANGCHAIN_TRACING_V2,
     LANGCHAIN_API_KEY: process.env.LANGCHAIN_API_KEY,
     LANGCHAIN_PROJECT: process.env.LANGCHAIN_PROJECT,
