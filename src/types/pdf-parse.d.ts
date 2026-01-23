@@ -37,11 +37,24 @@ declare module "pdf-parse" {
     text: string;
   }
 
+  interface PDFTextItem {
+    str: string;
+    [key: string]: unknown;
+  }
+
+  interface PDFTextContent {
+    items: PDFTextItem[];
+  }
+
+  interface PDFPageData {
+    getTextContent(): Promise<PDFTextContent>;
+  }
+
   interface PDFOptions {
     /** Max pages to parse (default: 0 = all) */
     max?: number;
     /** Page render callback */
-    pagerender?: (pageData: unknown) => Promise<string>;
+    pagerender?: (pageData: PDFPageData) => Promise<string>;
     /** Version check */
     version?: string;
   }

@@ -3,6 +3,10 @@ import { determineDocumentRouting, type RoutingDecision } from "~/lib/ocr/comple
 import { createAzureAdapter, createLandingAIAdapter } from "~/lib/ocr/adapters";
 import { chunkDocument, mergeWithEmbeddings, prepareForEmbedding, getTotalChunkSize } from "~/lib/ocr/chunker";
 import { generateEmbeddings } from "~/lib/ai/embeddings";
+import { db } from "~/server/db";
+import { pdfChunks, document as documentTable, ocrJobs } from "~/server/db/schema";
+import { eq, sql } from "drizzle-orm";
+
 import type {
   ProcessDocumentEventData,
   PipelineResult,
@@ -143,13 +147,69 @@ export const processDocument = inngest.createFunction(
       const contentStrings = prepareForEmbedding(chunks);
       const embeddingResult = await generateEmbeddings(contentStrings, {
         batchSize: 20,
-        model: "text-embedding-3-small",
+        model: "text-embedding-3-large",
         dimensions: 1536,
       });
 
       return mergeWithEmbeddings(chunks, embeddingResult.embeddings);
     });
 
+    // ========================================================================
+    // STEP E: Storage
+    // ========================================================================
+    await step.run("step-e-storage", async () => {
+      if (vectorizedChunks.length === 0) {
+        console.log("[Step E] No chunks to store");
+        return;
+      }
+
+      console.log(`[Step E] Starting insertion of ${vectorizedChunks.length} chunks...`);
+
+      // Iterate and insert chunks one by one
+      for (const chunk of vectorizedChunks) {
+        const record = {
+          documentId: BigInt(documentId),
+          page: chunk.metadata.pageNumber,
+          chunkIndex: chunk.metadata.chunkIndex,
+          content: chunk.content,
+          embedding: sql`${JSON.stringify(chunk.vector)}::vector(1536)`,
+        };
+
+        await db.insert(pdfChunks).values(record);
+      }
+
+      // Update document record with OCR metadata
+      await db
+        .update(documentTable)
+        .set({
+          ocrProcessed: true,
+          ocrJobId: jobId,
+          ocrProvider: normalizationResult.provider,
+          ocrConfidenceScore: normalizationResult.confidenceScore,
+          ocrMetadata: {
+            totalPages: normalizationResult.pages.length,
+            totalChunks: vectorizedChunks.length,
+            processingTimeMs: normalizationResult.processingTimeMs,
+            processedAt: new Date().toISOString(),
+          },
+        })
+        .where(eq(documentTable.id, documentId));
+
+      // Update OCR job status to completed
+      await db
+        .update(ocrJobs)
+        .set({
+          status: "completed",
+          completedAt: new Date(),
+          processingDurationMs: Date.now() - pipelineStartTime,
+          pageCount: normalizationResult.pages.length,
+          actualProvider: normalizationResult.provider,
+          confidenceScore: normalizationResult.confidenceScore,
+        })
+        .where(eq(ocrJobs.id, jobId));
+
+      console.log(`[Step E] Successfully stored ${vectorizedChunks.length} chunks for document ${documentId}`);
+    });
     // ========================================================================
     // Final Result
     // ========================================================================
@@ -197,10 +257,8 @@ async function processNativePDF(documentUrl: string): Promise<NormalizedDocument
 
   // 2. Parse PDF with page-level extraction
   const data = await pdfParse(buffer, {
-    // Extract text page by page
     pagerender: async (pageData) => {
       const textContent = await pageData.getTextContent();
-      // @ts-expect-error - pdf-parse types
       const text = textContent.items.map((item) => item.str).join(' ');
       return text;
     }
