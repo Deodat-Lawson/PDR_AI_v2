@@ -108,7 +108,7 @@ export class LandingAIAdapter implements OCRAdapter {
     return "LANDING_AI";
   }
 
-  async processDocument(
+  async uploadDocument(
     documentUrl: string,
     options?: OCRAdapterOptions
   ): Promise<NormalizedDocument> {
@@ -154,7 +154,7 @@ export class LandingAIAdapter implements OCRAdapter {
   }
 
   async extractPage(documentUrl: string, pageNumber: number): Promise<PageContent> {
-    const document = await this.processDocument(documentUrl, {
+    const document = await this.uploadDocument(documentUrl, {
       pages: [pageNumber],
     });
 

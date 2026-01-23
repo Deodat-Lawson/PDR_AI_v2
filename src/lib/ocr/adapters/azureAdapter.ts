@@ -118,7 +118,7 @@ export class AzureDocumentIntelligenceAdapter implements OCRAdapter {
     return "AZURE";
   }
 
-  async processDocument(
+  async uploadDocument(
     documentUrl: string,
     options?: OCRAdapterOptions
   ): Promise<NormalizedDocument> {
@@ -159,7 +159,7 @@ export class AzureDocumentIntelligenceAdapter implements OCRAdapter {
   }
 
   async extractPage(documentUrl: string, pageNumber: number): Promise<PageContent> {
-    const document = await this.processDocument(documentUrl, {
+    const document = await this.uploadDocument(documentUrl, {
       pages: [pageNumber],
     });
 

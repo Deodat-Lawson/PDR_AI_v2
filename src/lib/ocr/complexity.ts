@@ -1,8 +1,9 @@
 import type { OCRProvider } from "~/lib/ocr/types";
 import type { ZeroShotImageClassificationPipeline, ClassificationResult } from "@huggingface/transformers";
-import { pipeline } from "@huggingface/transformers";
+// Lazy imports - only load when needed to reduce bundle size
+// import { pipeline } from "@huggingface/transformers"; // Moved to runVisionCheck()
 import { PDFDocument } from "pdf-lib";
-import { fromBuffer } from "pdf2pic";
+// import { fromBuffer } from "pdf2pic"; // Moved to renderPagesToImages()
 
 // --- Configuration ---
 const SAMPLING_CONFIG = {
@@ -44,15 +45,8 @@ export interface RoutingDecision {
 }
 
 // --- Singleton Vision Model ---
-let visionClassifier: ZeroShotImageClassificationPipeline | null = null;
-
-async function getVisionClassifier(): Promise<ZeroShotImageClassificationPipeline> {
-  if (!visionClassifier) {
-    console.log("Loading Vision Model (SigLIP)...");
-    visionClassifier = await pipeline("zero-shot-image-classification", SAMPLING_CONFIG.VISION_MODEL_ID);
-  }
-  return visionClassifier;
-}
+// Removed global singleton to prevent bundling HuggingFace
+// Model is now loaded on-demand in runVisionCheck()
 
 // --- Helper: Page Sampling ---
 export function selectSamplePages(totalPages: number): number[] {
@@ -75,8 +69,13 @@ export function selectSamplePages(totalPages: number): number[] {
 
 // --- Helper: Vision Check ---
 async function runVisionCheck(images: Uint8Array[]): Promise<VisionClassification> {
-  const classifier = await getVisionClassifier();
-  
+  // Lazy import HuggingFace - only loads if vision check is actually called
+  console.log("Loading Vision Model (SigLIP) - lazy import...");
+  const { pipeline } = await import("@huggingface/transformers");
+
+  // Load the model (this will download ~300MB on first call, then cache)
+  const classifier = await pipeline("zero-shot-image-classification", SAMPLING_CONFIG.VISION_MODEL_ID);
+
   let maxComplexityScore = 0;
   let dominantLabel = "digital text document";
 
@@ -91,7 +90,7 @@ async function runVisionCheck(images: Uint8Array[]): Promise<VisionClassificatio
       }
     }
   }
-  
+
   if (maxComplexityScore === 0 && images.length > 0) {
      const result = await classifier(images[0]!, ALL_COMPLEXITY_LABELS) as ClassificationResult[];
      const firstResult = result[0];
@@ -105,6 +104,9 @@ async function runVisionCheck(images: Uint8Array[]): Promise<VisionClassificatio
 
 async function renderPagesToImages(buffer: ArrayBuffer, pageIndices: number[]): Promise<Uint8Array[]> {
   try {
+    // Lazy import pdf2pic (which also pulls in pdfjs-dist) - only loads when rendering is needed
+    const { fromBuffer } = await import("pdf2pic");
+
     const converter = fromBuffer(Buffer.from(buffer), {
       density: 200,
       format: "png",

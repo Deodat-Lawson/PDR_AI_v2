@@ -41,9 +41,9 @@ interface NormalizationResult {
 }
 
 /**
- * Main processDocument Inngest function
+ * Main uploadDocument Inngest function
  */
-export const processDocument = inngest.createFunction(
+export const uploadDocument = inngest.createFunction(
   {
     id: "process-document",
     name: "OCR-to-Vector Document Pipeline",
@@ -308,10 +308,10 @@ async function processNativePDF(documentUrl: string): Promise<NormalizedDocument
 
 async function processWithAzure(documentUrl: string): Promise<NormalizedDocument> {
   const adapter = createAzureAdapter();
-  return adapter.processDocument(documentUrl);
+  return adapter.uploadDocument(documentUrl);
 }
 
 async function processWithLandingAI(documentUrl: string): Promise<NormalizedDocument> {
   const adapter = createLandingAIAdapter();
-  return adapter.processDocument(documentUrl);
+  return adapter.uploadDocument(documentUrl);
 }

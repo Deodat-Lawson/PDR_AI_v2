@@ -136,7 +136,7 @@ export interface OCRAdapter {
    * @param documentUrl - URL or path to the document
    * @param options - Provider-specific options
    */
-  processDocument(
+  uploadDocument(
     documentUrl: string,
     options?: OCRAdapterOptions
   ): Promise<NormalizedDocument>;
