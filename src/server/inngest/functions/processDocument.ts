@@ -1,5 +1,7 @@
 import { inngest } from "../client";
-import { determineDocumentRouting, type RoutingDecision } from "~/lib/ocr/complexity";
+// Lazy import complexity module to prevent bundling HuggingFace dependencies
+// import { determineDocumentRouting, type RoutingDecision } from "~/lib/ocr/complexity";
+import type { RoutingDecision } from "~/lib/ocr/complexity";
 import { createAzureAdapter, createLandingAIAdapter } from "~/lib/ocr/adapters";
 import { chunkDocument, mergeWithEmbeddings, prepareForEmbedding, getTotalChunkSize } from "~/lib/ocr/chunker";
 import { generateEmbeddings } from "~/lib/ai/embeddings";
@@ -62,6 +64,8 @@ export const uploadDocument = inngest.createFunction(
     // STEP A: Router Decision
     // ========================================================================
     const routerDecision = await step.run("step-a-router", async (): Promise<RouterDecisionResult> => {
+      // Lazy import complexity module to avoid bundling heavy ML dependencies
+      const { determineDocumentRouting } = await import("~/lib/ocr/complexity");
       const decision: RoutingDecision = await determineDocumentRouting(documentUrl);
 
       const isNativePDF = decision.provider === "NATIVE_PDF";
