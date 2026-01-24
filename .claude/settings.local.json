@@ -6,7 +6,11 @@
       "Bash(cd:*)",
       "Bash(npm ls:*)",
       "Bash(pnpm build:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(pnpm why:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push)"
     ]
   }
 }

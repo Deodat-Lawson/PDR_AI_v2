@@ -1,9 +1,6 @@
 import type { OCRProvider } from "~/lib/ocr/types";
-import type { ZeroShotImageClassificationPipeline, ClassificationResult } from "@huggingface/transformers";
-// Lazy imports - only load when needed to reduce bundle size
-// import { pipeline } from "@huggingface/transformers"; // Moved to runVisionCheck()
+import type { ClassificationResult } from "@huggingface/transformers";
 import { PDFDocument } from "pdf-lib";
-// import { fromBuffer } from "pdf2pic"; // Moved to renderPagesToImages()
 
 // --- Configuration ---
 const SAMPLING_CONFIG = {
@@ -11,7 +8,7 @@ const SAMPLING_CONFIG = {
     MAX_PAGES_TO_SAMPLE: 5,
     VISION_MODEL_ID: "google/siglip-base-patch16-224",
     CONFIDENCE_THRESHOLD: 0.60,
-    RENDER_SCALE: 2, // Lower scale saves memory in serverless
+    RENDER_SCALE: 2,
   };
 
 const COMPLEX_LABELS = [
@@ -39,16 +36,10 @@ export interface RoutingDecision {
   provider: OCRProvider;
   reason: string;
   confidence: number;
-  // Added pageCount to interface so it propagates to the main workflow
   pageCount: number; 
   visionResult?: VisionClassification;
 }
 
-// --- Singleton Vision Model ---
-// Removed global singleton to prevent bundling HuggingFace
-// Model is now loaded on-demand in runVisionCheck()
-
-// --- Helper: Page Sampling ---
 export function selectSamplePages(totalPages: number): number[] {
   if (totalPages <= SAMPLING_CONFIG.MIN_PAGES_TO_SAMPLE) {
     return Array.from({ length: totalPages }, (_, i) => i + 1);
@@ -67,14 +58,10 @@ export function selectSamplePages(totalPages: number): number[] {
   return Array.from(pages).sort((a, b) => a - b).slice(0, SAMPLING_CONFIG.MAX_PAGES_TO_SAMPLE);
 }
 
-// --- Helper: Vision Check ---
 async function runVisionCheck(images: Uint8Array[]): Promise<VisionClassification> {
-  // Lazy import HuggingFace - only loads if vision check is actually called
   console.log("Loading Vision Model (SigLIP) - lazy import with WASM backend...");
   const { pipeline } = await import("@huggingface/transformers");
 
-  // Load the model using WASM backend (prevents onnxruntime-node from being used)
-  // The environment variables in next.config.ts force WASM runtime
   const classifier = await pipeline("zero-shot-image-classification", SAMPLING_CONFIG.VISION_MODEL_ID);
 
   let maxComplexityScore = 0;
