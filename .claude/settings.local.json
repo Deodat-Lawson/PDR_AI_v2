@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(du -sh \"C:\\\\Users\\\\Timothy Lin\\\\Projects\\\\pdr_ai_v2\\\\node_modules\\\\.pnpm\\\\@huggingface+transformers\"*)",
+      "Bash(cd:*)",
+      "Bash(npm ls:*)",
+      "Bash(pnpm build:*)",
+      "Bash(findstr:*)",
+      "Bash(pnpm why:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push)"
+    ]
+  }
+}

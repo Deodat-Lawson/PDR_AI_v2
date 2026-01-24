@@ -79,6 +79,11 @@ export const document = pgTable(
         ocrEnabled: boolean("ocr_enabled").default(false),
         ocrProcessed: boolean("ocr_processed").default(false),
         ocrMetadata: jsonb("ocr_metadata"),
+        // New OCR fields
+        ocrJobId: varchar("ocr_job_id", { length: 256 }),
+        ocrProvider: varchar("ocr_provider", { length: 50 }),
+        ocrConfidenceScore: integer("ocr_confidence_score"),
+        ocrCostCents: integer("ocr_cost_cents"),
         createdAt: timestamp("created_at", { withTimezone: true })
             .default(sql`CURRENT_TIMESTAMP`)
             .notNull(),
@@ -235,6 +240,152 @@ export const documentReferenceResolution = pgTable(
 );
 
 // ============================================================================
+// OCR Jobs
+// ============================================================================
+
+export const ocrJobs = pgTable(
+    "ocr_jobs",
+    {
+        id: varchar("id", { length: 256 }).primaryKey(),
+        documentId: bigint("document_id", { mode: "bigint" }).references(() => document.id, { onDelete: "set null" }),
+        companyId: bigint("company_id", { mode: "bigint" })
+            .notNull()
+            .references(() => company.id, { onDelete: "cascade" }),
+        userId: varchar("user_id", { length: 256 }).notNull(),
+
+        // Status
+        status: varchar("status", {
+            length: 50,
+            enum: ["queued", "processing", "completed", "failed", "needs_review"]
+        }).notNull().default("queued"),
+
+        // Document info
+        documentUrl: varchar("document_url", { length: 1024 }).notNull(),
+        documentName: varchar("document_name", { length: 256 }).notNull(),
+        pageCount: integer("page_count"),
+        fileSizeBytes: bigint("file_size_bytes", { mode: "bigint" }),
+
+        // Pre-assessment
+        complexityScore: integer("complexity_score"),
+        documentType: varchar("document_type", {
+            length: 50,
+            enum: ["contract", "financial", "scanned", "general", "other"]
+        }),
+
+        // Provider selection
+        primaryProvider: varchar("primary_provider", { length: 50 }),
+        actualProvider: varchar("actual_provider", { length: 50 }),
+
+        // Cost tracking
+        estimatedCostCents: integer("estimated_cost_cents"),
+        actualCostCents: integer("actual_cost_cents"),
+
+        // Quality metrics
+        confidenceScore: integer("confidence_score"),
+        qualityFlags: jsonb("quality_flags").$type<string[]>(),
+        requiresReview: boolean("requires_review").default(false),
+
+        // Timing
+        startedAt: timestamp("started_at", { withTimezone: true }),
+        completedAt: timestamp("completed_at", { withTimezone: true }),
+        processingDurationMs: integer("processing_duration_ms"),
+
+        // Results
+        ocrResult: jsonb("ocr_result"),
+        errorMessage: text("error_message"),
+        retryCount: integer("retry_count").default(0),
+
+        // Webhook
+        webhookUrl: varchar("webhook_url", { length: 1024 }),
+        webhookStatus: varchar("webhook_status", {
+            length: 20,
+            enum: ["pending", "sent", "failed"]
+        }),
+
+        createdAt: timestamp("created_at", { withTimezone: true })
+            .default(sql`CURRENT_TIMESTAMP`)
+            .notNull(),
+        updatedAt: timestamp("updated_at", { withTimezone: true }).$onUpdate(
+            () => new Date()
+        ),
+    },
+    (table) => ({
+        companyIdIdx: index("ocr_jobs_company_id_idx").on(table.companyId),
+        userIdIdx: index("ocr_jobs_user_id_idx").on(table.userId),
+        statusIdx: index("ocr_jobs_status_idx").on(table.status),
+        createdAtIdx: index("ocr_jobs_created_at_idx").on(table.createdAt),
+        companyStatusIdx: index("ocr_jobs_company_status_idx").on(table.companyId, table.status),
+    })
+);
+
+// ============================================================================
+// OCR Processing Steps
+// ============================================================================
+
+export const ocrProcessingSteps = pgTable(
+    "ocr_processing_steps",
+    {
+        id: varchar("id", { length: 256 }).primaryKey(),
+        jobId: varchar("job_id", { length: 256 })
+            .notNull()
+            .references(() => ocrJobs.id, { onDelete: "cascade" }),
+        stepNumber: integer("step_number").notNull(),
+        stepType: varchar("step_type", {
+            length: 50,
+            enum: ["pre_assessment", "ocr_execution", "validation", "embedding", "storage", "webhook"]
+        }).notNull(),
+        status: varchar("status", {
+            length: 20,
+            enum: ["pending", "in_progress", "completed", "failed"]
+        }).notNull().default("pending"),
+        input: jsonb("input"),
+        output: jsonb("output"),
+        errorMessage: text("error_message"),
+        durationMs: integer("duration_ms"),
+        createdAt: timestamp("created_at", { withTimezone: true })
+            .default(sql`CURRENT_TIMESTAMP`)
+            .notNull(),
+    },
+    (table) => ({
+        jobIdIdx: index("ocr_processing_steps_job_id_idx").on(table.jobId),
+        jobIdStepIdx: index("ocr_processing_steps_job_id_step_idx").on(table.jobId, table.stepNumber),
+    })
+);
+
+// ============================================================================
+// OCR Cost Tracking
+// ============================================================================
+
+export const ocrCostTracking = pgTable(
+    "ocr_cost_tracking",
+    {
+        id: serial("id").primaryKey(),
+        companyId: bigint("company_id", { mode: "bigint" })
+            .notNull()
+            .references(() => company.id, { onDelete: "cascade" }),
+        provider: varchar("provider", { length: 50 }).notNull(),
+        month: varchar("month", { length: 7 }).notNull(), // YYYY-MM format
+
+        totalJobs: integer("total_jobs").default(0).notNull(),
+        totalPages: integer("total_pages").default(0).notNull(),
+        totalCostCents: integer("total_cost_cents").default(0).notNull(),
+        averageCostPerPage: integer("average_cost_per_page").default(0).notNull(),
+        averageConfidenceScore: integer("average_confidence_score").default(0).notNull(),
+
+        updatedAt: timestamp("updated_at", { withTimezone: true }).$onUpdate(
+            () => new Date()
+        ),
+    },
+    (table) => ({
+        companyProviderMonthIdx: index("ocr_cost_tracking_company_provider_month_idx").on(
+            table.companyId,
+            table.provider,
+            table.month
+        ),
+    })
+);
+
+// ============================================================================
 // Relations
 // ============================================================================
 
@@ -289,6 +440,32 @@ export const predictiveAnalysisRelations = relations(predictiveDocumentAnalysisR
     }),
 }));
 
+export const ocrJobsRelations = relations(ocrJobs, ({ one, many }) => ({
+    company: one(company, {
+        fields: [ocrJobs.companyId],
+        references: [company.id],
+    }),
+    document: one(document, {
+        fields: [ocrJobs.documentId],
+        references: [document.id],
+    }),
+    processingSteps: many(ocrProcessingSteps),
+}));
+
+export const ocrProcessingStepsRelations = relations(ocrProcessingSteps, ({ one }) => ({
+    job: one(ocrJobs, {
+        fields: [ocrProcessingSteps.jobId],
+        references: [ocrJobs.id],
+    }),
+}));
+
+export const ocrCostTrackingRelations = relations(ocrCostTracking, ({ one }) => ({
+    company: one(company, {
+        fields: [ocrCostTracking.companyId],
+        references: [company.id],
+    }),
+}));
+
 // ============================================================================
 // Type exports
 // ============================================================================
@@ -301,3 +478,6 @@ export type PdfChunk = InferSelectModel<typeof pdfChunks>;
 export type ChatHistoryEntry = InferSelectModel<typeof ChatHistory>;
 export type PredictiveDocumentAnalysisResult = InferSelectModel<typeof predictiveDocumentAnalysisResults>;
 export type DocumentReferenceResolution = InferSelectModel<typeof documentReferenceResolution>;
+export type OcrJob = InferSelectModel<typeof ocrJobs>;
+export type OcrProcessingStep = InferSelectModel<typeof ocrProcessingSteps>;
+export type OcrCostTracking = InferSelectModel<typeof ocrCostTracking>;

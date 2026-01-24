@@ -22,9 +22,9 @@ import {
     getWebSearchInstruction,
     getChatModel,
     getEmbeddings,
-    type AIModelType
 } from "../services";
-import { SYSTEM_PROMPTS } from "../services/prompts";
+import type { AIModelType } from "../services";
+import type { SYSTEM_PROMPTS } from "../services/prompts";
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;

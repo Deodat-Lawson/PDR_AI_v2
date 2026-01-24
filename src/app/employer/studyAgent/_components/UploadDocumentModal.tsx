@@ -148,9 +148,8 @@ export function UploadDocumentModal({
         body: JSON.stringify({
           userId,
           documentName: finalTitle,
-          documentCategory: category,
+          category: category,
           documentUrl: fileUrl,
-          enableOCR,
         }),
       });
 

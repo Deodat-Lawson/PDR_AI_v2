@@ -1,13 +1,11 @@
-import { and, asc, eq } from "drizzle-orm";
-
+import { eq, and, desc } from "drizzle-orm"; // Imported operators
 import { db } from "../db";
 import { studyAgentSessions } from "../db/schema";
 
 /**
  * Resolves a session for a user. Does NOT auto-create sessions.
  * Sessions should only be created after onboarding via POST /api/study-agent/me/session.
- * 
- * @param userId - The authenticated user's ID
+ * * @param userId - The authenticated user's ID
  * @param sessionId - Optional specific session ID to look up
  * @returns The session if found, or null if no session exists
  */
@@ -37,13 +35,7 @@ export async function resolveSessionForUser(
         .select()
         .from(studyAgentSessions)
         .where(eq(studyAgentSessions.userId, userId))
-        .orderBy(asc(studyAgentSessions.id));
+        .orderBy(desc(studyAgentSessions.id)); // Changed to desc to get "most recent"
     
-    if (existing) {
-        return existing;
-    } else {
-        return null;
-    }
-
-    return existing;
+    return existing ?? null;
 }

@@ -78,13 +78,3 @@ export async function withRateLimit(
   }
 }
 
-/**
- * Check rate limit without enforcing it (for logging/monitoring)
- */
-export async function checkRateLimit(
-  request: Request,
-  config: RateLimitConfig
-): Promise<RateLimitInfo> {
-  const rateLimiter = createRateLimiter(config);
-  return rateLimiter(request);
-}
