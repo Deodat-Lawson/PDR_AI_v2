@@ -3,9 +3,11 @@ import type { NextConfig } from "next";
 import "./src/env";
 
 const config: NextConfig = {
-  // Configure environment to prevent HuggingFace from trying to load Node.js-specific backends
+  // Force HuggingFace Transformers to use web backend (WASM) instead of Node.js (onnxruntime-node)
+  // This prevents the 404MB onnxruntime-node package from being required
   env: {
-    TRANSFORMERS_BACKEND: "webgpu",
+    TRANSFORMERS_BACKEND: "wasm",
+    USE_ONNX_NODE: "false",
   },
 
   images: {

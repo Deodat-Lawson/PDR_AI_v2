@@ -70,10 +70,11 @@ export function selectSamplePages(totalPages: number): number[] {
 // --- Helper: Vision Check ---
 async function runVisionCheck(images: Uint8Array[]): Promise<VisionClassification> {
   // Lazy import HuggingFace - only loads if vision check is actually called
-  console.log("Loading Vision Model (SigLIP) - lazy import...");
+  console.log("Loading Vision Model (SigLIP) - lazy import with WASM backend...");
   const { pipeline } = await import("@huggingface/transformers");
 
-  // Load the model (this will download ~300MB on first call, then cache)
+  // Load the model using WASM backend (prevents onnxruntime-node from being used)
+  // The environment variables in next.config.ts force WASM runtime
   const classifier = await pipeline("zero-shot-image-classification", SAMPLING_CONFIG.VISION_MODEL_ID);
 
   let maxComplexityScore = 0;
