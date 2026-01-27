@@ -1,60 +1,129 @@
-/* Navigation */
+/* Navigation - Enhanced Modern Design */
 .navContainer {
-    @apply bg-slate-950/80 backdrop-blur-md border-b border-purple-500/20 sticky top-0 z-50;
+    @apply bg-slate-950/90 backdrop-blur-xl border-b border-purple-500/30 sticky top-0 z-50;
+    box-shadow: 0 4px 30px rgba(139, 92, 246, 0.1);
 }
 
 .navContent {
-    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+    @apply max-w-7xl mx-auto px-6 sm:px-8 lg:px-12;
 }
 
 .navWrapper {
-    @apply flex justify-between h-16 items-center;
+    @apply flex justify-between items-center;
+    height: 72px;
 }
 
 .logoContainer {
-    @apply flex items-center space-x-2 no-underline;
+    @apply flex items-center gap-3 no-underline transition-transform duration-300 hover:scale-105;
 }
 
 .iconPurple {
-    @apply w-8 h-8 text-purple-400;
+    @apply w-9 h-9 text-purple-400 transition-all duration-300;
+    filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.4));
+}
+
+.logoContainer:hover .iconPurple {
+    @apply text-purple-300;
+    filter: drop-shadow(0 0 12px rgba(168, 85, 247, 0.6));
 }
 
 .logoText {
-    @apply text-2xl font-bold bg-gradient-to-r from-purple-400 to-indigo-400 bg-clip-text text-transparent;
+    @apply text-2xl font-bold bg-gradient-to-r from-purple-400 via-fuchsia-400 to-indigo-400 bg-clip-text text-transparent;
+    letter-spacing: -0.02em;
+    font-weight: 700;
 }
 
 .navLinks {
-    @apply flex items-center space-x-4;
+    @apply flex items-center gap-2;
 }
 
-/* Buttons */
+/* Buttons - Enhanced with modern effects */
 .btn {
-    @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 cursor-pointer border-0 text-sm flex items-center gap-2;
+    @apply px-5 py-2.5 rounded-xl font-semibold transition-all duration-300 cursor-pointer border-0 text-sm flex items-center gap-2;
+    position: relative;
+    overflow: hidden;
 }
 
 .btnGhost {
-    @apply bg-transparent text-gray-400 hover:bg-purple-500/10 hover:text-purple-300;
+    @apply bg-transparent text-gray-300 hover:bg-purple-500/20 hover:text-purple-200;
+    backdrop-filter: blur(8px);
+}
+
+.btnGhost::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 0.75rem;
+    padding: 1px;
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0), rgba(168, 85, 247, 0.3));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.btnGhost:hover::before {
+    opacity: 1;
 }
 
 .btnPrimary {
-    @apply bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:opacity-90 hover:-translate-y-0.5;
+    @apply bg-gradient-to-r from-purple-600 via-fuchsia-600 to-indigo-600 text-white;
+    box-shadow: 0 4px 20px rgba(168, 85, 247, 0.4);
+    background-size: 200% auto;
+    animation: shimmer 3s linear infinite;
+}
+
+.btnPrimary:hover {
+    @apply -translate-y-0.5;
+    box-shadow: 0 6px 30px rgba(168, 85, 247, 0.6);
+    background-position: right center;
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: 0% center;
+    }
+    50% {
+        background-position: 100% center;
+    }
+    100% {
+        background-position: 0% center;
+    }
 }
 
 /* Light Theme Overrides */
 [data-theme="light"] .navContainer {
-    @apply bg-white/80 border-b border-purple-200;
+    @apply bg-white/95 border-b border-purple-300/50;
+    box-shadow: 0 4px 30px rgba(139, 92, 246, 0.08);
 }
 
 [data-theme="light"] .btnGhost {
-    @apply text-gray-600 hover:bg-purple-100 hover:text-purple-700;
+    @apply text-gray-700 hover:bg-purple-100/70 hover:text-purple-800;
+}
+
+[data-theme="light"] .btnPrimary {
+    @apply bg-gradient-to-r from-purple-600 via-fuchsia-600 to-indigo-600;
+    box-shadow: 0 4px 20px rgba(139, 92, 246, 0.3);
+}
+
+[data-theme="light"] .btnPrimary:hover {
+    box-shadow: 0 6px 30px rgba(139, 92, 246, 0.5);
 }
 
 [data-theme="light"] .iconPurple {
     @apply text-purple-600;
+    filter: drop-shadow(0 0 6px rgba(139, 92, 246, 0.3));
+}
+
+[data-theme="light"] .logoContainer:hover .iconPurple {
+    @apply text-purple-700;
+    filter: drop-shadow(0 0 10px rgba(139, 92, 246, 0.5));
 }
 
 [data-theme="light"] .logoText {
-    @apply bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-purple-600 via-fuchsia-600 to-indigo-600 bg-clip-text text-transparent;
 }
 
 /* Responsive Design */

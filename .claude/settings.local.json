@@ -10,7 +10,10 @@
       "Bash(pnpm why:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push)"
+      "Bash(git push)",
+      "Bash(pnpm typecheck:*)",
+      "Bash(npx tsc:*)",
+      "Bash(pnpm lint:*)"
     ]
   }
 }

@@ -1,6 +1,18 @@
-/* Container */
+/* Container - Enhanced gradient with depth */
 .container {
-    @apply min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-indigo-950;
+    @apply min-h-screen;
+    background: linear-gradient(135deg, #0f0f23 0%, #1a0b2e 25%, #2d1b69 50%, #1e1040 75%, #0f0f23 100%);
+    background-size: 400% 400%;
+    animation: gradientShift 20s ease infinite;
+}
+
+@keyframes gradientShift {
+    0%, 100% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
 }
 
 /* Navigation */
@@ -32,51 +44,100 @@
     @apply flex items-center space-x-4;
 }
 
-/* Buttons */
+/* Buttons - Enhanced modern design */
 .btn {
-    @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 cursor-pointer border-0 text-sm flex items-center gap-2;
+    @apply px-6 py-3 rounded-xl font-semibold transition-all duration-300 cursor-pointer border-0 text-base flex items-center gap-2.5;
+    position: relative;
+    overflow: hidden;
 }
 
 .btnGhost {
-    @apply bg-transparent text-gray-400 hover:bg-purple-500/10 hover:text-purple-300;
+    @apply bg-slate-800/30 text-gray-300 hover:bg-purple-500/20 hover:text-purple-200;
+    border: 1px solid rgba(168, 85, 247, 0.2);
+    backdrop-filter: blur(8px);
+}
+
+.btnGhost:hover {
+    border-color: rgba(168, 85, 247, 0.4);
+    box-shadow: 0 4px 20px rgba(168, 85, 247, 0.2);
 }
 
 .btnPrimary {
-    @apply bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:opacity-90 hover:-translate-y-0.5;
+    @apply bg-gradient-to-r from-purple-600 via-fuchsia-600 to-indigo-600 text-white;
+    box-shadow: 0 4px 25px rgba(168, 85, 247, 0.4);
+    background-size: 200% auto;
+}
+
+.btnPrimary:hover {
+    @apply -translate-y-1;
+    box-shadow: 0 8px 35px rgba(168, 85, 247, 0.6);
+    background-position: right center;
 }
 
 .btnOutline {
-    @apply bg-transparent text-purple-400 border-2 border-purple-400 hover:bg-purple-600 hover:text-white;
+    @apply bg-transparent text-purple-400 border-2 border-purple-500/50 hover:bg-purple-600 hover:text-white hover:border-purple-600;
+    backdrop-filter: blur(8px);
+}
+
+.btnOutline:hover {
+    @apply -translate-y-0.5;
+    box-shadow: 0 4px 20px rgba(168, 85, 247, 0.3);
 }
 
 .btnLg {
-    @apply px-8 py-3 text-base;
+    @apply px-10 py-4 text-lg font-bold;
 }
 
 .btnIcon {
     @apply w-5 h-5;
 }
 
-/* Hero Section */
+/* Hero Section - Enhanced with better typography */
 .heroSection {
-    @apply py-24 px-6 text-center;
+    @apply py-32 px-6 text-center relative;
+}
+
+.heroSection::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 50% 0%, rgba(168, 85, 247, 0.15) 0%, transparent 60%);
+    pointer-events: none;
 }
 
 .heroContent {
-    @apply max-w-4xl mx-auto;
+    @apply max-w-5xl mx-auto relative z-10;
 }
 
 .heroTitle {
-    @apply text-5xl md:text-6xl font-extrabold mb-4 leading-tight;
-    @apply bg-gradient-to-r from-purple-400 to-indigo-400 bg-clip-text text-transparent;
+    @apply text-6xl md:text-7xl font-black mb-6 leading-tight;
+    background: linear-gradient(135deg, #e879f9 0%, #a855f7 25%, #818cf8 50%, #6366f1 75%, #8b5cf6 100%);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: -0.03em;
+    animation: shimmer 8s linear infinite;
+    text-shadow: 0 0 80px rgba(168, 85, 247, 0.5);
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: 0% center;
+    }
+    100% {
+        background-position: 200% center;
+    }
 }
 
 .heroDescription {
-    @apply text-xl text-gray-300 mb-8;
+    @apply text-xl md:text-2xl text-gray-300 mb-10 leading-relaxed max-w-3xl mx-auto;
+    font-weight: 400;
+    line-height: 1.6;
 }
 
 .heroButtons {
-    @apply flex gap-4 justify-center flex-wrap;
+    @apply flex gap-5 justify-center flex-wrap;
 }
 
 /* Content Section */
@@ -89,32 +150,54 @@
 }
 
 .section {
-    @apply mb-16;
+    @apply mb-20;
 }
 
 .sectionTitle {
-    @apply text-3xl font-bold text-white mb-6 flex items-center gap-3;
+    @apply text-4xl md:text-5xl font-black text-white mb-8 flex items-center gap-4;
+    background: linear-gradient(135deg, #fff 0%, #e0e7ff 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: -0.02em;
 }
 
 .sectionIcon {
-    @apply w-8 h-8 text-purple-400;
+    @apply w-10 h-10 text-purple-400;
+    filter: drop-shadow(0 0 10px rgba(168, 85, 247, 0.5));
 }
 
-/* Prerequisites Grid */
+/* Prerequisites Grid - Enhanced cards */
 .prerequisitesGrid {
-    @apply grid grid-cols-1 md:grid-cols-3 gap-6 mt-8;
+    @apply grid grid-cols-1 md:grid-cols-3 gap-8 mt-10;
 }
 
 .prerequisiteCard {
-    @apply bg-slate-900/50 border border-purple-500/20 rounded-2xl p-6 backdrop-blur-sm;
+    @apply bg-slate-900/60 border border-purple-500/30 rounded-3xl p-8 backdrop-blur-md transition-all duration-300;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.prerequisiteCard:hover {
+    @apply border-purple-400/50 -translate-y-1;
+    box-shadow: 0 12px 48px rgba(168, 85, 247, 0.2);
+    background: linear-gradient(135deg, rgba(30, 16, 64, 0.7) 0%, rgba(45, 27, 105, 0.7) 100%);
 }
 
 .prerequisiteIcon {
-    @apply w-10 h-10 text-purple-400 mb-4;
+    @apply w-12 h-12 text-purple-400 mb-6;
+    filter: drop-shadow(0 0 10px rgba(168, 85, 247, 0.4));
+    transition: all 0.3s;
+}
+
+.prerequisiteCard:hover .prerequisiteIcon {
+    @apply text-purple-300;
+    filter: drop-shadow(0 0 15px rgba(168, 85, 247, 0.6));
+    transform: scale(1.1);
 }
 
 .prerequisiteCard h3 {
-    @apply text-xl font-semibold text-white mb-4;
+    @apply text-xl font-bold text-white mb-5;
+    letter-spacing: -0.01em;
 }
 
 /* Code Section */
@@ -123,23 +206,29 @@
 }
 
 .stepTitle {
-    @apply text-2xl font-semibold text-white mb-3;
+    @apply text-2xl md:text-3xl font-bold text-white mb-4;
+    letter-spacing: -0.01em;
 }
 
 .stepDescription {
-    @apply text-gray-300 mb-3 leading-relaxed;
+    @apply text-gray-300 mb-4 leading-relaxed text-lg;
+    line-height: 1.7;
 }
 
 .stepDescription code {
-    @apply bg-slate-800/80 px-2 py-1 rounded text-sm font-mono text-purple-400;
+    @apply bg-slate-800/90 px-3 py-1.5 rounded-lg text-sm font-mono text-purple-300 border border-purple-500/20;
+    font-weight: 600;
 }
 
 .codeBlock {
-    @apply bg-slate-900/80 border border-purple-500/20 rounded-lg p-6 overflow-x-auto mt-3;
+    @apply bg-slate-900/90 border border-purple-500/30 rounded-2xl p-8 overflow-x-auto mt-4;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(10px);
 }
 
 .codeBlock code {
-    @apply font-mono text-sm text-gray-200 leading-relaxed;
+    @apply font-mono text-sm text-gray-200 leading-loose;
+    font-weight: 500;
 }
 
 /* API Key Section */
@@ -151,17 +240,22 @@
     @apply text-xl font-semibold text-white mb-4;
 }
 
-/* Lists */
+/* Lists - Enhanced typography */
 .list {
-    @apply list-disc pl-6 text-gray-300 leading-relaxed;
+    @apply list-none pl-0 text-gray-300 leading-loose;
 }
 
 .list li {
-    @apply mb-2;
+    @apply mb-3 pl-8 relative text-base;
+}
+
+.list li::before {
+    content: '▸';
+    @apply absolute left-0 text-purple-400 font-bold text-lg;
 }
 
 .orderedList {
-    @apply list-decimal pl-6 text-gray-300 leading-relaxed;
+    @apply list-decimal pl-8 text-gray-300 leading-loose;
 }
 
 .orderedList li {
@@ -222,7 +316,15 @@
 }
 
 .featureIcon {
-    @apply w-8 h-8 text-purple-400 mb-4;
+    @apply w-12 h-12 text-purple-400 mb-6;
+    filter: drop-shadow(0 0 12px rgba(168, 85, 247, 0.5));
+    transition: all 0.3s;
+}
+
+.featureMatrixCard:hover .featureIcon {
+    @apply text-purple-300;
+    filter: drop-shadow(0 0 20px rgba(168, 85, 247, 0.7));
+    transform: scale(1.15) rotate(-5deg);
 }
 
 .featureCard h3 {
@@ -403,6 +505,502 @@
     @apply text-gray-700;
 }
 
+/* Tier Comparison - Enhanced table design */
+.tierComparisonTable {
+    @apply bg-slate-900/60 border border-purple-500/30 rounded-3xl p-8 backdrop-blur-md overflow-x-auto;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.tierComparisonTable table {
+    @apply w-full border-collapse text-left;
+}
+
+.tierComparisonTable th {
+    @apply text-xl font-bold text-white pb-5 border-b-2 border-purple-500/30;
+    letter-spacing: -0.01em;
+}
+
+.tierComparisonTable td {
+    @apply text-gray-300 py-4 border-b border-purple-500/10 text-base;
+}
+
+.tierComparisonTable tr:hover td {
+    @apply bg-purple-500/5;
+}
+
+.tierComparisonTable tr:last-child td {
+    @apply border-b-0;
+}
+
+.tierBadge {
+    @apply inline-block px-4 py-1.5 rounded-full text-xs font-bold tracking-wide uppercase;
+    letter-spacing: 0.05em;
+}
+
+.tierBadgeCore {
+    @apply bg-blue-500/25 text-blue-200 border border-blue-400/40;
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+}
+
+.tierBadgeEnhanced {
+    @apply bg-purple-500/25 text-purple-200 border border-purple-400/40;
+    box-shadow: 0 0 20px rgba(168, 85, 247, 0.3);
+}
+
+.tierBadgeFull {
+    @apply bg-indigo-500/25 text-indigo-200 border border-indigo-400/40;
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
+}
+
+/* Status Badges - Enhanced */
+.statusBadge {
+    @apply inline-block px-3 py-1.5 rounded-lg text-xs font-bold;
+}
+
+.statusBadgeRequired {
+    @apply bg-red-500/25 text-red-200 border border-red-400/40;
+    box-shadow: 0 0 15px rgba(239, 68, 68, 0.2);
+}
+
+.statusBadgeOptional {
+    @apply bg-emerald-500/25 text-emerald-200 border border-emerald-400/40;
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.2);
+}
+
+.statusBadgeAdvanced {
+    @apply bg-indigo-500/25 text-indigo-200 border border-indigo-400/40;
+    box-shadow: 0 0 15px rgba(99, 102, 241, 0.2);
+}
+
+/* Feature Matrix - Enhanced cards */
+.featureMatrix {
+    @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-10;
+}
+
+.featureMatrixCard {
+    @apply bg-slate-900/60 border border-purple-500/30 rounded-3xl p-8 backdrop-blur-md transition-all duration-300;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.featureMatrixCard:hover {
+    @apply border-purple-400/50 -translate-y-2;
+    box-shadow: 0 12px 48px rgba(168, 85, 247, 0.3);
+    background: linear-gradient(135deg, rgba(30, 16, 64, 0.8) 0%, rgba(45, 27, 105, 0.8) 100%);
+}
+
+.featureMatrixCard h4 {
+    @apply text-2xl font-bold text-white mb-3;
+    letter-spacing: -0.01em;
+}
+
+.featureMatrixCard p {
+    @apply text-base text-gray-300 leading-relaxed;
+}
+
+/* Platform Cards */
+.platformGrid {
+    @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8;
+}
+
+.platformCard {
+    @apply bg-slate-900/50 border border-purple-500/20 rounded-2xl p-6 backdrop-blur-sm cursor-pointer transition-all duration-200;
+}
+
+.platformCard:hover {
+    @apply border-purple-500/40 transform -translate-y-1;
+}
+
+.platformCard h3 {
+    @apply text-xl font-semibold text-white mb-3;
+}
+
+.platformCard p {
+    @apply text-gray-300 text-sm mb-4;
+}
+
+.platformMeta {
+    @apply flex items-center gap-4 text-sm text-gray-400;
+}
+
+/* Provider Comparison Table */
+.providerComparisonTable {
+    @apply bg-slate-900/50 border border-purple-500/20 rounded-2xl p-6 backdrop-blur-sm overflow-x-auto mt-6;
+}
+
+.providerComparisonTable table {
+    @apply w-full border-collapse text-left;
+}
+
+.providerComparisonTable th {
+    @apply text-sm font-semibold text-white pb-3 border-b border-purple-500/20;
+}
+
+.providerComparisonTable td {
+    @apply text-sm text-gray-300 py-3 border-b border-purple-500/10;
+}
+
+.providerComparisonTable tr:last-child td {
+    @apply border-b-0;
+}
+
+/* Integration Guide Cards */
+.integrationGuide {
+    @apply bg-slate-900/50 border border-purple-500/20 rounded-2xl p-6 mb-6 backdrop-blur-sm;
+}
+
+.integrationGuide h3 {
+    @apply text-2xl font-semibold text-white mb-4;
+}
+
+.integrationGuide h4 {
+    @apply text-xl font-semibold text-white mb-3 mt-6;
+}
+
+.integrationSteps {
+    @apply space-y-3 my-4;
+}
+
+.integrationSteps li {
+    @apply flex items-start gap-3;
+}
+
+.stepNumber {
+    @apply flex-shrink-0 w-6 h-6 rounded-full bg-purple-500/20 text-purple-300 flex items-center justify-center text-sm font-semibold;
+}
+
+/* Cost Breakdown */
+.costBreakdown {
+    @apply bg-slate-900/50 border border-purple-500/20 rounded-2xl p-6 backdrop-blur-sm;
+}
+
+.costBreakdown h4 {
+    @apply text-lg font-semibold text-white mb-4;
+}
+
+.costItem {
+    @apply flex justify-between items-center py-2 border-b border-purple-500/10;
+}
+
+.costItem:last-child {
+    @apply border-b-0;
+}
+
+.costLabel {
+    @apply text-gray-300;
+}
+
+.costValue {
+    @apply text-purple-400 font-semibold;
+}
+
+/* Environment Variables Table */
+.envVarTable {
+    @apply bg-slate-900/50 border border-purple-500/20 rounded-2xl p-6 backdrop-blur-sm overflow-x-auto mt-6;
+}
+
+.envVarTable table {
+    @apply w-full border-collapse text-left min-w-full;
+}
+
+.envVarTable th {
+    @apply text-sm font-semibold text-white pb-3 border-b border-purple-500/20 sticky top-0 bg-slate-900;
+}
+
+.envVarTable td {
+    @apply text-sm text-gray-300 py-3 border-b border-purple-500/10;
+}
+
+.envVarTable tr:last-child td {
+    @apply border-b-0;
+}
+
+.envVarTable code {
+    @apply bg-slate-800/80 px-2 py-1 rounded text-xs font-mono text-purple-400;
+}
+
+/* Expandable Sections */
+.expandableSection {
+    @apply bg-slate-900/50 border border-purple-500/20 rounded-2xl overflow-hidden backdrop-blur-sm mb-4;
+}
+
+.expandableHeader {
+    @apply p-4 cursor-pointer flex justify-between items-center hover:bg-slate-800/50 transition-colors;
+}
+
+.expandableHeader h4 {
+    @apply text-lg font-semibold text-white;
+}
+
+.expandableContent {
+    @apply p-4 border-t border-purple-500/10;
+}
+
+/* Decision Tree */
+.decisionTree {
+    @apply bg-slate-900/50 border border-purple-500/20 rounded-2xl p-6 backdrop-blur-sm;
+}
+
+.decisionNode {
+    @apply bg-slate-800/50 border border-purple-500/10 rounded-lg p-4 mb-4;
+}
+
+.decisionNode h5 {
+    @apply text-white font-semibold mb-2;
+}
+
+.decisionNode p {
+    @apply text-gray-300 text-sm;
+}
+
+/* Docker Command Block */
+.dockerBlock {
+    @apply bg-slate-900/80 border border-purple-500/20 rounded-lg p-6 overflow-x-auto mt-3;
+}
+
+.dockerBlock pre {
+    @apply font-mono text-sm text-gray-200 leading-relaxed;
+}
+
+/* Highlighted Info Boxes */
+.highlightBox {
+    @apply bg-purple-900/30 border border-purple-500/40 rounded-2xl p-6 backdrop-blur-sm mb-6;
+}
+
+.highlightBox h4 {
+    @apply text-lg font-semibold text-purple-300 mb-3;
+}
+
+.highlightBox p {
+    @apply text-gray-300 leading-relaxed;
+}
+
+/* Warning Box */
+.warningBox {
+    @apply bg-yellow-900/20 border border-yellow-500/40 rounded-2xl p-6 backdrop-blur-sm mb-6;
+}
+
+.warningBox h4 {
+    @apply text-lg font-semibold text-yellow-300 mb-3;
+}
+
+.warningBox p {
+    @apply text-gray-300 leading-relaxed;
+}
+
+/* Success Box */
+.successBox {
+    @apply bg-green-900/20 border border-green-500/40 rounded-2xl p-6 backdrop-blur-sm mb-6;
+}
+
+.successBox h4 {
+    @apply text-lg font-semibold text-green-300 mb-3;
+}
+
+.successBox p {
+    @apply text-gray-300 leading-relaxed;
+}
+
+/* Comparison Grid */
+.comparisonGrid {
+    @apply grid grid-cols-1 md:grid-cols-2 gap-6 mt-6;
+}
+
+.comparisonCard {
+    @apply bg-slate-900/50 border border-purple-500/20 rounded-xl p-6 backdrop-blur-sm;
+}
+
+.comparisonCard h4 {
+    @apply text-lg font-semibold text-white mb-3;
+}
+
+.comparisonCard ul {
+    @apply space-y-2;
+}
+
+.comparisonCard li {
+    @apply text-gray-300 text-sm flex items-start gap-2;
+}
+
+/* Light Theme Overrides for New Styles */
+[data-theme="light"] .tierComparisonTable {
+    @apply bg-white/80 border border-purple-200;
+}
+
+[data-theme="light"] .tierComparisonTable th {
+    @apply text-gray-900 border-b border-purple-200;
+}
+
+[data-theme="light"] .tierComparisonTable td {
+    @apply text-gray-700 border-b border-purple-100;
+}
+
+[data-theme="light"] .providerComparisonTable {
+    @apply bg-white/80 border border-purple-200;
+}
+
+[data-theme="light"] .providerComparisonTable th {
+    @apply text-gray-900 border-b border-purple-200;
+}
+
+[data-theme="light"] .providerComparisonTable td {
+    @apply text-gray-700 border-b border-purple-100;
+}
+
+[data-theme="light"] .integrationGuide {
+    @apply bg-white/80 border border-purple-200;
+}
+
+[data-theme="light"] .integrationGuide h3,
+[data-theme="light"] .integrationGuide h4 {
+    @apply text-gray-900;
+}
+
+[data-theme="light"] .platformCard {
+    @apply bg-white/80 border border-purple-200;
+}
+
+[data-theme="light"] .platformCard h3 {
+    @apply text-gray-900;
+}
+
+[data-theme="light"] .platformCard p {
+    @apply text-gray-700;
+}
+
+[data-theme="light"] .envVarTable {
+    @apply bg-white/80 border border-purple-200;
+}
+
+[data-theme="light"] .envVarTable th {
+    @apply text-gray-900 bg-white border-b border-purple-200;
+}
+
+[data-theme="light"] .envVarTable td {
+    @apply text-gray-700 border-b border-purple-100;
+}
+
+[data-theme="light"] .envVarTable code {
+    @apply bg-purple-100 text-purple-700;
+}
+
+[data-theme="light"] .costBreakdown {
+    @apply bg-white/80 border border-purple-200;
+}
+
+[data-theme="light"] .costBreakdown h4 {
+    @apply text-gray-900;
+}
+
+[data-theme="light"] .costLabel {
+    @apply text-gray-700;
+}
+
+[data-theme="light"] .costValue {
+    @apply text-purple-600;
+}
+
+[data-theme="light"] .highlightBox {
+    @apply bg-purple-50 border border-purple-300;
+}
+
+[data-theme="light"] .highlightBox h4 {
+    @apply text-purple-700;
+}
+
+[data-theme="light"] .highlightBox p {
+    @apply text-gray-700;
+}
+
+/* Table of Contents Sidebar */
+.tocContainer {
+    @apply fixed top-20 left-0 h-screen w-64 bg-slate-900/95 border-r border-purple-500/20 backdrop-blur-md overflow-y-auto z-40 hidden xl:block;
+}
+
+.tocContent {
+    @apply p-6;
+}
+
+.tocTitle {
+    @apply text-lg font-bold text-white mb-4;
+}
+
+.tocList {
+    @apply space-y-1;
+}
+
+.tocItem {
+    @apply block;
+}
+
+.tocLink {
+    @apply block py-2 px-3 text-sm text-gray-300 hover:text-purple-400 hover:bg-purple-500/10 rounded-lg transition-colors no-underline;
+}
+
+.tocLinkActive {
+    @apply bg-purple-500/20 text-purple-400 font-semibold;
+}
+
+.tocSubList {
+    @apply ml-4 mt-1 space-y-1 border-l-2 border-purple-500/20 pl-3;
+}
+
+.tocSubItem {
+    @apply block;
+}
+
+.tocSubLink {
+    @apply block py-1.5 px-2 text-xs text-gray-400 hover:text-purple-300 hover:bg-purple-500/5 rounded transition-colors no-underline;
+}
+
+.tocSubLinkActive {
+    @apply text-purple-400 font-medium;
+}
+
+.contentWithToc {
+    @apply xl:ml-64;
+}
+
+.tocMobileToggle {
+    @apply xl:hidden fixed bottom-4 right-4 z-50 bg-purple-600 text-white p-3 rounded-full shadow-lg hover:bg-purple-700 transition-colors;
+}
+
+.tocMobileMenu {
+    @apply xl:hidden fixed top-16 left-0 right-0 bg-slate-900/95 backdrop-blur-md border-b border-purple-500/20 overflow-y-auto max-h-[80vh] z-40;
+}
+
+/* Light Theme Overrides for TOC */
+[data-theme="light"] .tocContainer {
+    @apply bg-white/95 border-r border-purple-200;
+}
+
+[data-theme="light"] .tocTitle {
+    @apply text-gray-900;
+}
+
+[data-theme="light"] .tocLink {
+    @apply text-gray-600 hover:text-purple-600 hover:bg-purple-100;
+}
+
+[data-theme="light"] .tocLinkActive {
+    @apply bg-purple-100 text-purple-700;
+}
+
+[data-theme="light"] .tocSubLink {
+    @apply text-gray-500 hover:text-purple-600 hover:bg-purple-50;
+}
+
+[data-theme="light"] .tocSubLinkActive {
+    @apply text-purple-700;
+}
+
+[data-theme="light"] .tocMobileToggle {
+    @apply bg-purple-600 hover:bg-purple-700;
+}
+
+[data-theme="light"] .tocMobileMenu {
+    @apply bg-white/95 border-b border-purple-200;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .heroTitle {
@@ -428,5 +1026,51 @@
     .btn {
         @apply px-3 py-2 text-xs;
     }
+
+    .tierComparisonTable table {
+        @apply text-sm;
+    }
+
+    .platformGrid {
+        @apply grid-cols-1;
+    }
+
+    .featureMatrix {
+        @apply grid-cols-1;
+    }
+
+    .comparisonGrid {
+        @apply grid-cols-1;
+    }
 }
 
+/* Customization & Modularity Styles - Enhanced */
+.subsectionTitle {
+    @apply text-3xl md:text-4xl font-bold text-purple-300 mt-12 mb-6;
+    letter-spacing: -0.02em;
+    text-shadow: 0 0 30px rgba(168, 85, 247, 0.3);
+}
+
+.exampleBadge {
+    @apply inline-block px-5 py-2.5 bg-indigo-500/30 text-indigo-200 border border-indigo-400/50 rounded-xl text-sm font-bold mb-4;
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
+    letter-spacing: 0.02em;
+}
+
+.exampleNote {
+    @apply text-base text-gray-400 italic mt-4 pt-4 border-t border-gray-700/50;
+    line-height: 1.6;
+}
+
+.noteBox {
+    @apply mt-10 p-8 bg-purple-500/15 border-2 border-purple-500/40 rounded-2xl backdrop-blur-md;
+    box-shadow: 0 8px 32px rgba(168, 85, 247, 0.2);
+}
+
+.noteBox p {
+    @apply text-gray-300 mb-0 text-lg leading-relaxed;
+}
+
+.noteBox strong {
+    @apply text-purple-200 font-bold;
+}
