@@ -29,10 +29,10 @@ import type { SYSTEM_PROMPTS } from "../services/prompts";
 export const runtime = 'nodejs';
 export const maxDuration = 300;
 
-type PdfChunkRow = Record<string, unknown> & {
+type SectionRow = Record<string, unknown> & {
     id: number;
     content: string;
-    page: number;
+    page: number | null;
     distance: number;
 };
 
@@ -196,20 +196,20 @@ export async function POST(request: Request) {
                       SELECT
                         id,
                         content,
-                        page,
+                        page_number as page,
                         embedding <-> ${bracketedEmbedding}::vector(1536) AS distance
-                      FROM pdr_ai_v2_pdf_chunks
+                      FROM pdr_ai_v2_document_sections
                       WHERE document_id = ${documentId}
                       ORDER BY embedding <-> ${bracketedEmbedding}::vector(1536)
                       LIMIT 3
                     `;
 
-                    const result = await db.execute<PdfChunkRow>(query);
+                    const result = await db.execute<SectionRow>(query);
                     documents = result.rows.map(row => ({
                         pageContent: row.content,
                         metadata: {
                             chunkId: row.id,
-                            page: row.page,
+                            page: row.page ?? 1,
                             distance: row.distance,
                             source: 'vector_fallback',
                             searchScope: 'document' as const,

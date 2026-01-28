@@ -6,8 +6,15 @@ import { createAzureAdapter, createLandingAIAdapter } from "~/lib/ocr/adapters";
 import { chunkDocument, mergeWithEmbeddings, prepareForEmbedding, getTotalChunkSize } from "~/lib/ocr/chunker";
 import { generateEmbeddings } from "~/lib/ai/embeddings";
 import { db } from "~/server/db";
-import { pdfChunks, document as documentTable, ocrJobs } from "~/server/db/schema";
+import {
+  documentSections,
+  documentStructure,
+  documentMetadata,
+  document as documentTable,
+  ocrJobs,
+} from "~/server/db/schema";
 import { eq, sql } from "drizzle-orm";
+import crypto from "crypto";
 
 import type {
   ProcessDocumentEventData,
@@ -173,7 +180,7 @@ export const uploadDocument = inngest.createFunction(
     });
 
     // ========================================================================
-    // STEP E: Storage
+    // STEP E: Storage (RLM Schema)
     // ========================================================================
     await step.run("step-e-storage", async () => {
       if (vectorizedChunks.length === 0) {
@@ -181,23 +188,69 @@ export const uploadDocument = inngest.createFunction(
         return;
       }
 
-      console.log(`[Step E] Starting insertion of ${vectorizedChunks.length} chunks...`);
+      const docId = typeof documentId === 'number' ? documentId : Number(documentId);
+      console.log(`[Step E] Starting insertion of ${vectorizedChunks.length} chunks into RLM schema...`);
 
-      // Iterate and insert chunks one by one
-      for (const chunk of vectorizedChunks) {
-        const docId = typeof documentId === 'number' ? documentId : Number(documentId);
-        const record = {
-          documentId: BigInt(docId),
-          page: chunk.metadata.pageNumber,
-          chunkIndex: chunk.metadata.chunkIndex,
-          content: chunk.content,
-          embedding: sql`${JSON.stringify(chunk.vector)}::vector(1536)`,
-        };
+      // 1. Create root document structure node
+      const rootStructure = await db.insert(documentStructure).values({
+        documentId: BigInt(docId),
+        parentId: null,
+        contentType: "section",
+        path: "/",
+        title: "Document Root",
+        level: 0,
+        ordering: 0,
+        startPage: 1,
+        endPage: normalizationResult.pages.length,
+        tokenCount: Math.ceil(vectorizedChunks.reduce((sum, c) => sum + (c.content.length / 4), 0)),
+        childCount: 0,
+      }).returning({ id: documentStructure.id });
 
-        await db.insert(pdfChunks).values(record);
+      const rootId = rootStructure[0]?.id;
+      if (!rootId) {
+        throw new Error("Failed to create root document structure");
       }
 
-      // Update document record with OCR metadata
+      // 2. Insert document sections with embeddings
+      for (const chunk of vectorizedChunks) {
+        const contentHash = crypto.createHash("sha256").update(chunk.content).digest("hex");
+        const isTable = chunk.metadata.isTable;
+
+        await db.insert(documentSections).values({
+          documentId: BigInt(docId),
+          structureId: BigInt(rootId),
+          content: chunk.content,
+          tokenCount: Math.ceil(chunk.content.length / 4), // Approximate tokens
+          charCount: chunk.content.length,
+          embedding: sql`${JSON.stringify(chunk.vector)}::vector(1536)`,
+          pageNumber: chunk.metadata.pageNumber,
+          semanticType: isTable ? "tabular" : "narrative",
+          contentHash,
+        });
+      }
+
+      // 3. Create document metadata for planning layer
+      const fullText = vectorizedChunks.map(c => c.content).join("\n\n");
+      const summaryPreview = fullText.substring(0, 500) + (fullText.length > 500 ? "..." : "");
+
+      await db.insert(documentMetadata).values({
+        documentId: BigInt(docId),
+        summary: summaryPreview,
+        outline: normalizationResult.pages.map((_, i) => ({
+          id: i + 1,
+          title: `Page ${i + 1}`,
+          level: 1,
+          path: `/${i + 1}`,
+          pageRange: { start: i + 1, end: i + 1 },
+        })),
+        totalTokens: vectorizedChunks.reduce((sum, c) => sum + Math.ceil(c.content.length / 4), 0),
+        totalPages: normalizationResult.pages.length,
+        totalSections: vectorizedChunks.length,
+        topicTags: [],
+        entities: {},
+      });
+
+      // 4. Update document record with OCR metadata
       await db
         .update(documentTable)
         .set({
@@ -212,9 +265,9 @@ export const uploadDocument = inngest.createFunction(
             processedAt: new Date().toISOString(),
           },
         })
-        .where(eq(documentTable.id, typeof documentId === 'number' ? documentId : Number(documentId)));
+        .where(eq(documentTable.id, docId));
 
-      // Update OCR job status to completed
+      // 5. Update OCR job status to completed
       await db
         .update(ocrJobs)
         .set({
@@ -227,7 +280,7 @@ export const uploadDocument = inngest.createFunction(
         })
         .where(eq(ocrJobs.id, jobId));
 
-      console.log(`[Step E] Successfully stored ${vectorizedChunks.length} chunks for document ${documentId}`);
+      console.log(`[Step E] Successfully stored ${vectorizedChunks.length} sections for document ${documentId}`);
     });
     // ========================================================================
     // Final Result

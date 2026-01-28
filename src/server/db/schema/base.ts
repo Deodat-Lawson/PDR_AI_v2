@@ -128,7 +128,18 @@ export const category = pgTable(
 // ============================================================================
 // PDF Chunks
 // ============================================================================
-
+/**
+ * @deprecated This table is deprecated in favor of `documentSections` from the RLM schema.
+ * Use `documentSections` for all new code. This table is kept for backwards compatibility
+ * during migration. It will be removed in a future version.
+ *
+ * Migration path:
+ * - New documents are written to `documentSections` table
+ * - Existing data can be migrated using the backfill script at src/scripts/migrate-chunks-to-rlm.ts
+ * - Once migration is complete and verified, this table can be dropped
+ *
+ * @see documentSections in rlm-knowledge-base.ts for the replacement table
+ */
 export const pdfChunks = pgTable(
     "pdf_chunks",
     {

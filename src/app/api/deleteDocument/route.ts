@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from "../../../server/db/index";
-import { document, ChatHistory, documentReferenceResolution, pdfChunks, users } from "../../../server/db/schema";
+import { document, ChatHistory, documentReferenceResolution, documentSections, documentStructure, documentMetadata, documentPreviews, workspaceResults, users } from "../../../server/db/schema";
 import { eq } from "drizzle-orm";
 import { validateRequestBody, DeleteDocumentSchema } from "~/lib/validation";
 import { auth } from "@clerk/nextjs/server";
@@ -53,9 +53,13 @@ export async function DELETE(request: Request) {
             eq(documentReferenceResolution.resolvedInDocumentId, documentId)
         );
 
-        // Delete PDF chunks associated with the document
-        await db.delete(pdfChunks).where(eq(pdfChunks.documentId, BigInt(documentId)));
-        console.log(`Deleted PDF chunks for document ${documentId}`);
+        // Delete RLM schema tables (documentSections, documentStructure, documentMetadata, etc.)
+        await db.delete(workspaceResults).where(eq(workspaceResults.documentId, BigInt(documentId)));
+        await db.delete(documentPreviews).where(eq(documentPreviews.documentId, BigInt(documentId)));
+        await db.delete(documentSections).where(eq(documentSections.documentId, BigInt(documentId)));
+        await db.delete(documentStructure).where(eq(documentStructure.documentId, BigInt(documentId)));
+        await db.delete(documentMetadata).where(eq(documentMetadata.documentId, BigInt(documentId)));
+        console.log(`Deleted RLM data for document ${documentId}`);
 
         // Finally delete the document itself
         await db.delete(document).where(eq(document.id, documentId));

@@ -150,3 +150,60 @@ export const EmployerAuthSchema = z.object({
   userId: z.string().min(1, "User ID is required"),
   companyPasskey: z.string().min(1, "Company passkey is required"),
 });
+
+// ============================================================================
+// RLM (Recursive Language Model) Query Schema
+// ============================================================================
+
+const semanticTypeOptions = [
+  "narrative",
+  "procedural",
+  "tabular",
+  "legal",
+  "financial",
+  "technical",
+  "reference",
+] as const;
+
+const prioritizeOptions = ["start", "end", "relevance"] as const;
+
+/**
+ * Schema for RLM-style hierarchical document queries
+ * Extends QuestionSchema with cost-aware retrieval options
+ */
+export const RLMQuestionSchema = z.object({
+  documentId: z.number().int().positive("Document ID must be a positive integer"),
+  question: z.string().min(1, "Question is required"),
+  // Standard options
+  style: z.enum(["concise", "detailed", "academic", "bullet-points"]).optional(),
+  enableWebSearch: z.boolean().optional().default(false),
+  aiPersona: z.enum(aiPersonaOptions).optional(),
+  aiModel: z.enum(aiModelOptions).optional(),
+  conversationHistory: z.string().optional(),
+  // RLM-specific options
+  maxTokens: z.number().int().min(500).max(100000).optional(),
+  includeOverview: z.boolean().optional(),
+  includePreviews: z.boolean().optional(),
+  semanticTypes: z.array(z.enum(semanticTypeOptions)).optional(),
+  prioritize: z.enum(prioritizeOptions).optional(),
+  pageRange: z.object({
+    start: z.number().int().min(0),
+    end: z.number().int().min(0),
+  }).refine((data) => data.end >= data.start, {
+    message: "pageRange.end must be >= pageRange.start",
+  }).optional(),
+}).transform((data) => ({
+  documentId: data.documentId,
+  question: data.question,
+  style: data.style ?? "concise" as const,
+  enableWebSearch: data.enableWebSearch ?? false,
+  aiPersona: data.aiPersona ?? "general",
+  aiModel: data.aiModel ?? "gpt-4o" as const,
+  conversationHistory: data.conversationHistory,
+  maxTokens: data.maxTokens ?? 4000,
+  includeOverview: data.includeOverview ?? true,
+  includePreviews: data.includePreviews ?? false,
+  semanticTypes: data.semanticTypes,
+  prioritize: data.prioritize ?? "relevance" as const,
+  pageRange: data.pageRange,
+}));

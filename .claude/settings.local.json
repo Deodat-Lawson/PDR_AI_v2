@@ -10,7 +10,16 @@
       "Bash(pnpm why:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push)"
+      "Bash(git push)",
+      "Bash(ls:*)",
+      "Bash(git -C /Users/timothylin/knowledge-base-redesign log --oneline --all)",
+      "Bash(git -C /Users/timothylin/knowledge-base-redesign branch -a)",
+      "Bash(npx drizzle-kit:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run build:*)",
+      "Bash(node --check:*)",
+      "Bash(mkdir:*)"
     ]
   }
 }

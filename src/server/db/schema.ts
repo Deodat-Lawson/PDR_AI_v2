@@ -8,3 +8,4 @@ export * from "./schema/base";
 export * from "./schema/agent-ai";
 export * from "./schema/study-agent";
 export { studyAgentMessages } from "./schema/study-agent";
+export * from "./schema/rlm-knowledge-base";

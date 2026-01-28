@@ -1,6 +1,6 @@
 import { db } from "../../../../../server/db/index";
 import { eq, sql } from "drizzle-orm";
-import { pdfChunks } from "~/server/db/schema";
+import { documentSections } from "~/server/db/schema";
 
 interface ANNConfig {
     strategy: 'hnsw' | 'ivf' | 'hybrid' | 'prefiltered';
@@ -71,13 +71,13 @@ export class ANNOptimizer {
         const approximateLimit = Math.min(limit * 5, 100);
         
         const results = await db.execute(sql`
-            SELECT 
+            SELECT
                 id,
                 content,
-                page,
+                page_number as page,
                 document_id as "documentId",
                 embedding <=> ${embeddingStr}::vector as distance
-            FROM pdr_ai_v2_pdf_chunks 
+            FROM pdr_ai_v2_document_sections
             WHERE document_id = ANY(${documentIds})
             ORDER BY embedding <=> ${embeddingStr}::vector
             LIMIT ${approximateLimit}
@@ -117,13 +117,13 @@ export class ANNOptimizer {
         const embeddingStr = `[${queryEmbedding.join(',')}]`;
         
         const results = await db.execute(sql`
-            SELECT 
+            SELECT
                 id,
                 content,
-                page,
+                page_number as page,
                 document_id as "documentId",
                 embedding <=> ${embeddingStr}::vector as distance
-            FROM pdr_ai_v2_pdf_chunks 
+            FROM pdr_ai_v2_document_sections
             WHERE id = ANY(${clusterChunkIds})
             AND embedding <=> ${embeddingStr}::vector <= ${threshold}
             ORDER BY embedding <=> ${embeddingStr}::vector
@@ -164,13 +164,13 @@ export class ANNOptimizer {
 
             const remaining = limit - results.length;
             const docResults = await db.execute(sql`
-                SELECT 
+                SELECT
                     id,
                     content,
-                    page,
+                    page_number as page,
                     document_id as "documentId",
                     embedding <=> ${embeddingStr}::vector as distance
-                FROM pdr_ai_v2_pdf_chunks 
+                FROM pdr_ai_v2_document_sections
                 WHERE document_id = ${docId}
                 AND embedding <=> ${embeddingStr}::vector <= ${threshold}
                 ORDER BY embedding <=> ${embeddingStr}::vector
@@ -231,9 +231,9 @@ export class ANNOptimizer {
 
     private async buildDocumentCluster(documentId: number): Promise<DocumentCluster> {
         const chunks = await db.select({
-            id: pdfChunks.id,
-            embedding: pdfChunks.embedding
-        }).from(pdfChunks).where(eq(pdfChunks.documentId, BigInt(documentId)));
+            id: documentSections.id,
+            embedding: documentSections.embedding
+        }).from(documentSections).where(eq(documentSections.documentId, BigInt(documentId)));
 
         if (chunks.length === 0) {
             return {
