@@ -1,4 +1,4 @@
-import { db } from "../../../../../server/db/index";
+import { db } from "~/server/db/index";
 import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import { documentSections, document } from "~/server/db/schema";
 import type { 
@@ -6,10 +6,10 @@ import type {
     CompanyDocument, 
     DocumentMatch, 
     ValidationResult 
-} from "../types";
-import { getEmbeddings } from "../utils/embeddings";
-import { cleanText, truncateText } from "../utils/content";
-import ANNOptimizer from "./annOptimizer";
+} from "~/app/api/agents/predictive-document-analysis/types";
+import { getEmbeddings } from "~/app/api/agents/predictive-document-analysis/utils/embeddings";
+import { cleanText, truncateText } from "~/app/api/agents/predictive-document-analysis/utils/content";
+import ANNOptimizer from "~/app/api/agents/predictive-document-analysis/services/annOptimizer";
 
 type MatchCandidate = {
     documentId: number;

@@ -1,25 +1,12 @@
 "use client";
 
 import { 
-  MessageCircle, 
-  Send, 
-  Plus, 
-  Edit2, 
-  Trash2, 
-  Sparkles, 
-  FileText, 
-  Globe, 
-  ChevronLeft, 
-  ChevronRight, 
-  Paperclip, 
-  Search,
   Settings2,
   Layout,
   Maximize2,
   Minimize2
 } from 'lucide-react';
 import { Button } from '~/app/employer/documents/components/ui/button';
-import { ScrollArea } from '~/app/employer/documents/components/ui/scroll-area';
 import {
   Select,
   SelectContent,
@@ -27,7 +14,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '~/app/employer/documents/components/ui/select';
-import { Label } from '~/app/employer/documents/components/ui/label';
 import { cn } from "~/lib/utils";
 import { AgentChatInterface } from './AgentChatInterface';
 import type { DocumentType } from '../types';
@@ -40,7 +26,7 @@ interface ChatPanelProps {
   aiStyle: string;
   setAiStyle: (s: string) => void;
   aiPersona: string;
-  setAiPersona: (p: any) => void;
+  setAiPersona: (p: string) => void;
   searchScope: 'document' | 'company';
   setSearchScope: (s: 'document' | 'company') => void;
   companyId: number | null;
@@ -70,26 +56,26 @@ export function ChatPanel({
   onTogglePreview
 }: ChatPanelProps) {
   return (
-    <div className="flex flex-col h-full relative overflow-hidden bg-white dark:bg-gray-950 transition-all duration-300">
+    <div className="flex flex-col h-full relative overflow-hidden bg-background transition-all duration-300">
       {/* Chat Header/Settings - Now part of flex flow */}
-      <div className="flex-shrink-0 bg-white/80 dark:bg-gray-950/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 p-4 z-20 transition-all duration-200">
+      <div className="flex-shrink-0 bg-background/80 backdrop-blur-md border-b border-border p-4 z-20 transition-all duration-200">
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-900 rounded-full border border-gray-200 dark:border-gray-800">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-full border border-border">
               <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">AI Online</span>
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">AI Online</span>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="flex items-center bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-1">
+            <div className="flex items-center bg-muted/50 border border-border rounded-xl p-1">
               <button
                 onClick={() => setSearchScope('document')}
                 className={cn(
                   "px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all",
                   searchScope === 'document' 
-                    ? "bg-white dark:bg-gray-800 text-purple-600 dark:text-purple-400 shadow-sm" 
-                    : "text-gray-400 hover:text-gray-600"
+                    ? "bg-background text-purple-600 dark:text-purple-400 shadow-sm" 
+                    : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 Document
@@ -100,8 +86,8 @@ export function ChatPanel({
                 className={cn(
                   "px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all",
                   searchScope === 'company' 
-                    ? "bg-white dark:bg-gray-800 text-purple-600 dark:text-purple-400 shadow-sm" 
-                    : "text-gray-400 hover:text-gray-600",
+                    ? "bg-background text-purple-600 dark:text-purple-400 shadow-sm" 
+                    : "text-muted-foreground hover:text-foreground",
                   !companyId && "opacity-50 cursor-not-allowed"
                 )}
               >
@@ -109,7 +95,7 @@ export function ChatPanel({
               </button>
             </div>
 
-            <div className="h-8 w-px bg-gray-200 dark:bg-gray-800" />
+            <div className="h-8 w-px bg-border" />
 
             <div className="hidden sm:flex items-center gap-2">
               <Select value={aiStyle} onValueChange={setAiStyle}>
@@ -139,7 +125,7 @@ export function ChatPanel({
               </Select>
             </div>
 
-            <div className="h-8 w-px bg-gray-200 dark:bg-gray-800" />
+            <div className="h-8 w-px bg-border" />
             
             <Button
               variant="ghost"

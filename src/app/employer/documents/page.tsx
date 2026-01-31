@@ -16,9 +16,7 @@ import type { ViewMode, DocumentType, CategoryGroup, errorType, PredictiveAnalys
 import { useAIChat } from "./hooks/useAIChat";
 import { useAIChatbot } from "./hooks/useAIChatbot";
 import { Button } from "~/app/employer/documents/components/ui/button";
-import { ChatSelector } from "./components/ChatSelector";
-import { ScrollArea } from "~/app/employer/documents/components/ui/scroll-area";
-import { Clock, ChevronLeft } from "lucide-react";
+import type { ImperativePanelHandle } from "react-resizable-panels";
 
 const SYSTEM_PROMPTS = {
   concise: "Concise & Direct",
@@ -76,7 +74,7 @@ export default function DocumentViewerPage() {
     };
 
     void syncChatDocument();
-  }, [currentChatId, documents, getChat]);
+  }, [currentChatId, documents, getChat, selectedDoc?.id]);
   
   // Predictive Analysis States
   const [predictiveAnalysis, setPredictiveAnalysis] = useState<PredictiveAnalysisResponse | null>(null);
@@ -85,8 +83,8 @@ export default function DocumentViewerPage() {
   
   const [pdfPageNumber, setPdfPageNumber] = useState<number>(1);
   
-  const previewPanelRef = useRef<any>(null);
-  const sidebarPanelRef = useRef<any>(null);
+  const previewPanelRef = useRef<ImperativePanelHandle>(null);
+  const sidebarPanelRef = useRef<ImperativePanelHandle>(null);
 
   // Fetching Logic
   const fetchDocuments = useCallback(async () => {
@@ -139,12 +137,12 @@ export default function DocumentViewerPage() {
       }
     };
 
-    checkEmployeeRole().catch(console.error);
+    void checkEmployeeRole();
   }, [isLoaded, userId, router]);
 
   useEffect(() => {
     if (!userId || isRoleLoading) return;
-    fetchDocuments().catch(console.error);
+    void fetchDocuments();
   }, [userId, isRoleLoading, fetchDocuments]);
 
   // Actions
@@ -179,11 +177,11 @@ export default function DocumentViewerPage() {
 
       const result = (await response.json()) as errorType;
 
-      if (!response.ok) throw new Error(result.error || 'Failed to delete document');
+      if (!response.ok) throw new Error(result.error ?? 'Failed to delete document');
 
       setDocuments(prev => prev.filter(doc => doc.id !== docId));
       if (selectedDoc?.id === docId) handleSelectDoc(null);
-      alert(result.message || 'Document deleted successfully');
+      alert(result.message ?? 'Document deleted successfully');
     } catch (error) {
       console.error('Error deleting document:', error);
       alert(`Failed to delete document: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -196,7 +194,7 @@ export default function DocumentViewerPage() {
     setIsPredictiveLoading(true);
 
     try {
-      const response = await fetch("/api/predictive-document-analysis", {
+      const response = await fetch("/api/agents/predictive-document-analysis", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -221,7 +219,7 @@ export default function DocumentViewerPage() {
 
   useEffect(() => {
     if (viewMode !== "predictive-analysis" || !selectedDoc?.id) return;
-    fetchPredictiveAnalysis(selectedDoc.id, false).catch(console.error);
+    void fetchPredictiveAnalysis(selectedDoc.id, false);
   }, [viewMode, selectedDoc, fetchPredictiveAnalysis]);
 
   const handleAiSearch = async (e: React.FormEvent) => {
@@ -245,7 +243,7 @@ export default function DocumentViewerPage() {
       const data = await sendAIChatQuery({
         question: currentQuestion,
         searchScope,
-        style: aiStyle as any,
+        style: aiStyle as "concise" | "detailed" | "academic" | "bullet-points",
         documentId: searchScope === "document" && selectedDoc ? selectedDoc.id : undefined,
         companyId: searchScope === "company" ? companyId ?? undefined : undefined,
       });
@@ -256,8 +254,8 @@ export default function DocumentViewerPage() {
       if (Array.isArray(data.recommendedPages)) {
         setReferencePages(Array.from(new Set(data.recommendedPages)));
       }
-    } catch (error: any) {
-      setAiError(error.message || "Something went wrong.");
+    } catch (error) {
+      setAiError(error instanceof Error ? error.message : "Something went wrong.");
       setAiQuestion(currentQuestion);
     }
   };
@@ -270,8 +268,8 @@ export default function DocumentViewerPage() {
       title,
       agentMode: 'interactive',
       visibility: 'private',
-      aiStyle: aiStyle as any,
-      aiPersona: aiPersona as any,
+      aiStyle: aiStyle as "concise" | "detailed" | "academic" | "bullet-points",
+      aiPersona: aiPersona as "general" | "learning-coach" | "financial-expert" | "legal-expert" | "math-reasoning",
       documentId: selectedDoc?.id,
     });
     if (chat) {
@@ -291,13 +289,11 @@ export default function DocumentViewerPage() {
 
     const grouping: Record<string, CategoryGroup> = {};
     filteredDocs.forEach(doc => {
-      if (!grouping[doc.category]) {
-        grouping[doc.category] = {
-          name: doc.category,
-          isOpen: openCategories.has(doc.category),
-          documents: [],
-        };
-      }
+      grouping[doc.category] ??= {
+        name: doc.category,
+        isOpen: openCategories.has(doc.category),
+        documents: [],
+      };
       grouping[doc.category]!.documents.push(doc);
     });
 
@@ -311,7 +307,7 @@ export default function DocumentViewerPage() {
         return (
           <div className="flex flex-col h-full">
             {/* Query Mode Toggle - Standard Shadcn Tabs style but custom for this layout */}
-            <div className="flex-shrink-0 bg-white dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 px-8 pt-4 pb-0">
+            <div className="flex-shrink-0 bg-background border-b border-border px-8 pt-4 pb-0">
               <div className="flex gap-8">
                 <button
                   onClick={() => {
@@ -320,7 +316,7 @@ export default function DocumentViewerPage() {
                   }}
                   className={cn(
                     "pb-3 text-xs font-bold uppercase tracking-widest transition-all relative",
-                    qaSubMode === "simple" ? "text-purple-600" : "text-gray-400 hover:text-gray-600"
+                    qaSubMode === "simple" ? "text-purple-600" : "text-muted-foreground hover:text-foreground"
                   )}
                 >
                   Simple Query
@@ -330,7 +326,7 @@ export default function DocumentViewerPage() {
                   onClick={() => setQaSubMode("chat")}
                   className={cn(
                     "pb-3 text-xs font-bold uppercase tracking-widest transition-all relative",
-                    qaSubMode === "chat" ? "text-purple-600" : "text-gray-400 hover:text-gray-600"
+                    qaSubMode === "chat" ? "text-purple-600" : "text-muted-foreground hover:text-foreground"
                   )}
                 >
                   AI Chat
@@ -338,7 +334,7 @@ export default function DocumentViewerPage() {
                 </button>
                 
                 <div className="ml-auto pb-3 flex items-center gap-4">
-                  <div className="h-4 w-px bg-gray-200 dark:bg-gray-800" />
+                  <div className="h-4 w-px bg-border" />
                   <Button 
                     variant="ghost" 
                     size="sm" 
@@ -369,7 +365,7 @@ export default function DocumentViewerPage() {
                     />
                   </ResizablePanel>
                   
-                  <ResizableHandle className="w-px bg-gray-200 dark:bg-gray-800" />
+                  <ResizableHandle className="w-px bg-border" />
                   
                   <ResizablePanel defaultSize={35} minSize={25} maxSize={50}>
                     <SimpleQueryPanel
@@ -419,7 +415,7 @@ export default function DocumentViewerPage() {
                             />
                           </ResizablePanel>
                           
-                          <ResizableHandle className="w-px bg-gray-200 dark:bg-gray-800" />
+                          <ResizableHandle className="w-px bg-border" />
                           
                           <ResizablePanel 
                             ref={previewPanelRef}
@@ -452,7 +448,11 @@ export default function DocumentViewerPage() {
             predictiveAnalysis={predictiveAnalysis}
             predictiveLoading={isPredictiveLoading}
             predictiveError={predictiveError}
-            onRefreshAnalysis={() => selectedDoc && fetchPredictiveAnalysis(selectedDoc.id, true)}
+            onRefreshAnalysis={() => {
+              if (selectedDoc) {
+                void fetchPredictiveAnalysis(selectedDoc.id, true);
+              }
+            }}
             onSelectDocument={(docId, page) => {
               const doc = documents.find(d => d.id === docId);
               if (doc) {
@@ -503,13 +503,13 @@ export default function DocumentViewerPage() {
             viewMode={viewMode}
             setViewMode={setViewMode}
             toggleCategory={toggleCategory}
-            deleteDocument={deleteDocument}
+            deleteDocument={(id) => { void deleteDocument(id); }}
             isCollapsed={isSidebarCollapsed}
             onCollapseToggle={(collapsed) => {
               if (collapsed) sidebarPanelRef.current?.collapse();
               else sidebarPanelRef.current?.expand();
             }}
-            userId={userId!}
+            userId={userId ?? ""}
             currentChatId={currentChatId}
             onSelectChat={(id) => {
               setCurrentChatId(id);

@@ -267,7 +267,7 @@ const DocumentViewer: React.FC = () => {
         setIsPredictiveLoading(true);
 
         try {
-            const response = await fetch("/api/predictive-document-analysis", {
+            const response = await fetch("/api/agents/predictive-document-analysis", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({

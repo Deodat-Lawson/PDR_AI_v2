@@ -1,10 +1,7 @@
 "use client";
 
 import React from 'react';
-import { FileText, Download, Share2, ZoomIn, ZoomOut, Printer, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Button } from '~/app/employer/documents/components/ui/button';
-import { ScrollArea } from '~/app/employer/documents/components/ui/scroll-area';
-import { cn } from "~/lib/utils";
+import { FileText } from 'lucide-react';
 import type { DocumentType } from '../types';
 
 interface DocumentViewerProps {
@@ -19,8 +16,8 @@ interface DocumentViewerProps {
 export function DocumentViewer({ 
   document, 
   pdfPageNumber = 1, 
-  setPdfPageNumber,
-  hideActions = false,
+  setPdfPageNumber: _setPdfPageNumber,
+  hideActions: _hideActions = false,
   minimal = false,
   isCollapsed = false
 }: DocumentViewerProps) {
@@ -39,12 +36,12 @@ export function DocumentViewer({
 
   if (!document) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-950/50 h-full p-8 text-center animate-in fade-in duration-500">
-        <div className="w-20 h-20 bg-gray-100 dark:bg-gray-900 rounded-3xl flex items-center justify-center mb-6 shadow-sm">
-          <FileText className="w-10 h-10 text-gray-300 dark:text-gray-700" />
+      <div className="flex-1 flex flex-col items-center justify-center bg-muted/30 h-full p-8 text-center animate-in fade-in duration-500">
+        <div className="w-20 h-20 bg-muted rounded-3xl flex items-center justify-center mb-6 shadow-sm">
+          <FileText className="w-10 h-10 text-muted-foreground/30" />
         </div>
-        <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No Document Selected</h3>
-        <p className="text-gray-500 dark:text-gray-400 max-w-xs text-sm font-medium">
+        <h3 className="text-xl font-semibold text-foreground mb-2">No Document Selected</h3>
+        <p className="text-muted-foreground max-w-xs text-sm font-medium">
           Select a document from the sidebar to view its content and start your analysis.
         </p>
       </div>

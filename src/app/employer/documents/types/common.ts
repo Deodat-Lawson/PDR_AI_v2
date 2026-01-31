@@ -9,7 +9,8 @@ export type ViewMode =
   | "document-only" 
   | "with-ai-qa" 
   | "with-ai-qa-history" 
-  | "predictive-analysis";
+  | "predictive-analysis"
+  | "generator";
 
 export type AiPersona = 
   | 'general' 

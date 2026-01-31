@@ -2,6 +2,7 @@
 
 .container {
     @apply min-h-screen bg-gradient-to-br from-slate-50 via-white to-purple-50 
+    dark:from-slate-950 dark:via-background dark:to-purple-950/20
     flex items-center justify-center relative overflow-hidden;
 }
 
@@ -19,7 +20,7 @@
 
 .content {
     @apply flex flex-col items-center p-12 relative z-10
-    bg-white/80 backdrop-blur-md rounded-3xl shadow-2xl border border-gray-200/50
+    bg-white/80 dark:bg-slate-900/80 backdrop-blur-md rounded-3xl shadow-2xl border border-gray-200/50 dark:border-gray-800/50
     hover:shadow-2xl hover:scale-105 transition-all duration-700;
 }
 
@@ -29,7 +30,7 @@
 }
 
 .logoIcon {
-    @apply w-16 h-16 text-purple-600 drop-shadow-lg;
+    @apply w-16 h-16 text-purple-600 dark:text-purple-400 drop-shadow-lg;
     animation: logoFloat 3s ease-in-out infinite;
 }
 
@@ -39,7 +40,7 @@
 }
 
 .logoText {
-    @apply text-4xl font-extrabold bg-gradient-to-r from-purple-600 to-indigo-600 
+    @apply text-4xl font-extrabold bg-gradient-to-r from-purple-600 to-indigo-600 dark:from-purple-400 dark:to-indigo-400
     bg-clip-text text-transparent;
 }
 
@@ -49,7 +50,7 @@
 }
 
 .loadingText {
-    @apply text-3xl font-bold text-gray-800 mt-8;
+    @apply text-3xl font-bold text-gray-800 dark:text-gray-100 mt-8;
     background: linear-gradient(135deg, #1f2937 0%, #4f46e5 50%, #7c3aed 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -57,7 +58,7 @@
 }
 
 .message {
-    @apply text-lg text-gray-600 font-medium text-center max-w-md;
+    @apply text-lg text-gray-600 dark:text-gray-400 font-medium text-center max-w-md;
 }
 
 /* Enhanced Loading Animation */
@@ -111,12 +112,12 @@
 }
 
 .spinnerInner {
-    @apply absolute inset-2 rounded-full bg-white/90 backdrop-blur-sm
+    @apply absolute inset-2 rounded-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm
     flex items-center justify-center;
 }
 
 .spinnerIcon {
-    @apply w-8 h-8 text-purple-600;
+    @apply w-8 h-8 text-purple-600 dark:text-purple-400;
     animation: counterSpin 2s linear infinite;
 }
 

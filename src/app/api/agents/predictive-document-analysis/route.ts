@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "~/server/db/index";
 import { eq, sql, and, gt, desc, ne } from "drizzle-orm";
-import { analyzeDocumentChunks } from "./agent";
-import type { PredictiveAnalysisResult } from "./agent";
+import { analyzeDocumentChunks } from "~/app/api/agents/predictive-document-analysis/agent";
+import type { PredictiveAnalysisResult } from "~/app/api/agents/predictive-document-analysis/agent";
 import { predictiveDocumentAnalysisResults, document, pdfChunks } from "~/server/db/schema";
 import {
     ANALYSIS_BATCH_CONFIG,

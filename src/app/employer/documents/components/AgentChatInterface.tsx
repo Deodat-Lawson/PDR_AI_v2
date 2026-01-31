@@ -141,7 +141,7 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
 
       // Send user message
       const userMsg = await sendMessage({
-        chatId: activeChatId as string,
+        chatId: activeChatId,
         role: 'user',
         content: { text: userMessage, context: { searchScope, selectedDocTitle } },
         messageType: 'text',
@@ -189,7 +189,7 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
 
         // Save AI response as a message
         const aiResponse = await sendMessage({
-          chatId: activeChatId as string,
+          chatId: activeChatId,
           role: 'assistant',
           content: { 
             text: aiAnswer,
@@ -209,7 +209,7 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
         console.error('AI service error:', err);
         // Send error message
         const errorResponse = await sendMessage({
-          chatId: activeChatId as string,
+          chatId: activeChatId,
           role: 'assistant',
           content: { text: 'Sorry, I encountered an error. Please try again.' },
           messageType: 'text',
@@ -242,9 +242,9 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
       >
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
-            <Brain className="w-16 h-16 text-purple-300 dark:text-purple-600 mb-4" />
-            <p className="text-gray-500 dark:text-gray-400 text-lg font-medium">Hi there! 👋</p>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
+            <Brain className="w-16 h-16 text-purple-600/30 dark:text-purple-400/30 mb-4" />
+            <p className="text-muted-foreground text-lg font-medium">Hi there! 👋</p>
+            <p className="text-sm text-muted-foreground/60 mt-2">
               I&apos;m here to help you understand {searchScope === 'document' ? selectedDocTitle ?? 'your documents' : 'all your company documents'}. 
               Feel free to ask me anything!
             </p>
@@ -271,13 +271,13 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
                   'max-w-[80%] rounded-2xl px-4 py-3 shadow-sm',
                   msg.role === 'user'
                     ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white'
-                    : 'bg-gray-100 dark:bg-slate-700 text-gray-800 dark:text-gray-200'
+                    : 'bg-muted text-foreground border border-border/50'
                 )}
               >
                 {msg.role === 'assistant' ? (
                   <MarkdownMessage
                     content={displayText}
-                    className="text-sm leading-relaxed text-gray-800 dark:text-gray-200"
+                    className="text-sm leading-relaxed text-foreground"
                   />
                 ) : (
                   <p className="text-sm whitespace-pre-wrap leading-relaxed">
@@ -288,7 +288,7 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
                 {msg.role === 'assistant' && typeof msg.content === 'object' && msg.content !== null && (
                   <>
                     {'pages' in msg.content && Array.isArray(msg.content.pages) && msg.content.pages.length > 0 && (
-                      <div className="mt-2 pt-2 border-t border-gray-300 dark:border-slate-600">
+                      <div className="mt-2 pt-2 border-t border-border">
                         <div className="flex flex-wrap gap-1.5">
                           {msg.content.pages.map((page: number, idx: number) => (
                             <button
@@ -304,8 +304,8 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
                       </div>
                     )}
                     {'webSources' in msg.content && Array.isArray(msg.content.webSources) && msg.content.webSources.length > 0 && (
-                      <div className="mt-2 pt-2 border-t border-gray-300 dark:border-slate-600">
-                        <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wide">Web Sources</p>
+                      <div className="mt-2 pt-2 border-t border-border">
+                        <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Web Sources</p>
                         <div className="space-y-2">
                           {msg.content.webSources.map((source: { title: string; url: string; snippet: string }, idx: number) => (
                             <a
@@ -313,7 +313,7 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
                               href={source.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="block p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors group"
+                              className="block p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors group border border-blue-100 dark:border-blue-900/30"
                             >
                               <div className="flex items-start gap-2">
                                 <ExternalLink className="w-3 h-3 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
@@ -321,10 +321,10 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
                                   <p className="text-xs font-medium text-blue-700 dark:text-blue-300 group-hover:text-blue-800 dark:group-hover:text-blue-200 truncate">
                                     [Source {idx + 1}] {source.title}
                                   </p>
-                                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 line-clamp-2">
+                                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
                                     {source.snippet}
                                   </p>
-                                  <p className="text-xs text-gray-500 dark:text-gray-500 mt-1 truncate">
+                                  <p className="text-xs text-muted-foreground/50 mt-1 truncate">
                                     {source.url}
                                   </p>
                                 </div>
@@ -334,10 +334,10 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
                         </div>
                       </div>
                     )}
-                    <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-300 dark:border-slate-600" role="group" aria-label="Message actions">
+                    <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border" role="group" aria-label="Message actions">
                       <button
                         onClick={() => handleVote(msg.id, true)}
-                        className="p-1 hover:bg-gray-200 dark:hover:bg-slate-600 rounded transition-colors"
+                        className="p-1 hover:bg-muted rounded transition-colors"
                         title="Upvote this response"
                         aria-label="Upvote this response"
                         type="button"
@@ -346,7 +346,7 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
                       </button>
                       <button
                         onClick={() => handleVote(msg.id, false)}
-                        className="p-1 hover:bg-gray-200 dark:hover:bg-slate-600 rounded transition-colors"
+                        className="p-1 hover:bg-muted rounded transition-colors"
                         title="Downvote this response"
                         aria-label="Downvote this response"
                         type="button"
@@ -364,10 +364,10 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
         
         {isSubmitting && (
           <div className="flex justify-start" role="status" aria-live="polite">
-            <div className="bg-gray-100 dark:bg-slate-700 rounded-2xl px-4 py-3 shadow-sm">
+            <div className="bg-muted rounded-2xl px-4 py-3 shadow-sm border border-border/50">
               <div className="flex items-center space-x-2">
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600" aria-hidden="true"></div>
-                <span className="text-sm text-gray-600 dark:text-gray-400">AI is thinking...</span>
+                <span className="text-sm text-muted-foreground">AI is thinking...</span>
               </div>
             </div>
           </div>
@@ -377,9 +377,9 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
       </div>
 
       {/* Input */}
-      <div className="border-t border-gray-200 dark:border-slate-700 p-4" role="complementary" aria-label="Message input area">
+      <div className="border-t border-border p-4 bg-background" role="complementary" aria-label="Message input area">
         {error && (
-          <div className="mb-2 text-sm text-red-600 dark:text-red-400" role="alert" aria-live="assertive">
+          <div className="mb-2 text-sm text-destructive" role="alert" aria-live="assertive">
             {error}
           </div>
         )}
@@ -394,10 +394,10 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
                 setShowToolsMenu(!showToolsMenu);
               }}
               className={clsx(
-                "h-12 w-12 flex items-center justify-center rounded-lg transition-colors border-2",
+                "h-12 w-12 flex items-center justify-center rounded-xl transition-all border-2",
                 showToolsMenu || enableWebSearch
-                  ? "bg-purple-600 text-white border-purple-600 hover:bg-purple-700"
-                  : "bg-white dark:bg-slate-700 text-gray-600 dark:text-gray-400 border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-600"
+                  ? "bg-purple-600 text-white border-purple-600 hover:bg-purple-700 shadow-lg shadow-purple-500/20"
+                  : "bg-muted/50 text-muted-foreground border-border hover:bg-muted hover:text-foreground"
               )}
               title="Add tools"
               aria-label="Add tools"
@@ -410,12 +410,12 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
             {/* Tools Dropdown Menu */}
             {showToolsMenu && (
               <div
-                className="absolute bottom-full left-0 mb-2 w-56 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-gray-200 dark:border-slate-700 py-2 z-50"
+                className="absolute bottom-full left-0 mb-2 w-56 bg-card rounded-xl shadow-xl border border-border py-2 z-50 animate-in slide-in-from-bottom-2"
                 role="menu"
                 aria-label="Available tools"
               >
-                <div className="px-3 py-2 border-b border-gray-200 dark:border-slate-700">
-                  <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Tools</p>
+                <div className="px-3 py-2 border-b border-border">
+                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Tools</p>
                 </div>
                 <button
                   type="button"
@@ -426,7 +426,7 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
                     setShowToolsMenu(false);
                   }}
                   className={clsx(
-                    "w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors",
+                    "w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted transition-colors",
                     enableWebSearch && "bg-purple-50 dark:bg-purple-900/20"
                   )}
                   role="menuitem"
@@ -434,21 +434,21 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
                 >
                   <Search className={clsx(
                     "w-5 h-5 flex-shrink-0",
-                    enableWebSearch ? "text-purple-600 dark:text-purple-400" : "text-gray-400 dark:text-gray-500"
+                    enableWebSearch ? "text-purple-600 dark:text-purple-400" : "text-muted-foreground"
                   )} aria-hidden="true" />
                   <div className="flex-1 min-w-0">
                     <p className={clsx(
-                      "text-sm font-medium",
-                      enableWebSearch ? "text-purple-600 dark:text-purple-400" : "text-gray-900 dark:text-white"
+                      "text-sm font-bold",
+                      enableWebSearch ? "text-purple-600 dark:text-purple-400" : "text-foreground"
                     )}>
                       Web Search
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                    <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">
                       Search the web for additional information
                     </p>
                   </div>
                   {enableWebSearch && (
-                    <div className="w-2 h-2 rounded-full bg-purple-600 dark:bg-purple-400 flex-shrink-0"></div>
+                    <div className="w-2 h-2 rounded-full bg-purple-600 dark:bg-purple-400 flex-shrink-0 animate-pulse"></div>
                   )}
                 </button>
                 {/* Add more tools here in the future */}
@@ -459,7 +459,7 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
           {/* Input Field */}
           <div className="flex-1 relative">
             {enableWebSearch && (
-              <div className="absolute -top-6 left-0 flex items-center gap-1.5 text-xs text-purple-600 dark:text-purple-400 font-medium">
+              <div className="absolute -top-6 left-0 flex items-center gap-1.5 text-[10px] text-purple-600 dark:text-purple-400 font-black uppercase tracking-widest">
                 <Search className="w-3 h-3" />
                 <span>Web search enabled</span>
               </div>
@@ -478,8 +478,8 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
                 }
               }}
               onClick={(e) => e.stopPropagation()}
-              placeholder={`Ask about ${searchScope === 'document' ? selectedDocTitle ?? 'documents' : 'all company documents'}... (Press Escape to clear)`}
-              className="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:placeholder-gray-400 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 leading-relaxed resize-none min-h-[48px] max-h-[200px] overflow-y-auto"
+              placeholder={`Ask about ${searchScope === 'document' ? selectedDocTitle ?? 'documents' : 'all company documents'}...`}
+              className="w-full border border-border bg-muted/30 text-foreground placeholder:text-muted-foreground rounded-xl px-4 py-3 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 leading-relaxed resize-none min-h-[48px] max-h-[200px] overflow-y-auto transition-all"
               rows={1}
               disabled={isSubmitting}
               aria-label={`Ask about ${searchScope === 'document' ? selectedDocTitle ?? 'documents' : 'all company documents'}`}
@@ -491,7 +491,7 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
           <button
             type="submit"
             disabled={!input.trim() || isSubmitting}
-            className="h-12 px-6 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold shadow-md flex items-center gap-2 flex-shrink-0"
+            className="h-12 px-6 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:from-purple-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed font-bold shadow-lg shadow-purple-500/20 flex items-center gap-2 flex-shrink-0"
             aria-label="Send message"
             title="Send message (Enter)"
           >
