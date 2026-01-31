@@ -1,7 +1,3 @@
-/**
- * Ensemble Search
- * Combines BM25 and vector search using Reciprocal Rank Fusion (RRF)
- */
 
 import { EnsembleRetriever } from "langchain/retrievers/ensemble";
 import { OpenAIEmbeddings } from "@langchain/openai";
@@ -29,16 +25,9 @@ import type {
   SearchScope,
 } from "../types";
 
-/**
- * Default weights: 40% BM25, 60% Vector
- * Vector search typically performs better for semantic queries
- */
 const DEFAULT_WEIGHTS: [number, number] = [0.4, 0.6];
 const DEFAULT_TOP_K = 8;
 
-/**
- * Create embeddings provider with OpenAI
- */
 export function createOpenAIEmbeddings(): OpenAIEmbeddings {
   return new OpenAIEmbeddings({
     openAIApiKey: process.env.OPENAI_API_KEY,
@@ -46,9 +35,6 @@ export function createOpenAIEmbeddings(): OpenAIEmbeddings {
   });
 }
 
-/**
- * Create an ensemble retriever for a single document
- */
 export async function createDocumentEnsembleRetriever(
   options: DocumentSearchOptions,
   embeddings?: EmbeddingsProvider
@@ -65,9 +51,6 @@ export async function createDocumentEnsembleRetriever(
   });
 }
 
-/**
- * Create an ensemble retriever for all documents in a company
- */
 export async function createCompanyEnsembleRetriever(
   options: CompanySearchOptions,
   embeddings?: EmbeddingsProvider
@@ -84,9 +67,6 @@ export async function createCompanyEnsembleRetriever(
   });
 }
 
-/**
- * Create an ensemble retriever for multiple specific documents
- */
 export async function createMultiDocEnsembleRetriever(
   options: MultiDocSearchOptions,
   embeddings?: EmbeddingsProvider
@@ -103,9 +83,6 @@ export async function createMultiDocEnsembleRetriever(
   });
 }
 
-/**
- * Perform ensemble search on a single document
- */
 export async function documentEnsembleSearch(
   query: string,
   options: DocumentSearchOptions,
@@ -138,9 +115,6 @@ export async function documentEnsembleSearch(
   }
 }
 
-/**
- * Perform ensemble search across all documents in a company
- */
 export async function companyEnsembleSearch(
   query: string,
   options: CompanySearchOptions,
@@ -173,9 +147,6 @@ export async function companyEnsembleSearch(
   }
 }
 
-/**
- * Perform ensemble search across multiple specific documents
- */
 export async function multiDocEnsembleSearch(
   query: string,
   options: MultiDocSearchOptions,
@@ -215,9 +186,6 @@ export async function multiDocEnsembleSearch(
   }
 }
 
-/**
- * Fallback to BM25-only search when vector search fails
- */
 async function fallbackBM25Search(
   query: string,
   scope: SearchScope,
@@ -260,4 +228,3 @@ async function fallbackBM25Search(
     return [];
   }
 }
-

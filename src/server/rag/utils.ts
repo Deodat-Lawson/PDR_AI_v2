@@ -1,17 +1,8 @@
-/**
- * RAG Utilities
- * Helper functions for RAG operations
- */
-
 import { db } from "~/server/db/index";
 import { eq } from "drizzle-orm";
 import { document, users } from "~/server/db/schema";
 import type { SearchResult } from "./types";
 
-/**
- * Validate that a user has access to the requested documents
- * Returns the valid document IDs and their titles
- */
 export async function validateDocumentAccess(
   userId: string,
   requestedDocIds: (string | number)[]
@@ -54,9 +45,6 @@ export async function validateDocumentAccess(
   return { validDocIds, documentTitles, companyId: companyId.toString() };
 }
 
-/**
- * Get company ID for a user
- */
 export async function getUserCompanyId(userId: string): Promise<string | null> {
   const [userInfo] = await db
     .select({ companyId: users.companyId })
@@ -66,10 +54,6 @@ export async function getUserCompanyId(userId: string): Promise<string | null> {
   return userInfo?.companyId ? userInfo.companyId.toString() : null;
 }
 
-/**
- * Format search results for inclusion in an AI prompt
- * Groups results by document and includes page references
- */
 export function formatResultsForPrompt(
   results: SearchResult[],
   documentTitles?: Map<number, string>
@@ -78,7 +62,6 @@ export function formatResultsForPrompt(
     return "";
   }
 
-  // Group results by document
   const byDocument = new Map<number, SearchResult[]>();
   for (const result of results) {
     const docId = result.metadata.documentId;
@@ -98,7 +81,6 @@ export function formatResultsForPrompt(
       docResults[0]?.metadata.documentTitle ??
       `Document ${docId}`;
 
-    // Sort by page number
     docResults.sort((a, b) => (a.metadata.page ?? 0) - (b.metadata.page ?? 0));
 
     const content = docResults
@@ -114,9 +96,6 @@ export function formatResultsForPrompt(
   return sections.join("\n\n");
 }
 
-/**
- * Truncate text to a maximum length
- */
 export function truncateText(text: string, maxLength: number): string {
   if (text.length <= maxLength) {
     return text;
@@ -124,9 +103,6 @@ export function truncateText(text: string, maxLength: number): string {
   return text.substring(0, maxLength - 3) + "...";
 }
 
-/**
- * Calculate cosine similarity between two vectors
- */
 export function cosineSimilarity(a: number[], b: number[]): number {
   if (a.length !== b.length) return 0;
 
@@ -144,9 +120,6 @@ export function cosineSimilarity(a: number[], b: number[]): number {
   return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
-/**
- * Calculate Euclidean distance between two vectors
- */
 export function euclideanDistance(a: number[], b: number[]): number {
   if (a.length !== b.length) return Infinity;
 
@@ -157,4 +130,3 @@ export function euclideanDistance(a: number[], b: number[]): number {
   }
   return Math.sqrt(sum);
 }
-

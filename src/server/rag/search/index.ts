@@ -1,7 +1,3 @@
-/**
- * Search Module
- * Export all search implementations
- */
 
 export {
   createOpenAIEmbeddings,

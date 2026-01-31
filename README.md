@@ -99,6 +99,107 @@ Key API surfaces used by the Study Agent:
 - `POST/PUT/DELETE /api/study-agent/me/study-goals` (plan CRUD)
 - `POST /api/study-agent/sync/notes` (notes sync)
 
+## 📚 Improved Knowledge Base Formation
+
+PDR AI uses a sophisticated **Hybrid Retrieval-Augmented Generation (RAG)** architecture that combines multiple retrieval strategies for optimal document search and Q&A accuracy.
+
+### Knowledge Base Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     DOCUMENT INGESTION PIPELINE                  │
+├─────────────────────────────────────────────────────────────────┤
+│  Upload → OCR/Parse → Intelligent Chunking → Vectorization      │
+│                            ↓                                     │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │                   PostgreSQL + pgvector                  │    │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐   │    │
+│  │  │  Documents   │  │  PDF Chunks  │  │  Embeddings  │   │    │
+│  │  │  (metadata)  │  │  (content)   │  │  (1536-dim)  │   │    │
+│  │  └──────────────┘  └──────────────┘  └──────────────┘   │    │
+│  └─────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                    ENSEMBLE RETRIEVAL SYSTEM                     │
+├─────────────────────────────────────────────────────────────────┤
+│                          Query                                   │
+│                            ↓                                     │
+│  ┌────────────────────┐       ┌────────────────────┐            │
+│  │   BM25 Retriever   │       │  Vector Retriever  │            │
+│  │   (Keyword/Lexical)│       │   (Semantic/ANN)   │            │
+│  │   Weight: 0.4      │       │   Weight: 0.6      │            │
+│  └─────────┬──────────┘       └─────────┬──────────┘            │
+│            │                            │                        │
+│            └──────────┬─────────────────┘                        │
+│                       ↓                                          │
+│         ┌─────────────────────────┐                             │
+│         │  Reciprocal Rank Fusion │                             │
+│         │      (RRF Merge)        │                             │
+│         └───────────┬─────────────┘                             │
+│                     ↓                                            │
+│              Ranked Results                                      │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Retrieval Components
+
+| Component | Description | Strength |
+|-----------|-------------|----------|
+| **BM25 Retriever** | Keyword-based lexical search using TF-IDF scoring | Exact term matching, acronyms, proper nouns |
+| **Vector Retriever** | Semantic search using OpenAI `text-embedding-3-small` embeddings (1536 dimensions) | Conceptual similarity, paraphrasing, synonyms |
+| **Ensemble Retriever** | Combines BM25 + Vector with Reciprocal Rank Fusion | Best of both approaches |
+
+### Search Scopes
+
+The retrieval system supports three search scopes:
+
+- **Document Scope**: Search within a single document for focused Q&A
+- **Company Scope**: Search across all documents in a company's knowledge base
+- **Multi-Document Scope**: Search across a selected subset of documents (used by Study Agent)
+
+### Chunking Strategy
+
+Documents are intelligently chunked using the following configuration:
+
+```typescript
+{
+  maxTokens: 500,        // ~2000 characters per chunk
+  overlapTokens: 50,     // ~200 characters overlap for context continuity
+  charsPerToken: 4,      // Character-to-token ratio
+  includePageContext: true  // Preserve page metadata
+}
+```
+
+**Chunk Types:**
+- **Text Chunks**: Prose content split at sentence boundaries with overlap
+- **Table Chunks**: Structured data preserved as markdown with semantic descriptions
+
+### Data Storage Schema
+
+```sql
+-- PDF Chunks table with vector embeddings
+CREATE TABLE pdr_ai_v2_pdf_chunks (
+  id SERIAL PRIMARY KEY,
+  document_id BIGINT REFERENCES document(id),
+  page INTEGER NOT NULL,
+  chunk_index INTEGER NOT NULL,
+  content TEXT NOT NULL,
+  embedding VECTOR(1536)  -- pgvector type
+);
+
+-- Indexes for fast retrieval
+CREATE INDEX ON pdf_chunks (document_id);
+CREATE INDEX ON pdf_chunks (document_id, page, chunk_index);
+```
+
+### Fallback Mechanisms
+
+The system includes automatic fallback:
+1. **Primary**: Ensemble (BM25 + Vector) retrieval
+2. **Fallback**: BM25-only retrieval if vector search fails
+3. **Graceful degradation**: Returns empty results rather than errors
+
 ## 🔍 Predictive Document Analysis Deep Dive
 
 The **Predictive Document Analysis** feature is the cornerstone of PDR AI, providing intelligent document management and compliance assistance:
@@ -404,55 +505,83 @@ pnpm install
 Create a `.env` file in the root directory with the following variables:
 
 ```env
-# Database Configuration
+# =============================================================================
+# DATABASE
+# =============================================================================
 # Format: postgresql://[user]:[password]@[host]:[port]/[database]
 # For local development using Docker: postgresql://postgres:password@localhost:5432/pdr_ai_v2
 # For production: Use your production PostgreSQL connection string
 DATABASE_URL="postgresql://postgres:password@localhost:5432/pdr_ai_v2"
 
-# Clerk Authentication (get from https://clerk.com/)
-# Required for user authentication and authorization
+# =============================================================================
+# AUTHENTICATION (Clerk)
+# =============================================================================
+# Get from https://clerk.com/
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
 CLERK_SECRET_KEY=your_clerk_secret_key
 
-# Clerk Force Redirect URLs (Optional - for custom redirect after authentication)
-# These URLs control where users are redirected after sign in/up/sign out
-# If not set, Clerk will use default redirect behavior
+# Clerk Force Redirect URLs (Optional)
 NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL=https://your-domain.com/employer/home
 NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL=https://your-domain.com/signup
 NEXT_PUBLIC_CLERK_SIGN_OUT_FORCE_REDIRECT_URL=https://your-domain.com/
 
+# =============================================================================
+# AI & EMBEDDINGS
+# =============================================================================
 # OpenAI API (get from https://platform.openai.com/)
 # Required for AI features: document analysis, embeddings, chat functionality
 OPENAI_API_KEY=your_openai_api_key
 
-# LangChain (get from https://smith.langchain.com/)
-# Optional: Required for LangSmith tracing and monitoring of LangChain operations
-# LangSmith provides observability, debugging, and monitoring for LangChain applications
-LANGCHAIN_TRACING_V2=true
-LANGCHAIN_API_KEY=your_langchain_api_key
-
 # Tavily Search API (get from https://tavily.com/)
-# Optional: Required for enhanced web search capabilities in document analysis
-# Used for finding related documents and external resources
+# Required for web search capabilities in document analysis
 TAVILY_API_KEY=your_tavily_api_key
 
-# Datalab Marker API (get from https://www.datalab.to/)
-# Optional: Required for advanced OCR processing of scanned documents
-# Enables OCR checkbox in document upload interface
-DATALAB_API_KEY=your_datalab_api_key
-
+# =============================================================================
+# FILE UPLOADS
+# =============================================================================
 # UploadThing (get from https://uploadthing.com/)
 # Required for file uploads (PDF documents)
-UPLOADTHING_SECRET=your_uploadthing_secret
-UPLOADTHING_APP_ID=your_uploadthing_app_id
+UPLOADTHING_TOKEN=your_uploadthing_token
 
-# Environment Configuration
+# =============================================================================
+# BACKGROUND JOBS (Inngest)
+# =============================================================================
+# Get from https://www.inngest.com/ (required for production)
+# For local development, these are optional if using `npx inngest-cli dev`
+INNGEST_EVENT_KEY=your_inngest_event_key
+INNGEST_SIGNING_KEY=your_inngest_signing_key
+
+# =============================================================================
+# OCR PROVIDERS (Optional)
+# =============================================================================
+# Azure Document Intelligence (primary OCR provider)
+# Get from https://azure.microsoft.com/en-us/products/ai-services/ai-document-intelligence
+AZURE_DOC_INTELLIGENCE_ENDPOINT=https://your-resource.cognitiveservices.azure.com/
+AZURE_DOC_INTELLIGENCE_KEY=your_azure_key
+
+# Landing.AI (fallback for complex/handwritten documents)
+# Get from https://landing.ai/
+LANDING_AI_API_KEY=your_landing_ai_key
+
+# Datalab Marker API (legacy OCR option)
+# Get from https://www.datalab.to/
+DATALAB_API_KEY=your_datalab_api_key
+
+# =============================================================================
+# OBSERVABILITY (Optional)
+# =============================================================================
+# LangChain/LangSmith (get from https://smith.langchain.com/)
+LANGCHAIN_TRACING_V2=true
+LANGCHAIN_API_KEY=your_langchain_api_key
+LANGCHAIN_PROJECT=pdr-ai-production
+
+# =============================================================================
+# ENVIRONMENT
+# =============================================================================
 # Options: development, test, production
 NODE_ENV=development
 
 # Optional: Skip environment validation (useful for Docker builds)
-# Set to "true" to skip validation during build
 # SKIP_ENV_VALIDATION=false
 ```
 
@@ -532,6 +661,66 @@ pnpm dev
 ```
 
 The application will be available at `http://localhost:3000`
+
+### Running Inngest (Required for Background Jobs)
+
+PDR AI uses [Inngest](https://www.inngest.com/) for background job processing, including document OCR pipelines and async processing. **Inngest must be running for document processing to work.**
+
+#### Development Mode (Local)
+
+1. **Install the Inngest CLI** (one-time setup):
+   ```bash
+   # Using npm
+   npm install -g inngest-cli
+   
+   # Or using Homebrew (macOS)
+   brew install inngest/inngest/inngest
+   ```
+
+2. **Start the Inngest Dev Server** (in a separate terminal):
+   ```bash
+   npx inngest-cli@latest dev
+   ```
+   
+   This starts the Inngest Dev Server at `http://localhost:8288` which provides:
+   - A local dashboard to monitor jobs
+   - Event replay and debugging
+   - Function execution logs
+
+3. **Verify connection**: 
+   - Visit `http://localhost:8288` to see the Inngest dashboard
+   - Your functions should appear under the "Functions" tab
+
+#### Production Mode (Vercel)
+
+For Vercel deployments, Inngest runs as a serverless integration:
+
+1. **Add Inngest Integration on Vercel**:
+   - Go to your Vercel project dashboard
+   - Navigate to **Integrations** → **Browse Marketplace**
+   - Search for "Inngest" and click **Add Integration**
+   - Follow the prompts to connect your Inngest account
+
+2. **Configure Environment Variables** (auto-set by integration, or manual):
+   ```env
+   INNGEST_EVENT_KEY=your_inngest_event_key
+   INNGEST_SIGNING_KEY=your_inngest_signing_key
+   ```
+
+3. **Sync Functions**:
+   - Deploy your app to Vercel
+   - Inngest will automatically discover functions at `/api/inngest`
+   - Visit your [Inngest Dashboard](https://app.inngest.com) to verify
+
+4. **Production URL Configuration**:
+   - In Inngest Dashboard, ensure your production URL is registered
+   - The endpoint should be: `https://your-domain.com/api/inngest`
+
+#### Inngest Functions in This Project
+
+| Function | Event | Description |
+|----------|-------|-------------|
+| `process-document` | `document/process.requested` | OCR-to-Vector document pipeline (router → normalize → chunk → vectorize → store) |
 
 ### Production Build
 
@@ -658,11 +847,19 @@ Vercel is the recommended platform for Next.js applications:
      DATABASE_URL="your_production_db_url" pnpm db:studio
      ```
 
-3. **Set up Clerk webhooks** (if needed)
+3. **Set up Inngest Integration** (Required for background jobs)
+   - Go to Vercel → Integrations → Browse Marketplace
+   - Search for "Inngest" and click Add Integration
+   - Connect your Inngest account (create one at [inngest.com](https://www.inngest.com))
+   - The integration automatically sets `INNGEST_EVENT_KEY` and `INNGEST_SIGNING_KEY`
+   - Visit your [Inngest Dashboard](https://app.inngest.com) to verify functions are synced
+   - Endpoint: `https://your-domain.com/api/inngest`
+
+4. **Set up Clerk webhooks** (if needed)
    - Configure webhook URL in Clerk dashboard
    - URL format: `https://your-domain.com/api/webhooks/clerk`
 
-4. **Configure UploadThing**
+5. **Configure UploadThing**
    - Add your production domain to UploadThing allowed origins
    - Configure CORS settings in UploadThing dashboard
 
@@ -765,14 +962,15 @@ DATABASE_URL="postgresql://user:password@ep-xxx.us-east-2.aws.neon.tech/dbname?s
 
 - [ ] Verify all environment variables are set correctly
 - [ ] Database migrations have been run
+- [ ] Database has pgvector extension enabled
 - [ ] Clerk authentication is working
 - [ ] File uploads are working (UploadThing)
 - [ ] AI features are functioning (OpenAI API)
-- [ ] Database has pgvector extension enabled
+- [ ] **Inngest integration is connected and functions are synced**
+- [ ] Background document processing is working
 - [ ] SSL certificate is configured (if using custom domain)
 - [ ] Monitoring and logging are set up
 - [ ] Backup strategy is in place
-- [ ] Error tracking is configured (e.g., Sentry)
 
 ### Monitoring and Maintenance
 
@@ -893,35 +1091,39 @@ Key directories:
 
 | Variable | Description | Required | Example |
 |----------|-------------|----------|---------|
-| `DATABASE_URL` | PostgreSQL connection string. Format: `postgresql://user:password@host:port/database` | ✅ | `postgresql://postgres:password@localhost:5432/pdr_ai_v2` |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk publishable key (client-side). Get from [Clerk Dashboard](https://clerk.com/) | ✅ | `pk_test_...` |
-| `CLERK_SECRET_KEY` | Clerk secret key (server-side). Get from [Clerk Dashboard](https://clerk.com/) | ✅ | `sk_test_...` |
-| `NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL` | Force redirect URL after sign in. If not set, uses Clerk default. | ✅ | `https://your-domain.com/employer/home` |
-| `NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL` | Force redirect URL after sign up. If not set, uses Clerk default. | ✅ | `https://your-domain.com/signup` |
-| `NEXT_PUBLIC_CLERK_SIGN_OUT_FORCE_REDIRECT_URL` | Force redirect URL after sign out. If not set, uses Clerk default. | ✅ | `https://your-domain.com/` |
-| `OPENAI_API_KEY` | OpenAI API key for AI features (embeddings, chat, document analysis). Get from [OpenAI Platform](https://platform.openai.com/) | ✅ | `sk-...` |
-| `LANGCHAIN_TRACING_V2` | Enable LangSmith tracing for LangChain operations. Set to `true` to enable. Get API key from [LangSmith](https://smith.langchain.com/) | ❌ | `true` or `false` |
-| `LANGCHAIN_API_KEY` | LangChain API key for LangSmith tracing and monitoring. Required if `LANGCHAIN_TRACING_V2=true`. Get from [LangSmith](https://smith.langchain.com/) | ❌ | `lsv2_...` |
-| `TAVILY_API_KEY` | Tavily Search API key for enhanced web search in document analysis. Get from [Tavily](https://tavily.com/) | ❌ | `tvly-...` |
-| `DATALAB_API_KEY` | Datalab Marker API key for advanced OCR processing of scanned documents. Get from [Datalab](https://www.datalab.to/) | ❌ | `your_datalab_key` |
-| `ELEVENLABS_API_KEY` | ElevenLabs API key for StudyBuddy/Teacher voice (text-to-speech). Get from [ElevenLabs](https://elevenlabs.io/) | ❌ | `your_elevenlabs_key` |
-| `ELEVENLABS_VOICE_ID` | Default ElevenLabs voice ID (optional). | ❌ | `21m00Tcm4TlvDq8ikWAM` |
-| `UPLOADTHING_SECRET` | UploadThing secret key for file uploads. Get from [UploadThing Dashboard](https://uploadthing.com/) | ✅ | `sk_live_...` |
-| `UPLOADTHING_APP_ID` | UploadThing application ID. Get from [UploadThing Dashboard](https://uploadthing.com/) | ✅ | `your_app_id` |
-| `NODE_ENV` | Environment mode. Must be one of: `development`, `test`, `production` | ✅ | `development` |
-| `SKIP_ENV_VALIDATION` | Skip environment validation during build (useful for Docker builds) | ❌ | `false` or `true` |
+| `DATABASE_URL` | PostgreSQL connection string with pgvector extension | ✅ | `postgresql://postgres:password@localhost:5432/pdr_ai_v2` |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk publishable key (client-side) | ✅ | `pk_test_...` |
+| `CLERK_SECRET_KEY` | Clerk secret key (server-side) | ✅ | `sk_test_...` |
+| `OPENAI_API_KEY` | OpenAI API key for AI features (embeddings, chat, analysis) | ✅ | `sk-...` |
+| `TAVILY_API_KEY` | Tavily Search API for web search in document analysis | ✅ | `tvly-...` |
+| `UPLOADTHING_TOKEN` | UploadThing token for file uploads | ✅ | `your_uploadthing_token` |
+| `INNGEST_EVENT_KEY` | Inngest event key for background jobs (required for production) | ✅* | `your_inngest_event_key` |
+| `INNGEST_SIGNING_KEY` | Inngest signing key for webhook verification | ✅* | `signkey-...` |
+| `AZURE_DOC_INTELLIGENCE_ENDPOINT` | Azure Document Intelligence endpoint for OCR | ❌ | `https://your-resource.cognitiveservices.azure.com/` |
+| `AZURE_DOC_INTELLIGENCE_KEY` | Azure Document Intelligence API key | ❌ | `your_azure_key` |
+| `LANDING_AI_API_KEY` | Landing.AI API key for complex/handwritten document OCR | ❌ | `your_landing_ai_key` |
+| `DATALAB_API_KEY` | Datalab Marker API key (legacy OCR option) | ❌ | `your_datalab_key` |
+| `LANGCHAIN_TRACING_V2` | Enable LangSmith tracing (`true`/`false`) | ❌ | `true` |
+| `LANGCHAIN_API_KEY` | LangSmith API key for tracing | ❌ | `lsv2_...` |
+| `LANGCHAIN_PROJECT` | LangSmith project name | ❌ | `pdr-ai-production` |
+| `ELEVENLABS_API_KEY` | ElevenLabs API key for StudyBuddy voice | ❌ | `your_elevenlabs_key` |
+| `ELEVENLABS_VOICE_ID` | Default ElevenLabs voice ID | ❌ | `21m00Tcm4TlvDq8ikWAM` |
+| `NODE_ENV` | Environment mode (`development`, `test`, `production`) | ✅ | `development` |
+| `SKIP_ENV_VALIDATION` | Skip environment validation during build | ❌ | `true` |
+
+*Required for production; optional in development when using `npx inngest-cli dev`
 
 ### Environment Variables by Feature
 
 - **Authentication**: `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`
-- **Authentication Redirects**: `NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL`, `NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL`, `NEXT_PUBLIC_CLERK_SIGN_OUT_FORCE_REDIRECT_URL`
-- **Database**: `DATABASE_URL`
-- **AI Features**: `OPENAI_API_KEY` (used for embeddings, chat, and document analysis)
-- **AI Observability**: `LANGCHAIN_TRACING_V2`, `LANGCHAIN_API_KEY` (for LangSmith tracing and monitoring)
-- **Search Features**: `TAVILY_API_KEY` (for enhanced web search in document analysis)
-- **OCR Processing**: `DATALAB_API_KEY` (for advanced OCR of scanned documents)
-- **Study Agent Voice (Optional)**: `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID`
-- **File Uploads**: `UPLOADTHING_SECRET`, `UPLOADTHING_APP_ID`
+- **Authentication Redirects** (optional): `NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL`, `NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL`, `NEXT_PUBLIC_CLERK_SIGN_OUT_FORCE_REDIRECT_URL`
+- **Database**: `DATABASE_URL` (PostgreSQL with pgvector)
+- **AI & Embeddings**: `OPENAI_API_KEY`, `TAVILY_API_KEY`
+- **Background Jobs**: `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`
+- **File Uploads**: `UPLOADTHING_TOKEN`
+- **OCR Processing**: `AZURE_DOC_INTELLIGENCE_ENDPOINT`, `AZURE_DOC_INTELLIGENCE_KEY`, `LANDING_AI_API_KEY`, `DATALAB_API_KEY`
+- **Observability**: `LANGCHAIN_TRACING_V2`, `LANGCHAIN_API_KEY`, `LANGCHAIN_PROJECT`
+- **Study Agent Voice**: `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID`
 - **Build Configuration**: `NODE_ENV`, `SKIP_ENV_VALIDATION`
 
 ## 🐛 Troubleshooting
