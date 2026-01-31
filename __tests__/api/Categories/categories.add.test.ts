@@ -186,6 +186,9 @@ describe("POST /api/Categories/AddCategories", () => {
   });
 
   it("should return 500 on database error", async () => {
+    // Mock console.error to suppress error logs during this test
+    const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+
     (validateRequestBody as jest.Mock).mockResolvedValue({
       success: true,
       data: { CategoryName: "Test Category" },
@@ -209,6 +212,9 @@ describe("POST /api/Categories/AddCategories", () => {
     const response = await POST(request);
 
     expect(response.status).toBe(500);
+    
+    // Restore console.error
+    consoleErrorSpy.mockRestore();
   });
 
   it("should return 400 if auth returns null userId", async () => {
@@ -217,7 +223,7 @@ describe("POST /api/Categories/AddCategories", () => {
       data: { CategoryName: "Test Category" },
     });
 
-    (auth as jest.Mock).mockResolvedValue({ userId: null });
+    (auth as unknown as jest.Mock).mockResolvedValue({ userId: null });
 
     const mockSelect = jest.fn().mockReturnValue({
       from: jest.fn().mockReturnValue({
