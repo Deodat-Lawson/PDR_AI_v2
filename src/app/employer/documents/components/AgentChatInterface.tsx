@@ -7,7 +7,7 @@ import MarkdownMessage from "~/app/_components/MarkdownMessage";
 import clsx from 'clsx';
 
 interface AgentChatInterfaceProps {
-  chatId: string;
+  chatId: string | null;
   userId: string;
   onAIResponse?: (response: string) => void;
   selectedDocTitle?: string | null;
@@ -17,6 +17,7 @@ interface AgentChatInterfaceProps {
   aiStyle?: string;
   aiPersona?: string;
   onPageClick?: (page: number) => void;
+  onCreateChat?: () => Promise<string | null>;
 }
 
 export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
@@ -30,6 +31,7 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
   aiStyle = 'concise',
   aiPersona = 'general',
   onPageClick,
+  onCreateChat,
 }) => {
   const { getMessages, sendMessage, voteMessage, error } = useAIChatbot();
   const { sendQuery: sendAIChatQuery, error: aiChatError } = useAIChat();
@@ -66,6 +68,8 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
         }
       };
       void loadAndCheckWelcome();
+    } else {
+      setMessages([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatId, aiPersona, selectedDocTitle]);
@@ -123,10 +127,21 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
     setInput('');
     setIsSubmitting(true);
 
+    let activeChatId = chatId;
+
     try {
+      // Create chat if it doesn't exist
+      if (!activeChatId && onCreateChat) {
+        activeChatId = await onCreateChat();
+      }
+
+      if (!activeChatId) {
+        throw new Error("Failed to create chat session");
+      }
+
       // Send user message
       const userMsg = await sendMessage({
-        chatId,
+        chatId: activeChatId as string,
         role: 'user',
         content: { text: userMessage, context: { searchScope, selectedDocTitle } },
         messageType: 'text',
@@ -174,7 +189,7 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
 
         // Save AI response as a message
         const aiResponse = await sendMessage({
-          chatId,
+          chatId: activeChatId as string,
           role: 'assistant',
           content: { 
             text: aiAnswer,
@@ -194,7 +209,7 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
         console.error('AI service error:', err);
         // Send error message
         const errorResponse = await sendMessage({
-          chatId,
+          chatId: activeChatId as string,
           role: 'assistant',
           content: { text: 'Sorry, I encountered an error. Please try again.' },
           messageType: 'text',
@@ -211,15 +226,15 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
   };
 
   const handleVote = async (messageId: string, isUpvoted: boolean) => {
+    if (!chatId) return;
     await voteMessage(chatId, messageId, isUpvoted);
   };
 
   return (
     <div className="flex flex-col h-full overflow-hidden" role="region" aria-label="AI Chat Interface">
-      {/* Messages - with padding-top to account for sticky settings bar */}
+      {/* Messages - Now uses natural flex height */}
       <div
-        className="flex-1 overflow-y-auto space-y-4 px-6 py-4"
-        style={{ paddingTop: '140px' }}
+        className="flex-1 overflow-y-auto space-y-4 px-6 py-4 custom-scrollbar"
         role="log"
         aria-live="polite"
         aria-relevant="additions"

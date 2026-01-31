@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { db } from "../../../../server/db/index";
+import { db } from "~/server/db/index";
 import { eq, sql, and, gt, desc, ne } from "drizzle-orm";
 import { analyzeDocumentChunks } from "./agent";
 import type { PredictiveAnalysisResult } from "./agent";

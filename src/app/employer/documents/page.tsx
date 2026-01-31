@@ -1,17 +1,24 @@
 "use client";
- 
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
-
-import styles from "~/styles/Employer/DocumentViewer.module.css";
 import LoadingPage from "~/app/_components/loading";
-import { DocumentsSidebar } from "./DocumentsSidebar";
-import { DocumentContent } from "./DocumentContent";
-import type { QAHistoryEntry, ViewMode, errorType } from "./types";
+import { Sidebar } from "./components/Sidebar";
+import { DocumentViewer } from "./components/DocumentViewer";
+import { ChatPanel } from "./components/ChatPanel";
+import { SimpleQueryPanel } from "./components/SimpleQueryPanel";
+import { DocumentSanityChecker } from "./components/DocumentSanityChecker";
+import { DocumentGenerator } from "./components/DocumentGenerator";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "~/app/employer/documents/components/ui/resizable";
+import { cn } from "~/lib/utils";
+import type { ViewMode, DocumentType, CategoryGroup, errorType, PredictiveAnalysisResponse } from "./types";
 import { useAIChat } from "./hooks/useAIChat";
-import clsx from "clsx";
+import { useAIChatbot } from "./hooks/useAIChatbot";
+import { Button } from "~/app/employer/documents/components/ui/button";
+import { ChatSelector } from "./components/ChatSelector";
+import { ScrollArea } from "~/app/employer/documents/components/ui/scroll-area";
+import { Clock, ChevronLeft } from "lucide-react";
 
 const SYSTEM_PROMPTS = {
   concise: "Concise & Direct",
@@ -20,115 +27,68 @@ const SYSTEM_PROMPTS = {
   "bullet-points": "Organized Bullet Points",
 } as const;
 
-interface DocumentType {
-  id: number;
-  title: string;
-  category: string;
-  aiSummary?: string;
-  url: string;
-}
-
-interface CategoryGroup {
-  name: string;
-  isOpen: boolean;
-  documents: DocumentType[];
-}
-
-
-interface PredictiveAnalysisResponse {
-  success: boolean;
-  documentId: number;
-  analysisType: string;
-  summary: {
-    totalMissingDocuments: number;
-    highPriorityItems: number;
-    totalRecommendations: number;
-    totalSuggestedRelated: number;
-    analysisTimestamp: string;
-  };
-  analysis: {
-    missingDocuments: Array<{
-      documentName: string;
-      documentType: string;
-      reason: string;
-      page: number;
-      priority: "high" | "medium" | "low";
-      suggestedLinks?: Array<{
-        title: string;
-        link: string;
-        snippet: string;
-      }>;
-      suggestedCompanyDocuments?: Array<{
-        documentId: number;
-        documentTitle: string;
-        similarity: number;
-        page: number;
-        snippet: string;
-      }>;
-      resolvedIn?: {
-        documentId: number;
-        page: number;
-        documentTitle?: string;
-      };
-    }>;
-    recommendations: string[];
-    suggestedRelatedDocuments?: Array<{
-      title: string;
-      link: string;
-      snippet: string;
-    }>;
-    resolvedDocuments?: Array<{
-      documentName: string;
-      documentType: string;
-      reason: string;
-      originalPage: number;
-      resolvedDocumentId: number;
-      resolvedPage: number;
-      resolvedDocumentTitle?: string;
-      priority: "high" | "medium" | "low";
-    }>;
-  };
-  metadata: {
-    pagesAnalyzed: number;
-    existingDocumentsChecked: number;
-  };
-  fromCache?: boolean;
-}
-
-const MAIN_SIDEBAR_COLLAPSED_WIDTH = 80;
-const MAIN_SIDEBAR_MIN_EXPANDED_WIDTH = 280;
-const MAIN_SIDEBAR_MAX_WIDTH = 560;
-
-const DocumentViewer: React.FC = () => {
+export default function DocumentViewerPage() {
   const router = useRouter();
   const { isLoaded, userId } = useAuth();
+  
+  // Data States
   const [documents, setDocuments] = useState<DocumentType[]>([]);
   const [selectedDoc, setSelectedDoc] = useState<DocumentType | null>(null);
+  const [companyId, setCompanyId] = useState<number | null>(null);
+  const [isRoleLoading, setIsRoleLoading] = useState(true);
+  
+  // UI States
   const [searchTerm, setSearchTerm] = useState("");
   const [openCategories, setOpenCategories] = useState<Set<string>>(new Set());
-  const [isRoleLoading, setIsRoleLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<ViewMode>("document-only");
+  const [viewMode, setViewMode] = useState<ViewMode>("with-ai-qa");
+  const [qaSubMode, setQaSubMode] = useState<"simple" | "chat">("simple");
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isPreviewCollapsed, setIsPreviewCollapsed] = useState(false);
+  
+  // AI States (Simple Query)
   const [aiQuestion, setAiQuestion] = useState("");
   const [aiAnswer, setAiAnswer] = useState("");
   const [aiError, setAiError] = useState("");
   const [referencePages, setReferencePages] = useState<number[]>([]);
   const [aiStyle, setAiStyle] = useState<string>("concise");
   const [searchScope, setSearchScope] = useState<"document" | "company">("document");
-  const [companyId, setCompanyId] = useState<number | null>(null);
   const { sendQuery: sendAIChatQuery, loading: isAiLoading } = useAIChat();
-  const [pdfPageNumber, setPdfPageNumber] = useState<number>(1);
-  const [qaHistory, setQaHistory] = useState<QAHistoryEntry[]>([]);
+  
+  // AI States (Chat)
+  const { createChat, getChat } = useAIChatbot();
+  const [currentChatId, setCurrentChatId] = useState<string | null>(null);
+  const [aiPersona, setAiPersona] = useState<string>('general');
+
+  // Handle chat selection and auto-document binding
+  useEffect(() => {
+    if (!currentChatId || !documents.length) return;
+
+    const syncChatDocument = async () => {
+      const data = await getChat(currentChatId);
+      if (data?.success && data.documents?.[0]) {
+        const boundDocId = Number(data.documents[0].id);
+        const doc = documents.find(d => d.id === boundDocId);
+        if (doc && selectedDoc?.id !== doc.id) {
+          setSelectedDoc(doc);
+          setPdfPageNumber(1);
+        }
+      }
+    };
+
+    void syncChatDocument();
+  }, [currentChatId, documents, getChat]);
+  
+  // Predictive Analysis States
   const [predictiveAnalysis, setPredictiveAnalysis] = useState<PredictiveAnalysisResponse | null>(null);
   const [isPredictiveLoading, setIsPredictiveLoading] = useState(false);
   const [predictiveError, setPredictiveError] = useState("");
   
-  const [mainSidebarWidth, setMainSidebarWidth] = useState(384); // initial expanded width
-  const [isDraggingMainSidebar, setIsDraggingMainSidebar] = useState(false);
-  const [isMainSidebarCollapsed, setIsMainSidebarCollapsed] = useState(false);
-  const [mainSidebarExpandedWidth, setMainSidebarExpandedWidth] = useState(384);
+  const [pdfPageNumber, setPdfPageNumber] = useState<number>(1);
+  
+  const previewPanelRef = useRef<any>(null);
+  const sidebarPanelRef = useRef<any>(null);
 
-  // Q&A history saving removed - not needed for AI query
-
+  // Fetching Logic
   const fetchDocuments = useCallback(async () => {
     try {
       const response = await fetch("/api/fetchDocument", {
@@ -137,16 +97,9 @@ const DocumentViewer: React.FC = () => {
         body: JSON.stringify({ userId }),
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch documents");
-      }
+      if (!response.ok) throw new Error("Failed to fetch documents");
 
-      const rawData: unknown = await response.json();
-      if (!Array.isArray(rawData)) {
-        throw new Error("Invalid data format, expected an array.");
-      }
-
-      const data = rawData as DocumentType[];
+      const data = (await response.json()) as DocumentType[];
       setDocuments(data);
     } catch (error) {
       console.error("Error fetching documents:", error);
@@ -170,18 +123,14 @@ const DocumentViewer: React.FC = () => {
           return;
         }
 
-        const rawData: unknown = await response.json();
-        const data = rawData as { role?: string; companyId?: string };
+        const data = (await response.json()) as { role?: string; companyId?: string };
         
         if (data?.role !== "employer" && data?.role !== "owner") {
           window.alert("Authentication failed! You are not an employer or owner.");
           router.push("/");
         }
 
-        // Store company ID for company-wide search
-        if (data.companyId) {
-          setCompanyId(Number(data.companyId));
-        }
+        if (data.companyId) setCompanyId(Number(data.companyId));
       } catch (error) {
         console.error("Error checking employer role:", error);
         router.push("/");
@@ -198,18 +147,47 @@ const DocumentViewer: React.FC = () => {
     fetchDocuments().catch(console.error);
   }, [userId, isRoleLoading, fetchDocuments]);
 
-  // Q&A history fetching removed - not needed for AI query
-
+  // Actions
   const toggleCategory = (categoryName: string) => {
     setOpenCategories(prev => {
       const newSet = new Set(prev);
-      if (newSet.has(categoryName)) {
-        newSet.delete(categoryName);
-      } else {
-        newSet.add(categoryName);
-      }
+      if (newSet.has(categoryName)) newSet.delete(categoryName);
+      else newSet.add(categoryName);
       return newSet;
     });
+  };
+
+  const handleSelectDoc = (doc: DocumentType | null) => {
+    setSelectedDoc(doc);
+    setPdfPageNumber(1);
+    setAiAnswer("");
+    setReferencePages([]);
+    setPredictiveAnalysis(null);
+  };
+
+  const deleteDocument = async (docId: number) => {
+    if (!window.confirm('Are you sure you want to delete this document? This will permanently remove it and all related data. This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/deleteDocument', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ docId: docId.toString() }),
+      });
+
+      const result = (await response.json()) as errorType;
+
+      if (!response.ok) throw new Error(result.error || 'Failed to delete document');
+
+      setDocuments(prev => prev.filter(doc => doc.id !== docId));
+      if (selectedDoc?.id === docId) handleSelectDoc(null);
+      alert(result.message || 'Document deleted successfully');
+    } catch (error) {
+      console.error('Error deleting document:', error);
+      alert(`Failed to delete document: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   };
 
   const fetchPredictiveAnalysis = useCallback(async (documentId: number, forceRefresh = false) => {
@@ -229,12 +207,9 @@ const DocumentViewer: React.FC = () => {
         }),
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch predictive analysis");
-      }
+      if (!response.ok) throw new Error("Failed to fetch predictive analysis");
 
-      const rawData: unknown = await response.json();
-      const data = rawData as PredictiveAnalysisResponse;
+      const data = (await response.json()) as PredictiveAnalysisResponse;
       setPredictiveAnalysis(data);
     } catch (error) {
       console.error("Error fetching predictive analysis:", error);
@@ -249,84 +224,13 @@ const DocumentViewer: React.FC = () => {
     fetchPredictiveAnalysis(selectedDoc.id, false).catch(console.error);
   }, [viewMode, selectedDoc, fetchPredictiveAnalysis]);
 
-  // Handle main sidebar resize with smooth dragging
-  useEffect(() => {
-    if (!isDraggingMainSidebar) return;
-
-    let animationFrameId: number;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
-      }
-
-      animationFrameId = requestAnimationFrame(() => {
-        const pointerX = e.clientX;
-        const clampedWidth = Math.max(
-          MAIN_SIDEBAR_COLLAPSED_WIDTH,
-          Math.min(MAIN_SIDEBAR_MAX_WIDTH, pointerX)
-        );
-
-        if (clampedWidth <= MAIN_SIDEBAR_MIN_EXPANDED_WIDTH) {
-          if (!isMainSidebarCollapsed) {
-            setIsMainSidebarCollapsed(true);
-          }
-          setMainSidebarWidth(MAIN_SIDEBAR_COLLAPSED_WIDTH);
-        } else {
-          if (isMainSidebarCollapsed) {
-            setIsMainSidebarCollapsed(false);
-          }
-          setMainSidebarExpandedWidth(clampedWidth);
-          setMainSidebarWidth(clampedWidth);
-        }
-      });
-    };
-
-    const handleMouseUp = () => {
-      setIsDraggingMainSidebar(false);
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
-      }
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-    document.body.style.cursor = 'ew-resize';
-    document.body.style.userSelect = 'none';
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
-      }
-    };
-  }, [isDraggingMainSidebar, isMainSidebarCollapsed]);
-
-  const handleSidebarCollapseChange = (collapsed: boolean) => {
-    if (collapsed) {
-      setMainSidebarExpandedWidth(prev =>
-        Math.max(prev, MAIN_SIDEBAR_MIN_EXPANDED_WIDTH)
-      );
-      setIsMainSidebarCollapsed(true);
-      setMainSidebarWidth(MAIN_SIDEBAR_COLLAPSED_WIDTH);
-    } else {
-      setIsMainSidebarCollapsed(false);
-      const restoredWidth = Math.max(mainSidebarExpandedWidth, MAIN_SIDEBAR_MIN_EXPANDED_WIDTH);
-      setMainSidebarWidth(Math.min(restoredWidth, MAIN_SIDEBAR_MAX_WIDTH));
-    }
-  };
-
   const handleAiSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!aiQuestion.trim()) return;
     
-    // For company-wide search, we don't need selectedDoc
     if (searchScope === "document" && !selectedDoc) return;
     if (searchScope === "company" && !companyId) {
-      setAiError("Company information not available for company-wide search.");
+      setAiError("Company information not available.");
       return;
     }
 
@@ -341,176 +245,292 @@ const DocumentViewer: React.FC = () => {
       const data = await sendAIChatQuery({
         question: currentQuestion,
         searchScope,
-        style: aiStyle as 'concise' | 'detailed' | 'academic' | 'bullet-points',
+        style: aiStyle as any,
         documentId: searchScope === "document" && selectedDoc ? selectedDoc.id : undefined,
         companyId: searchScope === "company" ? companyId ?? undefined : undefined,
       });
 
-      if (!data) {
-        throw new Error("Failed to get AI response");
-      }
+      if (!data) throw new Error("Failed to get AI response");
 
       setAiAnswer(data.summarizedAnswer ?? "");
-
       if (Array.isArray(data.recommendedPages)) {
-        const uniquePages = Array.from(new Set(data.recommendedPages));
-        setReferencePages(uniquePages);
+        setReferencePages(Array.from(new Set(data.recommendedPages)));
       }
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : "Timeout or fetch error: Please try again later.";
-      setAiError(errorMessage);
-      // Restore question on error
+    } catch (error: any) {
+      setAiError(error.message || "Something went wrong.");
       setAiQuestion(currentQuestion);
     }
   };
 
-  const handleSelectDocument = (docId: number, page: number) => {
-    const doc = documents.find(d => d.id === docId);
-    if (doc) {
-      setSelectedDoc(doc);
-      setPdfPageNumber(page);
+  const handleCreateChat = async () => {
+    if (!userId) return null;
+    const title = selectedDoc ? `Chat about ${selectedDoc.title}` : 'General AI Chat';
+    const chat = await createChat({
+      userId,
+      title,
+      agentMode: 'interactive',
+      visibility: 'private',
+      aiStyle: aiStyle as any,
+      aiPersona: aiPersona as any,
+      documentId: selectedDoc?.id,
+    });
+    if (chat) {
+      setCurrentChatId(chat.id);
+      return chat.id;
     }
+    return null;
   };
 
-  const deleteDocument = async (docId: number) => {
-    if (!window.confirm('Are you sure you want to delete this document? This will permanently remove the document and all related data including chat history, analysis results, and references. This action cannot be undone.')) {
-      return;
-    }
+  // Memoized Category Grouping
+  const categories = React.useMemo(() => {
+    const lowerSearch = searchTerm.toLowerCase();
+    const filteredDocs = documents.filter(doc => 
+      doc.title.toLowerCase().includes(lowerSearch) || 
+      (doc.aiSummary?.toLowerCase().includes(lowerSearch) ?? false)
+    );
 
-    try {
-      const response = await fetch('/api/deleteDocument', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ docId: docId.toString() }),
-      });
-
-      const result = await response.json() as errorType;
-
-      if (!response.ok) {
-        throw new Error(result.details ?? result.error ?? 'Failed to delete document');
-      }
-
-      setDocuments(prev => prev.filter(doc => doc.id !== docId));
-      
-      if (selectedDoc?.id === docId) {
-        setSelectedDoc(null);
-        setAiAnswer("");
-        setReferencePages([]);
-        setPredictiveAnalysis(null);
-        setQaHistory([]);
-      }
-
-      alert(result.message ?? 'Document and all related data deleted successfully');
-    } catch (error) {
-      console.error('Error deleting document:', error);
-      alert(`Failed to delete document: ${error instanceof Error ? error.message ?? 'Unknown error' : 'Unknown error'}`);
-    }
-  };
-
-
-  const categories: CategoryGroup[] = Object.values(
-    documents.reduce((acc: Record<string, CategoryGroup>, doc) => {
-      const lowerSearch = searchTerm.toLowerCase();
-      const inTitle = doc.title.toLowerCase().includes(lowerSearch);
-      const inSummary = doc.aiSummary?.toLowerCase().includes(lowerSearch) ?? false;
-
-      if (!inTitle && !inSummary) return acc;
-
-        acc[doc.category] ??= {
+    const grouping: Record<string, CategoryGroup> = {};
+    filteredDocs.forEach(doc => {
+      if (!grouping[doc.category]) {
+        grouping[doc.category] = {
           name: doc.category,
           isOpen: openCategories.has(doc.category),
           documents: [],
         };
-      
-      acc[doc.category]!.documents.push(doc);
-      return acc;
-    }, {})
-  );
+      }
+      grouping[doc.category]!.documents.push(doc);
+    });
+
+    return Object.values(grouping);
+  }, [documents, searchTerm, openCategories]);
+
+  // Render main content based on view mode
+  const renderContent = () => {
+    switch (viewMode) {
+      case "with-ai-qa":
+        return (
+          <div className="flex flex-col h-full">
+            {/* Query Mode Toggle - Standard Shadcn Tabs style but custom for this layout */}
+            <div className="flex-shrink-0 bg-white dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 px-8 pt-4 pb-0">
+              <div className="flex gap-8">
+                <button
+                  onClick={() => {
+                    setQaSubMode("simple");
+                    setCurrentChatId(null);
+                  }}
+                  className={cn(
+                    "pb-3 text-xs font-bold uppercase tracking-widest transition-all relative",
+                    qaSubMode === "simple" ? "text-purple-600" : "text-gray-400 hover:text-gray-600"
+                  )}
+                >
+                  Simple Query
+                  {qaSubMode === "simple" && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-600 animate-in fade-in duration-300" />}
+                </button>
+                <button
+                  onClick={() => setQaSubMode("chat")}
+                  className={cn(
+                    "pb-3 text-xs font-bold uppercase tracking-widest transition-all relative",
+                    qaSubMode === "chat" ? "text-purple-600" : "text-gray-400 hover:text-gray-600"
+                  )}
+                >
+                  AI Chat
+                  {qaSubMode === "chat" && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-600 animate-in fade-in duration-300" />}
+                </button>
+                
+                <div className="ml-auto pb-3 flex items-center gap-4">
+                  <div className="h-4 w-px bg-gray-200 dark:bg-gray-800" />
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-7 px-3 text-[10px] font-black uppercase tracking-widest text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all active:scale-95"
+                    onClick={() => {
+                      if (qaSubMode === "chat") {
+                        setQaSubMode("simple");
+                        setCurrentChatId(null);
+                      } else {
+                        setQaSubMode("chat");
+                      }
+                    }}
+                  >
+                    {qaSubMode === "chat" ? "Switch to Simple" : "Switch to Chat"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-hidden">
+              {qaSubMode === "simple" ? (
+                <ResizablePanelGroup direction="horizontal" className="h-full">
+                  <ResizablePanel defaultSize={65} minSize={40}>
+                    <DocumentViewer 
+                      document={selectedDoc} 
+                      pdfPageNumber={pdfPageNumber}
+                      setPdfPageNumber={setPdfPageNumber}
+                    />
+                  </ResizablePanel>
+                  
+                  <ResizableHandle className="w-px bg-gray-200 dark:bg-gray-800" />
+                  
+                  <ResizablePanel defaultSize={35} minSize={25} maxSize={50}>
+                    <SimpleQueryPanel
+                      selectedDoc={selectedDoc}
+                      companyId={companyId}
+                      aiQuestion={aiQuestion}
+                      setAiQuestion={setAiQuestion}
+                      aiAnswer={aiAnswer}
+                      setAiAnswer={setAiAnswer}
+                      aiError={aiError}
+                      setAiError={setAiError}
+                      aiLoading={isAiLoading}
+                      handleAiSearch={handleAiSearch}
+                      searchScope={searchScope}
+                      setSearchScope={setSearchScope}
+                      aiStyle={aiStyle}
+                      setAiStyle={setAiStyle}
+                      styleOptions={SYSTEM_PROMPTS}
+                      referencePages={referencePages}
+                      setPdfPageNumber={setPdfPageNumber}
+                    />
+                  </ResizablePanel>
+                </ResizablePanelGroup>
+                      ) : (
+                        <ResizablePanelGroup direction="horizontal" className="h-full">
+                          <ResizablePanel defaultSize={70} minSize={40}>
+                            <ChatPanel 
+                              userId={userId!}
+                              selectedDoc={selectedDoc}
+                              currentChatId={currentChatId}
+                              setCurrentChatId={setCurrentChatId}
+                              aiStyle={aiStyle}
+                              setAiStyle={setAiStyle}
+                              aiPersona={aiPersona}
+                              setAiPersona={setAiPersona}
+                              searchScope={searchScope}
+                              setSearchScope={setSearchScope}
+                              companyId={companyId}
+                              setPdfPageNumber={setPdfPageNumber}
+                              styleOptions={SYSTEM_PROMPTS}
+                              onCreateChat={handleCreateChat}
+                              isPreviewCollapsed={isPreviewCollapsed}
+                              onTogglePreview={() => {
+                                if (isPreviewCollapsed) previewPanelRef.current?.expand();
+                                else previewPanelRef.current?.collapse();
+                              }}
+                            />
+                          </ResizablePanel>
+                          
+                          <ResizableHandle className="w-px bg-gray-200 dark:bg-gray-800" />
+                          
+                          <ResizablePanel 
+                            ref={previewPanelRef}
+                            defaultSize={30} 
+                            minSize={20} 
+                            maxSize={40} 
+                            collapsible={true}
+                            collapsedSize={5}
+                            onCollapse={() => setIsPreviewCollapsed(true)}
+                            onExpand={() => setIsPreviewCollapsed(false)}
+                          >
+                            <DocumentViewer 
+                              document={selectedDoc} 
+                              pdfPageNumber={pdfPageNumber}
+                              setPdfPageNumber={setPdfPageNumber}
+                              hideActions={true}
+                              minimal={true}
+                              isCollapsed={isPreviewCollapsed}
+                            />
+                          </ResizablePanel>
+                        </ResizablePanelGroup>
+                      )}
+            </div>
+          </div>
+        );
+      case "predictive-analysis":
+        return (
+          <DocumentSanityChecker 
+            selectedDoc={selectedDoc}
+            predictiveAnalysis={predictiveAnalysis}
+            predictiveLoading={isPredictiveLoading}
+            predictiveError={predictiveError}
+            onRefreshAnalysis={() => selectedDoc && fetchPredictiveAnalysis(selectedDoc.id, true)}
+            onSelectDocument={(docId, page) => {
+              const doc = documents.find(d => d.id === docId);
+              if (doc) {
+                setSelectedDoc(doc);
+                setPdfPageNumber(page);
+              }
+            }}
+            setPdfPageNumber={setPdfPageNumber}
+          />
+        );
+      case "document-only":
+        return (
+          <DocumentViewer 
+            document={selectedDoc} 
+            pdfPageNumber={pdfPageNumber}
+            setPdfPageNumber={setPdfPageNumber}
+          />
+        );
+      case "generator":
+        return <DocumentGenerator />;
+      default:
+        return null;
+    }
+  };
 
   if (isRoleLoading) return <LoadingPage />;
 
   return (
-    <div className={styles.container}>
-      <div
-        style={{ width: `${mainSidebarWidth}px` }}
-        className={clsx(
-          "flex-shrink-0 relative",
-          styles.draggableSidebar,
-          isDraggingMainSidebar && styles.dragging
-        )}
-      >
-        <DocumentsSidebar
-          categories={categories}
-          searchTerm={searchTerm}
-          setSearchTerm={setSearchTerm}
-          selectedDoc={selectedDoc}
-          setSelectedDoc={(doc) => {
-            setSelectedDoc(doc);
-            setPdfPageNumber(1);
-            setAiAnswer("");
-            setReferencePages([]);
-          }}
-          viewMode={viewMode}
-          setViewMode={setViewMode}
-          toggleCategory={toggleCategory}
-          deleteDocument={deleteDocument}
-          collapsed={isMainSidebarCollapsed}
-          onCollapseChange={handleSidebarCollapseChange}
-          isDragging={isDraggingMainSidebar}
-        />
-      </div>
+    <div className="flex h-screen w-full overflow-hidden bg-background text-foreground">
+      <ResizablePanelGroup direction="horizontal" className="h-full">
+        {/* Sidebar Panel */}
+        <ResizablePanel 
+          ref={sidebarPanelRef}
+          defaultSize={20} 
+          minSize={15} 
+          maxSize={30}
+          collapsible={true}
+          collapsedSize={5}
+          onCollapse={() => setIsSidebarCollapsed(true)}
+          onExpand={() => setIsSidebarCollapsed(false)}
+        >
+          <Sidebar
+            categories={categories}
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            selectedDoc={selectedDoc}
+            setSelectedDoc={handleSelectDoc}
+            viewMode={viewMode}
+            setViewMode={setViewMode}
+            toggleCategory={toggleCategory}
+            deleteDocument={deleteDocument}
+            isCollapsed={isSidebarCollapsed}
+            onCollapseToggle={(collapsed) => {
+              if (collapsed) sidebarPanelRef.current?.collapse();
+              else sidebarPanelRef.current?.expand();
+            }}
+            userId={userId!}
+            currentChatId={currentChatId}
+            onSelectChat={(id) => {
+              setCurrentChatId(id);
+              if (id) setQaSubMode("chat");
+            }}
+            onNewChat={() => {
+              setCurrentChatId(null);
+              setQaSubMode("chat");
+            }}
+          />
+        </ResizablePanel>
 
-      {/* Resize Handle for Main Sidebar */}
-      <div
-        className={clsx(
-          styles.resizeHandle,
-          "flex-shrink-0",
-          isDraggingMainSidebar && styles.dragging
-        )}
-        onMouseDown={() => {
-          if (!isMainSidebarCollapsed) {
-            setMainSidebarExpandedWidth(Math.max(mainSidebarWidth, MAIN_SIDEBAR_MIN_EXPANDED_WIDTH));
-          }
-          setIsDraggingMainSidebar(true);
-        }}
-        style={{ minHeight: "100vh" }}
-      />
+        <ResizableHandle className="w-px bg-gray-200 dark:bg-gray-800" />
 
-      <main className={styles.mainContent}>
-        <DocumentContent
-          selectedDoc={selectedDoc}
-          viewMode={viewMode}
-          aiQuestion={aiQuestion}
-          setAiQuestion={setAiQuestion}
-          aiAnswer={aiAnswer}
-          aiError={aiError}
-          aiLoading={isAiLoading}
-          handleAiSearch={handleAiSearch}
-          referencePages={referencePages}
-          pdfPageNumber={pdfPageNumber}
-          setPdfPageNumber={setPdfPageNumber}
-          qaHistory={qaHistory}
-          aiStyle={aiStyle}
-          setAiStyle={setAiStyle}
-          styleOptions={SYSTEM_PROMPTS}
-          predictiveAnalysis={predictiveAnalysis}
-          predictiveLoading={isPredictiveLoading}
-          predictiveError={predictiveError}
-          onRefreshAnalysis={() => selectedDoc && fetchPredictiveAnalysis(selectedDoc.id, true)}
-          onSelectDocument={handleSelectDocument}
-          searchScope={searchScope}
-          setSearchScope={setSearchScope}
-          companyId={companyId}
-          userId={userId ?? null}
-          onCollapseMainSidebar={() => {
-            if (!isMainSidebarCollapsed) {
-              handleSidebarCollapseChange(true);
-            }
-          }}
-        />
-      </main>
+        {/* Main Content Area */}
+        <ResizablePanel defaultSize={80} minSize={50}>
+          <div className="h-full w-full">
+            {renderContent()}
+          </div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
     </div>
   );
-};
-
-export default DocumentViewer;
+}

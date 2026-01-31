@@ -36,6 +36,7 @@ interface CreateChatParams {
   visibility?: 'public' | 'private';
   aiStyle?: 'concise' | 'detailed' | 'academic' | 'bullet-points';
   aiPersona?: 'general' | 'learning-coach' | 'financial-expert' | 'legal-expert' | 'math-reasoning';
+  documentId?: string | number;
 }
 
 interface SendMessageParams {
@@ -113,7 +114,13 @@ export function useAIChatbot() {
         throw new Error('Failed to fetch chat');
       }
 
-      const data = await response.json() as { success: boolean; chat?: Chat; messages?: Message[]; tasks?: unknown[] };
+      const data = await response.json() as { 
+        success: boolean; 
+        chat?: Chat; 
+        messages?: Message[]; 
+        tasks?: unknown[];
+        documents?: Array<{ id: string; title: string }>;
+      };
       if (!data.success) {
         throw new Error('Invalid response format');
       }
