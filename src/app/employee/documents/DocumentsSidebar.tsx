@@ -206,7 +206,7 @@ export const DocumentsSidebar: React.FC<DocumentsSidebarProps> = ({
                   <button
                     key={doc.id}
                     onClick={() => setSelectedDoc(doc)}
-                    className={`${styles.docItem} ${selectedDoc && selectedDoc.id === doc.id
+                    className={`${styles.docItem} ${selectedDoc?.id === doc.id
                       ? styles.selected
                       : ""
                       }`}

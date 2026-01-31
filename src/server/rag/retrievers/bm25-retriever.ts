@@ -1,61 +1,51 @@
-/**
- * BM25 Retriever
- * Keyword-based text retrieval using the BM25 algorithm
- */
+
 
 import { db } from "~/server/db/index";
 import { eq, inArray } from "drizzle-orm";
-import { pdfChunks, document } from "~/server/db/schema";
+import { documentSections, document } from "~/server/db/schema";
 import { BM25Retriever } from "@langchain/community/retrievers/bm25";
 import { Document } from "@langchain/core/documents";
 import type { ChunkRow, SearchScope } from "../types";
 
-/**
- * Fetch chunks for a single document
- */
 export async function getDocumentChunks(documentId: number): Promise<ChunkRow[]> {
   const rows = await db
     .select({
-      id: pdfChunks.id,
-      content: pdfChunks.content,
-      page: pdfChunks.page,
-      documentId: pdfChunks.documentId,
+      id: documentSections.id,
+      content: documentSections.content,
+      page: documentSections.pageNumber,
+      documentId: documentSections.documentId,
     })
-    .from(pdfChunks)
-    .where(eq(pdfChunks.documentId, BigInt(documentId)));
+    .from(documentSections)
+    .where(eq(documentSections.documentId, BigInt(documentId)));
 
   return rows.map((r) => ({
     ...r,
+    page: r.page ?? 1,
     documentId: Number(r.documentId),
     documentTitle: undefined,
   }));
 }
 
-/**
- * Fetch chunks for all documents in a company
- */
 export async function getCompanyChunks(companyId: number): Promise<ChunkRow[]> {
   const rows = await db
     .select({
-      id: pdfChunks.id,
-      content: pdfChunks.content,
-      page: pdfChunks.page,
-      documentId: pdfChunks.documentId,
+      id: documentSections.id,
+      content: documentSections.content,
+      page: documentSections.pageNumber,
+      documentId: documentSections.documentId,
       documentTitle: document.title,
     })
-    .from(pdfChunks)
-    .innerJoin(document, eq(pdfChunks.documentId, document.id))
+    .from(documentSections)
+    .innerJoin(document, eq(documentSections.documentId, document.id))
     .where(eq(document.companyId, BigInt(companyId)));
 
   return rows.map((r) => ({
     ...r,
+    page: r.page ?? 1,
     documentId: Number(r.documentId),
   }));
 }
 
-/**
- * Fetch chunks for multiple specific documents
- */
 export async function getMultiDocChunks(documentIds: number[]): Promise<ChunkRow[]> {
   if (documentIds.length === 0) {
     return [];
@@ -63,25 +53,23 @@ export async function getMultiDocChunks(documentIds: number[]): Promise<ChunkRow
 
   const rows = await db
     .select({
-      id: pdfChunks.id,
-      content: pdfChunks.content,
-      page: pdfChunks.page,
-      documentId: pdfChunks.documentId,
+      id: documentSections.id,
+      content: documentSections.content,
+      page: documentSections.pageNumber,
+      documentId: documentSections.documentId,
       documentTitle: document.title,
     })
-    .from(pdfChunks)
-    .innerJoin(document, eq(pdfChunks.documentId, document.id))
-    .where(inArray(pdfChunks.documentId, documentIds.map(id => BigInt(id))));
+    .from(documentSections)
+    .innerJoin(document, eq(documentSections.documentId, document.id))
+    .where(inArray(documentSections.documentId, documentIds.map(id => BigInt(id))));
 
   return rows.map((r) => ({
     ...r,
+    page: r.page ?? 1,
     documentId: Number(r.documentId),
   }));
 }
 
-/**
- * Convert chunk rows to LangChain documents
- */
 export function chunksToDocuments(
   chunks: ChunkRow[],
   searchScope: SearchScope
@@ -102,9 +90,6 @@ export function chunksToDocuments(
   );
 }
 
-/**
- * Create a BM25 retriever for a single document
- */
 export async function createDocumentBM25Retriever(
   documentId: number,
   topK = 8
@@ -118,9 +103,6 @@ export async function createDocumentBM25Retriever(
   return BM25Retriever.fromDocuments(docs, { k: topK });
 }
 
-/**
- * Create a BM25 retriever for all documents in a company
- */
 export async function createCompanyBM25Retriever(
   companyId: number,
   topK = 10
@@ -134,9 +116,6 @@ export async function createCompanyBM25Retriever(
   return BM25Retriever.fromDocuments(docs, { k: topK });
 }
 
-/**
- * Create a BM25 retriever for multiple specific documents
- */
 export async function createMultiDocBM25Retriever(
   documentIds: number[],
   topK = 8
