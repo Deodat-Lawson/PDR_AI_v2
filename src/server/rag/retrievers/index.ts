@@ -16,3 +16,17 @@ export {
   createMultiDocBM25Retriever,
 } from "./bm25-retriever";
 
+export {
+  RLMRetriever,
+  createRLMRetriever,
+  getDocumentSummary,
+  getStructureContent,
+  type DocumentOverview,
+  type StructureNode,
+  type SectionWithCost,
+  type SectionPreview,
+  type WorkspaceEntry,
+  type TokenBudgetOptions,
+  type WorkspaceStoreOptions,
+} from "./rlm-retriever";
+

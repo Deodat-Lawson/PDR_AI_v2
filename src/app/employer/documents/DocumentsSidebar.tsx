@@ -269,7 +269,7 @@ export const DocumentsSidebar: React.FC<DocumentsSidebarProps> = ({
                                     <div 
                                         key={doc.id} 
                                         className={`${styles.docButton} ${
-                                            selectedDoc && selectedDoc.id === doc.id ? styles.selected : ""
+                                            selectedDoc?.id === doc?.id ? styles.selected : ""
                                         }`}
                                     >
                                         <button

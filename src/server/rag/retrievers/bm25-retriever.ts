@@ -2,7 +2,7 @@
 
 import { db } from "~/server/db/index";
 import { eq, inArray } from "drizzle-orm";
-import { pdfChunks, document } from "~/server/db/schema";
+import { documentSections, document } from "~/server/db/schema";
 import { BM25Retriever } from "@langchain/community/retrievers/bm25";
 import { Document } from "@langchain/core/documents";
 import type { ChunkRow, SearchScope } from "../types";
@@ -10,16 +10,17 @@ import type { ChunkRow, SearchScope } from "../types";
 export async function getDocumentChunks(documentId: number): Promise<ChunkRow[]> {
   const rows = await db
     .select({
-      id: pdfChunks.id,
-      content: pdfChunks.content,
-      page: pdfChunks.page,
-      documentId: pdfChunks.documentId,
+      id: documentSections.id,
+      content: documentSections.content,
+      page: documentSections.pageNumber,
+      documentId: documentSections.documentId,
     })
-    .from(pdfChunks)
-    .where(eq(pdfChunks.documentId, BigInt(documentId)));
+    .from(documentSections)
+    .where(eq(documentSections.documentId, BigInt(documentId)));
 
   return rows.map((r) => ({
     ...r,
+    page: r.page ?? 1,
     documentId: Number(r.documentId),
     documentTitle: undefined,
   }));
@@ -28,18 +29,19 @@ export async function getDocumentChunks(documentId: number): Promise<ChunkRow[]>
 export async function getCompanyChunks(companyId: number): Promise<ChunkRow[]> {
   const rows = await db
     .select({
-      id: pdfChunks.id,
-      content: pdfChunks.content,
-      page: pdfChunks.page,
-      documentId: pdfChunks.documentId,
+      id: documentSections.id,
+      content: documentSections.content,
+      page: documentSections.pageNumber,
+      documentId: documentSections.documentId,
       documentTitle: document.title,
     })
-    .from(pdfChunks)
-    .innerJoin(document, eq(pdfChunks.documentId, document.id))
+    .from(documentSections)
+    .innerJoin(document, eq(documentSections.documentId, document.id))
     .where(eq(document.companyId, BigInt(companyId)));
 
   return rows.map((r) => ({
     ...r,
+    page: r.page ?? 1,
     documentId: Number(r.documentId),
   }));
 }
@@ -51,18 +53,19 @@ export async function getMultiDocChunks(documentIds: number[]): Promise<ChunkRow
 
   const rows = await db
     .select({
-      id: pdfChunks.id,
-      content: pdfChunks.content,
-      page: pdfChunks.page,
-      documentId: pdfChunks.documentId,
+      id: documentSections.id,
+      content: documentSections.content,
+      page: documentSections.pageNumber,
+      documentId: documentSections.documentId,
       documentTitle: document.title,
     })
-    .from(pdfChunks)
-    .innerJoin(document, eq(pdfChunks.documentId, document.id))
-    .where(inArray(pdfChunks.documentId, documentIds.map(id => BigInt(id))));
+    .from(documentSections)
+    .innerJoin(document, eq(documentSections.documentId, document.id))
+    .where(inArray(documentSections.documentId, documentIds.map(id => BigInt(id))));
 
   return rows.map((r) => ({
     ...r,
+    page: r.page ?? 1,
     documentId: Number(r.documentId),
   }));
 }

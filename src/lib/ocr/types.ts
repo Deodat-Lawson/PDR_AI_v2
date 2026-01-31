@@ -188,8 +188,8 @@ export interface ProcessDocumentEventData {
   documentName: string;
   companyId: string;
   userId: string;
-  documentId?: number;
-  category?: string;
+  documentId: number;
+  category: string;
   options?: {
     forceOCR?: boolean;
     preferredProvider?: OCRProvider;
