@@ -27,9 +27,6 @@ import type {
 
 export type { ProcessDocumentEventData, PipelineResult, VectorizedChunk };
 
-/**
- * Step A Result: Router decision
- */
 interface RouterDecisionResult {
   isNativePDF: boolean;
   pageCount: number;
@@ -39,9 +36,6 @@ interface RouterDecisionResult {
   visionLabel?: string;
 }
 
-/**
- * Step B Result: Normalized document
- */
 interface NormalizationResult {
   pages: PageContent[];
   provider: OCRProvider;
@@ -49,14 +43,11 @@ interface NormalizationResult {
   confidenceScore?: number;
 }
 
-/**
- * Main uploadDocument Inngest function
- */
 export const uploadDocument = inngest.createFunction(
   {
     id: "process-document",
     name: "OCR-to-Vector Document Pipeline",
-    retries: 4,
+    retries: 5,
     onFailure: async ({ error, event }) => {
       console.error(`[ProcessDocument] Pipeline failed for job ${JSON.stringify(event.data)}:`, error);
     },
@@ -67,11 +58,7 @@ export const uploadDocument = inngest.createFunction(
     const { jobId, documentUrl, documentId, options } = eventData;
     const pipelineStartTime = Date.now();
 
-    // ========================================================================
-    // STEP A: Router Decision
-    // ========================================================================
     const routerDecision = await step.run("step-a-router", async (): Promise<RouterDecisionResult> => {
-      // Lazy import complexity module to avoid bundling heavy ML dependencies
       const { determineDocumentRouting } = await import("~/lib/ocr/complexity");
       const decision: RoutingDecision = await determineDocumentRouting(documentUrl);
 
@@ -104,9 +91,6 @@ export const uploadDocument = inngest.createFunction(
       };
     });
 
-    // ========================================================================
-    // STEP B: Execution & Normalization
-    // ========================================================================
     const normalizationResult = await step.run("step-b-normalize", async (): Promise<NormalizationResult> => {
       console.log(`[Step B] Processing with provider: ${routerDecision.selectedProvider}`);
 
@@ -127,8 +111,6 @@ export const uploadDocument = inngest.createFunction(
         }
       }
 
-      console.log(`[Step B] Extracted ${normalizedDoc.pages.length} pages`);
-
       return {
         pages: normalizedDoc.pages,
         provider: normalizedDoc.metadata.provider,
@@ -137,11 +119,7 @@ export const uploadDocument = inngest.createFunction(
       };
     });
 
-    // ========================================================================
-    // STEP C: Intelligent Chunking
-    // ========================================================================
     const chunks = await step.run("step-c-chunking", async () => {
-      // Log page content sizes for debugging
       const pageSizes = normalizationResult.pages.map((page, idx) => {
         const textLength = page.textBlocks.join("").length;
         return `Page ${idx + 1}: ${textLength} chars, ${page.textBlocks.length} blocks, ${page.tables.length} tables`;
@@ -155,7 +133,6 @@ export const uploadDocument = inngest.createFunction(
       });
       console.log(`[Step C] Created ${documentChunks.length} chunks`);
 
-      // Log chunk details
       documentChunks.forEach((chunk, idx) => {
         console.log(`[Step C] Chunk ${idx}: ${chunk.content.length} chars, page ${chunk.metadata.pageNumber}, type ${chunk.type}`);
       });
@@ -163,9 +140,6 @@ export const uploadDocument = inngest.createFunction(
       return documentChunks;
     });
 
-    // ========================================================================
-    // STEP D: Vectorization
-    // ========================================================================
     const vectorizedChunks = await step.run("step-d-vectorize", async (): Promise<VectorizedChunk[]> => {
       if (chunks.length === 0) return [];
 
@@ -179,21 +153,14 @@ export const uploadDocument = inngest.createFunction(
       return mergeWithEmbeddings(chunks, embeddingResult.embeddings);
     });
 
-    // ========================================================================
-    // STEP E: Storage (RLM Schema)
-    // ========================================================================
     await step.run("step-e-storage", async () => {
       if (vectorizedChunks.length === 0) {
         console.log("[Step E] No chunks to store");
         return;
       }
 
-      const docId = typeof documentId === 'number' ? documentId : Number(documentId);
-      console.log(`[Step E] Starting insertion of ${vectorizedChunks.length} chunks into RLM schema...`);
-
-      // 1. Create root document structure node
       const rootStructure = await db.insert(documentStructure).values({
-        documentId: BigInt(docId),
+        documentId: BigInt(documentId!),
         parentId: null,
         contentType: "section",
         path: "/",
@@ -217,7 +184,7 @@ export const uploadDocument = inngest.createFunction(
         const isTable = chunk.metadata.isTable;
 
         await db.insert(documentSections).values({
-          documentId: BigInt(docId),
+          documentId: BigInt(documentId!),
           structureId: BigInt(rootId),
           content: chunk.content,
           tokenCount: Math.ceil(chunk.content.length / 4), // Approximate tokens
@@ -234,7 +201,7 @@ export const uploadDocument = inngest.createFunction(
       const summaryPreview = fullText.substring(0, 500) + (fullText.length > 500 ? "..." : "");
 
       await db.insert(documentMetadata).values({
-        documentId: BigInt(docId),
+        documentId: BigInt(documentId!),
         summary: summaryPreview,
         outline: normalizationResult.pages.map((_, i) => ({
           id: i + 1,
@@ -265,9 +232,8 @@ export const uploadDocument = inngest.createFunction(
             processedAt: new Date().toISOString(),
           },
         })
-        .where(eq(documentTable.id, docId));
+        .where(eq(documentTable.id, documentId!));
 
-      // 5. Update OCR job status to completed
       await db
         .update(ocrJobs)
         .set({
