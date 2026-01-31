@@ -1,7 +1,3 @@
-/**
- * Retrievers Module
- * Export all retriever implementations
- */
 
 export {
   VectorRetriever,

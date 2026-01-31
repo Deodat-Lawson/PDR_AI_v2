@@ -1,20 +1,4 @@
-/**
- * Centralized RAG Module
- * 
- * This module provides a unified interface for Retrieval-Augmented Generation
- * across the application. It consolidates semantic search, keyword search,
- * and ensemble retrieval strategies.
- * 
- * Usage:
- * ```typescript
- * import { multiDocEnsembleSearch, formatResultsForPrompt } from "~/server/rag";
- * 
- * const results = await multiDocEnsembleSearch(query, { documentIds, topK: 8 });
- * const contextForAI = formatResultsForPrompt(results, documentTitles);
- * ```
- */
 
-// Types
 export type {
   SearchScope,
   RetrievalMethod,
@@ -35,7 +19,6 @@ export type {
   EmbeddingsProvider,
 } from "./types";
 
-// Retrievers
 export {
   VectorRetriever,
   createDocumentVectorRetriever,
@@ -50,7 +33,6 @@ export {
   createMultiDocBM25Retriever,
 } from "./retrievers";
 
-// Search
 export {
   createOpenAIEmbeddings,
   createDocumentEnsembleRetriever,
@@ -61,7 +43,6 @@ export {
   multiDocEnsembleSearch,
 } from "./search";
 
-// Utilities
 export {
   validateDocumentAccess,
   getUserCompanyId,
