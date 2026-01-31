@@ -1018,7 +1018,8 @@ pnpm preview             # Build and start production preview
 src/
 ├── app/                    # Next.js App Router
 │   ├── api/               # API routes
-│   │   ├── predictive-document-analysis/  # Predictive analysis endpoints
+│   │   ├── agents/
+│   │   │   ├── predictive-document-analysis/  # Predictive analysis endpoints
 │   │   │   ├── route.ts   # Main analysis API
 │   │   │   └── agent.ts   # AI analysis agent
 │   │   ├── services/      # Backend services
@@ -1040,7 +1041,7 @@ src/
 Key directories:
 - `/employee` - Employee interface for document viewing and chat
 - `/employer` - Employer interface for management and uploads
-- `/api/predictive-document-analysis` - Core predictive analysis functionality
+- `/api/agents/predictive-document-analysis` - Core predictive analysis functionality
 - `/api/services` - Reusable backend services (OCR, etc.)
 - `/api/uploadDocument` - Document upload with OCR support
 - `/api` - Backend API endpoints for all functionality
@@ -1050,7 +1051,7 @@ Key directories:
 ## 🔌 API Endpoints
 
 ### Predictive Document Analysis
-- `POST /api/predictive-document-analysis` - Analyze documents for missing content and recommendations
+- `POST /api/agents/predictive-document-analysis` - Analyze documents for missing content and recommendations
 - `GET /api/fetchDocument` - Retrieve document content for analysis
 
 ### Document Upload & Processing

@@ -31,7 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Support for `enableOCR` parameter in upload requests
   - Improved type safety with proper TypeScript interfaces
 
-- **Predictive Document Analysis API** (`src/app/api/predictive-document-analysis/route.ts`):
+- **Predictive Document Analysis API** (`src/app/api/agents/predictive-document-analysis/route.ts`):
   - Improved input validation with detailed error messages
   - Enhanced error handling with specific error types and HTTP status codes
   - Better timeout and configuration management using centralized constants

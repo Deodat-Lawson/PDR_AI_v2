@@ -8,12 +8,12 @@ import type {
     PredictiveAnalysisResult, 
     MissingDocumentPrediction,
     SearchResult
-} from "../types";
-import { ANALYSIS_TYPES } from "../types";
-import { groupContentFromChunks } from "../utils/content";
-import { createChunkBatches } from "../utils/batching";
-import { extractReferences, deduplicateReferences } from "./referenceExtractor";
-import { findSuggestedCompanyDocuments } from "./documentMatcher";
+} from "~/app/api/agents/predictive-document-analysis/types";
+import { ANALYSIS_TYPES } from "~/app/api/agents/predictive-document-analysis/types";
+import { groupContentFromChunks } from "~/app/api/agents/predictive-document-analysis/utils/content";
+import { createChunkBatches } from "~/app/api/agents/predictive-document-analysis/utils/batching";
+import { extractReferences, deduplicateReferences } from "~/app/api/agents/predictive-document-analysis/services/referenceExtractor";
+import { findSuggestedCompanyDocuments } from "~/app/api/agents/predictive-document-analysis/services/documentMatcher";
 import pLimit from "p-limit";
 import { db } from "~/server/db/index";
 import { document } from "~/server/db/schema";

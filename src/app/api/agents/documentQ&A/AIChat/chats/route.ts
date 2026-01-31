@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { db } from "~/server/db";
-import { agentAiChatbotChat } from "~/server/db/schema";
+import { agentAiChatbotChat, agentAiChatbotDocument } from "~/server/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
@@ -50,6 +50,7 @@ export async function POST(request: NextRequest) {
       visibility?: string;
       aiStyle?: string;
       aiPersona?: string;
+      documentId?: string | number;
     };
     const { 
       userId, 
@@ -57,7 +58,8 @@ export async function POST(request: NextRequest) {
       agentMode = "interactive", 
       visibility = "private",
       aiStyle = "concise",
-      aiPersona = "general"
+      aiPersona = "general",
+      documentId
     } = body;
 
     if (!userId || !title) {
@@ -83,6 +85,17 @@ export async function POST(request: NextRequest) {
       .insert(agentAiChatbotChat)
       .values(insertValues)
       .returning();
+
+    // If documentId is provided, bind it to the chat
+    if (documentId) {
+      await db.insert(agentAiChatbotDocument).values({
+        id: documentId.toString(),
+        chatId: chatId,
+        userId: userId,
+        title: title, // Use chat title as doc ref title for now
+        kind: "text",
+      });
+    }
 
     return NextResponse.json({
       success: true,
