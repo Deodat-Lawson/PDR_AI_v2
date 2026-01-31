@@ -4,7 +4,8 @@ import { db } from "~/server/db";
 import { 
   agentAiChatbotChat, 
   agentAiChatbotMessage,
-  agentAiChatbotTask 
+  agentAiChatbotTask,
+  agentAiChatbotDocument
 } from "~/server/db/schema";
 import { eq } from "drizzle-orm";
 
@@ -46,11 +47,18 @@ export async function GET(
       .where(eq(agentAiChatbotTask.chatId, chatId))
       .orderBy(agentAiChatbotTask.createdAt);
 
+    // Get documents for this chat
+    const documents = await db
+      .select()
+      .from(agentAiChatbotDocument)
+      .where(eq(agentAiChatbotDocument.chatId, chatId));
+
     return NextResponse.json({
       success: true,
       chat,
       messages,
       tasks,
+      documents,
     });
   } catch (error) {
     console.error("Error fetching chat:", error);

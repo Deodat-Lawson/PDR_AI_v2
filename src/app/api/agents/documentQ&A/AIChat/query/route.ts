@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { SystemMessage, HumanMessage } from "@langchain/core/messages";
 import { db } from "~/server/db/index";
 import { eq, sql } from "drizzle-orm";
-import ANNOptimizer from "../../../predictive-document-analysis/services/annOptimizer";
+import ANNOptimizer from "~/app/api/agents/predictive-document-analysis/services/annOptimizer";
 import {
     companyEnsembleSearch,
     documentEnsembleSearch,

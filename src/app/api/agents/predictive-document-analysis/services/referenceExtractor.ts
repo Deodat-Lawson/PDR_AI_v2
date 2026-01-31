@@ -1,8 +1,8 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { z } from "zod";
-import type { PdfChunk, DocumentReference } from "../types";
-import { groupContentFromChunks, hasSpecificIdentifier } from "../utils/content";
+import type { PdfChunk, DocumentReference } from "~/app/api/agents/predictive-document-analysis/types";
+import { groupContentFromChunks, hasSpecificIdentifier } from "~/app/api/agents/predictive-document-analysis/utils/content";
 
 const ReferenceExtractionSchema = z.object({
     references: z.array(z.object({
