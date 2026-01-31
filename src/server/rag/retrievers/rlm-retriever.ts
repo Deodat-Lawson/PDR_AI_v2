@@ -25,11 +25,6 @@ import {
     documentPreviews,
     workspaceResults,
     document,
-    type DocumentStructure,
-    type DocumentSection,
-    type DocumentMetadataRecord,
-    type DocumentPreview,
-    type WorkspaceResult,
     type OutlineNode,
     type WorkspaceMetadata,
     type ContentType,
@@ -173,8 +168,8 @@ export class RLMRetriever {
             totalPages: meta.totalPages ?? 0,
             maxDepth: meta.maxSectionDepth ?? 0,
             summary: meta.summary,
-            outline: (meta.outline as OutlineNode[]) ?? [],
-            topicTags: (meta.topicTags as string[]) ?? [],
+            outline: meta.outline ?? [],
+            topicTags: meta.topicTags ?? [],
             complexityScore: meta.complexityScore,
             documentClass: meta.documentClass,
         };
@@ -217,8 +212,8 @@ export class RLMRetriever {
             totalPages: meta.totalPages ?? 0,
             maxDepth: meta.maxSectionDepth ?? 0,
             summary: meta.summary,
-            outline: (meta.outline as OutlineNode[]) ?? [],
-            topicTags: (meta.topicTags as string[]) ?? [],
+            outline: meta.outline!,
+            topicTags: meta.topicTags!,
             complexityScore: meta.complexityScore,
             documentClass: meta.documentClass,
         }));
@@ -234,7 +229,7 @@ export class RLMRetriever {
      */
     async getDocumentTree(
         documentId: number,
-        maxDepth: number = 2
+        maxDepth = 2
     ): Promise<StructureNode[]> {
         const nodes = await db
             .select()
@@ -258,7 +253,7 @@ export class RLMRetriever {
                 level: node.level,
                 ordering: node.ordering,
                 title: node.title,
-                contentType: node.contentType as ContentType,
+                contentType: node.contentType,
                 path: node.path,
                 startPage: node.startPage,
                 endPage: node.endPage,
@@ -301,7 +296,7 @@ export class RLMRetriever {
             level: node.level,
             ordering: node.ordering,
             title: node.title,
-            contentType: node.contentType as ContentType,
+            contentType: node.contentType,
             path: node.path,
             startPage: node.startPage,
             endPage: node.endPage,
@@ -336,7 +331,7 @@ export class RLMRetriever {
             level: node.level,
             ordering: node.ordering,
             title: node.title,
-            contentType: node.contentType as ContentType,
+            contentType: node.contentType,
             path: node.path,
             startPage: node.startPage,
             endPage: node.endPage,
@@ -437,7 +432,7 @@ export class RLMRetriever {
                 content: section.content,
                 tokenCount,
                 pageNumber: section.pageNumber,
-                semanticType: section.semanticType as SemanticType | null,
+                semanticType: section.semanticType,
                 structurePath,
                 cumulativeTokens: cumulative,
             });
@@ -475,7 +470,7 @@ export class RLMRetriever {
                 content: s.content,
                 tokenCount: s.tokenCount,
                 pageNumber: s.pageNumber,
-                semanticType: s.semanticType as SemanticType | null,
+                semanticType: s.semanticType,
                 structurePath: s.path,
                 cumulativeTokens: cumulative,
             };
@@ -521,7 +516,7 @@ export class RLMRetriever {
                 content: s.content,
                 tokenCount: s.tokenCount,
                 pageNumber: s.pageNumber,
-                semanticType: s.semanticType as SemanticType | null,
+                semanticType: s.semanticType,
                 structurePath: s.path,
                 cumulativeTokens: cumulative,
             };
@@ -555,7 +550,7 @@ export class RLMRetriever {
 
         return previews.map((p) => ({
             id: p.id,
-            previewType: p.previewType as PreviewType,
+            previewType: p.previewType,
             content: p.content,
             tokenCount: p.tokenCount,
             sectionId: p.sectionId ? Number(p.sectionId) : null,
@@ -577,7 +572,7 @@ export class RLMRetriever {
 
         return {
             id: preview.id,
-            previewType: preview.previewType as PreviewType,
+            previewType: preview.previewType,
             content: preview.content,
             tokenCount: preview.tokenCount,
             sectionId: preview.sectionId ? Number(preview.sectionId) : null,
@@ -664,9 +659,9 @@ export class RLMRetriever {
         return results.map((r) => ({
             id: r.id,
             sessionId: r.sessionId,
-            resultType: r.resultType as ResultType,
+            resultType: r.resultType,
             content: r.content,
-            metadata: r.metadata as WorkspaceMetadata | null,
+            metadata: r.metadata,
             status: r.status,
             documentId: r.documentId ? Number(r.documentId) : null,
             sectionId: r.sectionId ? Number(r.sectionId) : null,
@@ -689,9 +684,9 @@ export class RLMRetriever {
         return {
             id: result.id,
             sessionId: result.sessionId,
-            resultType: result.resultType as ResultType,
+            resultType: result.resultType,
             content: result.content,
-            metadata: result.metadata as WorkspaceMetadata | null,
+            metadata: result.metadata,
             status: result.status,
             documentId: result.documentId ? Number(result.documentId) : null,
             sectionId: result.sectionId ? Number(result.sectionId) : null,
@@ -712,9 +707,9 @@ export class RLMRetriever {
         return results.map((r) => ({
             id: r.id,
             sessionId: r.sessionId,
-            resultType: r.resultType as ResultType,
+            resultType: r.resultType,
             content: r.content,
-            metadata: r.metadata as WorkspaceMetadata | null,
+            metadata: r.metadata,
             status: r.status,
             documentId: r.documentId ? Number(r.documentId) : null,
             sectionId: r.sectionId ? Number(r.sectionId) : null,

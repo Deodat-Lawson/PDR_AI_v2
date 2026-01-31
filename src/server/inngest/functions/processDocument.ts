@@ -160,7 +160,7 @@ export const uploadDocument = inngest.createFunction(
       }
 
       const rootStructure = await db.insert(documentStructure).values({
-        documentId: BigInt(documentId!),
+        documentId: BigInt(documentId),
         parentId: null,
         contentType: "section",
         path: "/",
@@ -184,7 +184,7 @@ export const uploadDocument = inngest.createFunction(
         const isTable = chunk.metadata.isTable;
 
         await db.insert(documentSections).values({
-          documentId: BigInt(documentId!),
+          documentId: BigInt(documentId),
           structureId: BigInt(rootId),
           content: chunk.content,
           tokenCount: Math.ceil(chunk.content.length / 4), // Approximate tokens
@@ -201,7 +201,7 @@ export const uploadDocument = inngest.createFunction(
       const summaryPreview = fullText.substring(0, 500) + (fullText.length > 500 ? "..." : "");
 
       await db.insert(documentMetadata).values({
-        documentId: BigInt(documentId!),
+        documentId: BigInt(documentId),
         summary: summaryPreview,
         outline: normalizationResult.pages.map((_, i) => ({
           id: i + 1,
@@ -232,7 +232,7 @@ export const uploadDocument = inngest.createFunction(
             processedAt: new Date().toISOString(),
           },
         })
-        .where(eq(documentTable.id, documentId!));
+        .where(eq(documentTable.id, documentId));
 
       await db
         .update(ocrJobs)

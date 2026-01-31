@@ -14,10 +14,6 @@ export interface TriggerOptions {
   forceOCR?: boolean;
   /** Preferred OCR provider */
   preferredProvider?: OCRProvider;
-  /** Associated document ID (if already created) */
-  documentId?: number;
-  /** Document category */
-  category?: string;
 }
 
 /**
@@ -29,6 +25,8 @@ export async function triggerDocumentProcessing(
   documentName: string,
   companyId: string,
   userId: string,
+  documentId: number,
+  category: string,
   options?: TriggerOptions
 ): Promise<{ jobId: string; eventIds: string[] }> {
   const jobId = generateJobId();
@@ -39,8 +37,8 @@ export async function triggerDocumentProcessing(
     documentName,
     companyId,
     userId,
-    documentId: options?.documentId,
-    category: options?.category,
+    documentId,
+    category,
     options: {
       forceOCR: options?.forceOCR,
       preferredProvider: options?.preferredProvider,

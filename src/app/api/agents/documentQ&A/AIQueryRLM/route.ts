@@ -33,7 +33,7 @@ import {
 import { performRLMSearch, type RLMSearchOptions } from "../services/rlmSearch";
 import type { AIModelType } from "../services";
 import type { SYSTEM_PROMPTS } from "../services/prompts";
-import type { SemanticType, PreviewType } from "~/server/db/schema";
+import type { SemanticType } from "~/server/db/schema";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -49,7 +49,7 @@ interface RLMQueryRequest {
     aiModel?: AIModelType;
     enableWebSearch?: boolean;
     aiPersona?: string;
-    conversationHistory?: string;
+    conversationHistory?: string | undefined;
     // RLM-specific options
     maxTokens?: number;
     includeOverview?: boolean;
@@ -102,14 +102,14 @@ function validateRequest(body: unknown): { success: true; data: RLMQueryRequest 
     return {
         success: true,
         data: {
-            documentId: req.documentId as number,
-            question: req.question as string,
+            documentId: req.documentId,
+            question: req.question,
             style: req.style as keyof typeof SYSTEM_PROMPTS | undefined,
             aiModel: req.aiModel as AIModelType | undefined,
             enableWebSearch: req.enableWebSearch as boolean | undefined,
             aiPersona: req.aiPersona as string | undefined,
             conversationHistory: req.conversationHistory as string | undefined,
-            maxTokens: req.maxTokens as number | undefined,
+            maxTokens: req.maxTokens,
             includeOverview: req.includeOverview as boolean | undefined,
             includePreviews: req.includePreviews as boolean | undefined,
             semanticTypes: req.semanticTypes as SemanticType[] | undefined,
@@ -130,7 +130,7 @@ export async function POST(request: Request) {
 
         try {
             // Parse and validate request
-            const body = await request.json();
+            const body = await request.json() as RLMQueryRequest;
             const validation = validateRequest(body);
 
             if (!validation.success) {

@@ -82,10 +82,10 @@ export async function POST(request: Request) {
         documentName,
         companyId,
         userId,
+        newDocument.id,
+        documentCategory,
         {
           preferredProvider: parseProvider(preferredProvider),
-          documentId: newDocument.id,
-          category: documentCategory,
         }
       );
 

@@ -26,12 +26,11 @@ import {
     documentPreviews,
     type ContentType,
 } from "~/server/db/schema";
-import { eq, sql, isNull, and, asc } from "drizzle-orm";
+import { eq, asc } from "drizzle-orm";
 import crypto from "crypto";
 
 // Configuration
 const BATCH_SIZE = 100; // Documents per batch
-const CHUNK_BATCH_SIZE = 500; // Chunks per batch when processing
 
 // Simple token estimation (4 chars ≈ 1 token for English text)
 function estimateTokens(text: string): number {
@@ -110,7 +109,6 @@ function detectSemanticType(
 
 // Detect content type for structure node
 function detectContentType(content: string, title?: string): ContentType {
-    const lowerContent = content.toLowerCase();
     const lowerTitle = title?.toLowerCase() ?? "";
 
     // Check for table patterns
@@ -149,7 +147,7 @@ function detectContentType(content: string, title?: string): ContentType {
 }
 
 // Generate a summary/preview from content
-function generatePreview(content: string, maxLength: number = 500): string {
+function generatePreview(content: string, maxLength = 500): string {
     // Take first paragraph or first N characters
     const firstParagraph = content.split(/\n\n/)[0] ?? content;
     if (firstParagraph.length <= maxLength) {
@@ -230,13 +228,11 @@ async function migrateDocument(
 
     // Calculate totals
     let totalTokens = 0;
-    let totalChars = 0;
     const allContent: string[] = [];
 
     for (const chunk of chunks) {
         const tokens = estimateTokens(chunk.content);
         totalTokens += tokens;
-        totalChars += chunk.content.length;
         allContent.push(chunk.content);
     }
 

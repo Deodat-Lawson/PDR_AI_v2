@@ -112,7 +112,7 @@ export async function performRLMSearch(
     const [overview, previews] = await Promise.all([
         includeOverview ? retriever.getDocumentOverview(documentId) : Promise.resolve(null),
         includePreviews
-            ? retriever.getDocumentPreviews(documentId, previewTypes as PreviewType[])
+            ? retriever.getDocumentPreviews(documentId, previewTypes)
             : Promise.resolve([]),
     ]);
 
@@ -250,7 +250,7 @@ export async function getDocumentOverviewsBatch(
  */
 export async function getDocumentStructureTree(
     documentId: number,
-    maxDepth: number = 2
+    maxDepth = 2
 ) {
     const retriever = createRLMRetriever();
     return retriever.getDocumentTree(documentId, maxDepth);
