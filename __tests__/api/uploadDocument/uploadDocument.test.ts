@@ -59,10 +59,27 @@ describe("POST /api/uploadDocument", () => {
       eventIds: mockEventIds,
     });
 
-    const mockInsertValues = jest.fn().mockResolvedValue(undefined);
-    (db.insert as jest.Mock).mockReturnValue({
-      values: mockInsertValues,
+    const mockDocument = {
+      id: 42,
+      url: "https://example.com/doc.pdf",
+      title: "Example Document",
+      category: "contracts",
+    };
+
+    // Mock db.insert: first call for document.insert().values().returning(), second for ocrJobs.insert().values()
+    const mockReturning = jest.fn().mockResolvedValue([mockDocument]);
+    const mockDocumentValues = jest.fn().mockReturnValue({
+      returning: mockReturning,
     });
+    const mockOcrJobsValues = jest.fn().mockResolvedValue(undefined);
+
+    (db.insert as jest.Mock)
+      .mockReturnValueOnce({
+        values: mockDocumentValues,
+      })
+      .mockReturnValueOnce({
+        values: mockOcrJobsValues,
+      });
 
     const request = new Request("http://localhost/api/uploadDocument", {
       method: "POST",
@@ -83,8 +100,25 @@ describe("POST /api/uploadDocument", () => {
     expect(json.jobId).toBe(mockJobId);
     expect(json.eventIds).toEqual(mockEventIds);
     expect(json.message).toBe("Document processing started");
+    expect(json.document).toMatchObject({
+      id: mockDocument.id,
+      url: mockDocument.url,
+      title: mockDocument.title,
+      category: mockDocument.category,
+    });
     expect(triggerDocumentProcessing).toHaveBeenCalledTimes(1);
-    expect(db.insert).toHaveBeenCalledTimes(1);
+    expect(triggerDocumentProcessing).toHaveBeenCalledWith(
+      "https://example.com/doc.pdf",
+      "Example Document",
+      "5",
+      "user-1",
+      mockDocument.id,
+      "contracts",
+      expect.objectContaining({
+        preferredProvider: undefined,
+      })
+    );
+    expect(db.insert).toHaveBeenCalledTimes(2);
   });
 
   it("handles document with preferred provider", async () => {
@@ -113,10 +147,27 @@ describe("POST /api/uploadDocument", () => {
       eventIds: mockEventIds,
     });
 
-    const mockInsertValues = jest.fn().mockResolvedValue(undefined);
-    (db.insert as jest.Mock).mockReturnValue({
-      values: mockInsertValues,
+    const mockDocument = {
+      id: 77,
+      url: "https://example.com/doc.pdf",
+      title: "Example Document",
+      category: "policies",
+    };
+
+    // Mock db.insert: first call for document.insert().values().returning(), second for ocrJobs.insert().values()
+    const mockReturning = jest.fn().mockResolvedValue([mockDocument]);
+    const mockDocumentValues = jest.fn().mockReturnValue({
+      returning: mockReturning,
     });
+    const mockOcrJobsValues = jest.fn().mockResolvedValue(undefined);
+
+    (db.insert as jest.Mock)
+      .mockReturnValueOnce({
+        values: mockDocumentValues,
+      })
+      .mockReturnValueOnce({
+        values: mockOcrJobsValues,
+      });
 
     const request = new Request("http://localhost/api/uploadDocument", {
       method: "POST",
@@ -141,9 +192,10 @@ describe("POST /api/uploadDocument", () => {
       "Example Document",
       "9",
       "user-1",
+      mockDocument.id,
+      "policies",
       expect.objectContaining({
         preferredProvider: "AZURE",
-        category: "policies",
       })
     );
   });
@@ -169,6 +221,22 @@ describe("POST /api/uploadDocument", () => {
 
       const mockFrom = jest.fn().mockReturnValue({ where: mockWhere });
       (db.select as jest.Mock).mockReturnValue({ from: mockFrom });
+
+      const mockDocument = {
+        id: 99,
+        url: "https://example.com/broken.pdf",
+        title: "Broken Document",
+        category: "finance",
+      };
+
+      // Mock db.insert for document.insert().values().returning()
+      const mockReturning = jest.fn().mockResolvedValue([mockDocument]);
+      const mockValues = jest.fn().mockReturnValue({
+        returning: mockReturning,
+      });
+      (db.insert as jest.Mock).mockReturnValue({
+        values: mockValues,
+      });
 
       (triggerDocumentProcessing as jest.Mock).mockRejectedValue(
         new Error("Inngest API Error: 401 Event key not found")
