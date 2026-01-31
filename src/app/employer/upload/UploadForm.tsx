@@ -81,9 +81,8 @@ const UploadForm: React.FC<UploadFormProps> = ({ categories }) => {
                 body: JSON.stringify({
                     userId,
                     documentName: formData.title,
-                    documentCategory: formData.category,
+                    category: formData.category,
                     documentUrl: formData.fileUrl,
-                    enableOCR: formData.enableOCR,
                 }),
             });
 

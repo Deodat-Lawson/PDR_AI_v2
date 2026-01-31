@@ -1,7 +1,3 @@
-/**
- * Vector Retriever
- * ANN (Approximate Nearest Neighbor) retriever using pgvector
- */
 
 import { db } from "~/server/db/index";
 import { sql } from "drizzle-orm";
@@ -36,12 +32,6 @@ interface MultiDocConfig extends VectorRetrieverConfig {
 
 type VectorRetrieverFields = SingleDocConfig | CompanyConfig | MultiDocConfig;
 
-/**
- * Flexible vector retriever that can search:
- * - Single document
- * - All documents in a company
- * - Multiple specific documents
- */
 export class VectorRetriever extends BaseRetriever {
   lc_namespace = ["rag", "retrievers", "vector"];
 
@@ -79,48 +69,48 @@ export class VectorRetriever extends BaseRetriever {
 
       if (this.searchScope === "document" && this.documentId !== undefined) {
         sqlQuery = sql`
-          SELECT 
-            c.id,
-            c.content,
-            c.page,
-            c.document_id,
+          SELECT
+            s.id,
+            s.content,
+            s.page_number as page,
+            s.document_id,
             d.title as document_title,
-            c.embedding <-> ${bracketedEmbedding}::vector(1536) AS distance
-          FROM pdr_ai_v2_pdf_chunks c
-          JOIN pdr_ai_v2_document d ON c.document_id = d.id 
-          WHERE c.document_id = ${this.documentId}
-          ORDER BY c.embedding <-> ${bracketedEmbedding}::vector(1536)
+            s.embedding <-> ${bracketedEmbedding}::vector(1536) AS distance
+          FROM pdr_ai_v2_document_sections s
+          JOIN pdr_ai_v2_document d ON s.document_id = d.id
+          WHERE s.document_id = ${this.documentId}
+          ORDER BY s.embedding <-> ${bracketedEmbedding}::vector(1536)
           LIMIT ${this.topK}
         `;
       } else if (this.searchScope === "company" && this.companyId !== undefined) {
         sqlQuery = sql`
-          SELECT 
-            c.id,
-            c.content,
-            c.page,
-            c.document_id,
+          SELECT
+            s.id,
+            s.content,
+            s.page_number as page,
+            s.document_id,
             d.title as document_title,
-            c.embedding <-> ${bracketedEmbedding}::vector(1536) AS distance
-          FROM pdr_ai_v2_pdf_chunks c
-          JOIN pdr_ai_v2_document d ON c.document_id = d.id 
+            s.embedding <-> ${bracketedEmbedding}::vector(1536) AS distance
+          FROM pdr_ai_v2_document_sections s
+          JOIN pdr_ai_v2_document d ON s.document_id = d.id
           WHERE d.company_id = ${this.companyId.toString()}
-          ORDER BY c.embedding <-> ${bracketedEmbedding}::vector(1536)
+          ORDER BY s.embedding <-> ${bracketedEmbedding}::vector(1536)
           LIMIT ${this.topK}
         `;
       } else if (this.searchScope === "multi-document" && this.documentIds?.length) {
         const docIdsArray = `{${this.documentIds.join(",")}}`;
         sqlQuery = sql`
-          SELECT 
-            c.id,
-            c.content,
-            c.page,
-            c.document_id,
+          SELECT
+            s.id,
+            s.content,
+            s.page_number as page,
+            s.document_id,
             d.title as document_title,
-            c.embedding <-> ${bracketedEmbedding}::vector(1536) AS distance
-          FROM pdr_ai_v2_pdf_chunks c
-          JOIN pdr_ai_v2_document d ON c.document_id = d.id 
-          WHERE c.document_id = ANY(${docIdsArray}::int[])
-          ORDER BY c.embedding <-> ${bracketedEmbedding}::vector(1536)
+            s.embedding <-> ${bracketedEmbedding}::vector(1536) AS distance
+          FROM pdr_ai_v2_document_sections s
+          JOIN pdr_ai_v2_document d ON s.document_id = d.id
+          WHERE s.document_id = ANY(${docIdsArray}::int[])
+          ORDER BY s.embedding <-> ${bracketedEmbedding}::vector(1536)
           LIMIT ${this.topK}
         `;
       } else {

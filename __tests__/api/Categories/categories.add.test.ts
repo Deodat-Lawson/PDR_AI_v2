@@ -186,29 +186,37 @@ describe("POST /api/Categories/AddCategories", () => {
   });
 
   it("should return 500 on database error", async () => {
-    (validateRequestBody as jest.Mock).mockResolvedValue({
-      success: true,
-      data: { CategoryName: "Test Category" },
-    });
+    // Mock console.error to prevent test failure from error logging
+    const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
 
-    (auth as jest.Mock).mockResolvedValue({ userId: "test-user-123" });
+    try {
+      (validateRequestBody as jest.Mock).mockResolvedValue({
+        success: true,
+        data: { CategoryName: "Test Category" },
+      });
 
-    const mockSelect = jest.fn().mockReturnValue({
-      from: jest.fn().mockReturnValue({
-        where: jest.fn().mockRejectedValue(new Error("Database connection failed")),
-      }),
-    });
-    (db.select as jest.Mock) = mockSelect;
+      (auth as jest.Mock).mockResolvedValue({ userId: "test-user-123" });
 
-    const request = new Request("http://localhost/api/Categories/AddCategories", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ CategoryName: "Test Category" }),
-    });
+      const mockSelect = jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockRejectedValue(new Error("Database connection failed")),
+        }),
+      });
+      (db.select as jest.Mock) = mockSelect;
 
-    const response = await POST(request);
+      const request = new Request("http://localhost/api/Categories/AddCategories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ CategoryName: "Test Category" }),
+      });
 
-    expect(response.status).toBe(500);
+      const response = await POST(request);
+
+      expect(response.status).toBe(500);
+    } finally {
+      // Restore console.error even if test fails
+      consoleErrorSpy.mockRestore();
+    }
   });
 
   it("should return 400 if auth returns null userId", async () => {

@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(du -sh \"C:\\\\Users\\\\Timothy Lin\\\\Projects\\\\pdr_ai_v2\\\\node_modules\\\\.pnpm\\\\@huggingface+transformers\"*)",
+      "Bash(cd:*)",
+      "Bash(npm ls:*)",
+      "Bash(pnpm build:*)",
+      "Bash(findstr:*)",
+      "Bash(pnpm why:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push)",
+      "Bash(ls:*)",
+      "Bash(git -C /Users/timothylin/knowledge-base-redesign log --oneline --all)",
+      "Bash(git -C /Users/timothylin/knowledge-base-redesign branch -a)",
+      "Bash(npx drizzle-kit:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run build:*)",
+      "Bash(node --check:*)",
+      "Bash(mkdir:*)"
+    ]
+  }
+}
