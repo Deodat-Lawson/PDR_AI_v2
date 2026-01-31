@@ -203,64 +203,80 @@ describe("DELETE /api/Categories/DeleteCategory", () => {
   });
 
   it("should return 500 on database error", async () => {
-    (validateRequestBody as jest.Mock).mockResolvedValue({
-      success: true,
-      data: { id: "123" },
-    });
+    // Mock console.error to prevent test failure from error logging
+    const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
 
-    (auth as jest.Mock).mockResolvedValue({ userId: "test-user-123" });
+    try {
+      (validateRequestBody as jest.Mock).mockResolvedValue({
+        success: true,
+        data: { id: "123" },
+      });
 
-    // Mock database error on select
-    const mockSelect = jest.fn().mockReturnValue({
-      from: jest.fn().mockReturnValue({
-        where: jest.fn().mockRejectedValue(new Error("Database error")),
-      }),
-    });
-    (db.select as jest.Mock) = mockSelect;
+      (auth as jest.Mock).mockResolvedValue({ userId: "test-user-123" });
 
-    const request = new Request("http://localhost/api/Categories/DeleteCategory", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: "123" }),
-    });
+      // Mock database error on select
+      const mockSelect = jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockRejectedValue(new Error("Database error")),
+        }),
+      });
+      (db.select as jest.Mock) = mockSelect;
 
-    const response = await DELETE(request);
+      const request = new Request("http://localhost/api/Categories/DeleteCategory", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: "123" }),
+      });
 
-    expect(response.status).toBe(500);
+      const response = await DELETE(request);
+
+      expect(response.status).toBe(500);
+    } finally {
+      // Restore console.error even if test fails
+      consoleErrorSpy.mockRestore();
+    }
   });
 
   it("should return 500 on delete operation error", async () => {
-    (validateRequestBody as jest.Mock).mockResolvedValue({
-      success: true,
-      data: { id: "123" },
-    });
+    // Mock console.error to prevent test failure from error logging
+    const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
 
-    (auth as jest.Mock).mockResolvedValue({ userId: "employer-user-123" });
+    try {
+      (validateRequestBody as jest.Mock).mockResolvedValue({
+        success: true,
+        data: { id: "123" },
+      });
 
-    const mockSelect = jest.fn().mockReturnValue({
-      from: jest.fn().mockReturnValue({
-        where: jest.fn().mockResolvedValue([
-          { userId: "employer-user-123", role: "employer", companyId: 1 }
-        ]),
-      }),
-    });
-    (db.select as jest.Mock) = mockSelect;
+      (auth as jest.Mock).mockResolvedValue({ userId: "employer-user-123" });
 
-    // Mock delete operation error
-    const mockDelete = jest.fn().mockReturnValue({
-      where: jest.fn().mockRejectedValue(new Error("Delete failed")),
-    });
-    (db.delete as jest.Mock) = mockDelete;
+      const mockSelect = jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([
+            { userId: "employer-user-123", role: "employer", companyId: 1 }
+          ]),
+        }),
+      });
+      (db.select as jest.Mock) = mockSelect;
 
-    const request = new Request("http://localhost/api/Categories/DeleteCategory", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: "123" }),
-    });
+      // Mock delete operation error
+      const mockDelete = jest.fn().mockReturnValue({
+        where: jest.fn().mockRejectedValue(new Error("Delete failed")),
+      });
+      (db.delete as jest.Mock) = mockDelete;
 
-    const response = await DELETE(request);
+      const request = new Request("http://localhost/api/Categories/DeleteCategory", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: "123" }),
+      });
 
-    expect(response.status).toBe(500);
+      const response = await DELETE(request);
+
+      expect(response.status).toBe(500);
+    } finally {
+      // Restore console.error even if test fails
+      consoleErrorSpy.mockRestore();
+    }
   });
 
   it("should return 400 if auth returns null userId", async () => {
