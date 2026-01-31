@@ -1,9 +1,3 @@
-/**
- * Vector Retriever
- * ANN (Approximate Nearest Neighbor) retriever using pgvector
- *
- * Now uses documentSections table (RLM schema) instead of pdfChunks.
- */
 
 import { db } from "~/server/db/index";
 import { sql } from "drizzle-orm";
@@ -38,12 +32,6 @@ interface MultiDocConfig extends VectorRetrieverConfig {
 
 type VectorRetrieverFields = SingleDocConfig | CompanyConfig | MultiDocConfig;
 
-/**
- * Flexible vector retriever that can search:
- * - Single document
- * - All documents in a company
- * - Multiple specific documents
- */
 export class VectorRetriever extends BaseRetriever {
   lc_namespace = ["rag", "retrievers", "vector"];
 

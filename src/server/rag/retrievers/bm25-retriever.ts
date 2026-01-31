@@ -1,9 +1,4 @@
-/**
- * BM25 Retriever
- * Keyword-based text retrieval using the BM25 algorithm
- *
- * Now uses documentSections table (RLM schema) instead of pdfChunks.
- */
+
 
 import { db } from "~/server/db/index";
 import { eq, inArray } from "drizzle-orm";
@@ -12,9 +7,6 @@ import { BM25Retriever } from "@langchain/community/retrievers/bm25";
 import { Document } from "@langchain/core/documents";
 import type { ChunkRow, SearchScope } from "../types";
 
-/**
- * Fetch sections for a single document
- */
 export async function getDocumentChunks(documentId: number): Promise<ChunkRow[]> {
   const rows = await db
     .select({
@@ -34,9 +26,6 @@ export async function getDocumentChunks(documentId: number): Promise<ChunkRow[]>
   }));
 }
 
-/**
- * Fetch sections for all documents in a company
- */
 export async function getCompanyChunks(companyId: number): Promise<ChunkRow[]> {
   const rows = await db
     .select({
@@ -57,9 +46,6 @@ export async function getCompanyChunks(companyId: number): Promise<ChunkRow[]> {
   }));
 }
 
-/**
- * Fetch sections for multiple specific documents
- */
 export async function getMultiDocChunks(documentIds: number[]): Promise<ChunkRow[]> {
   if (documentIds.length === 0) {
     return [];
@@ -84,9 +70,6 @@ export async function getMultiDocChunks(documentIds: number[]): Promise<ChunkRow
   }));
 }
 
-/**
- * Convert chunk rows to LangChain documents
- */
 export function chunksToDocuments(
   chunks: ChunkRow[],
   searchScope: SearchScope
@@ -107,9 +90,6 @@ export function chunksToDocuments(
   );
 }
 
-/**
- * Create a BM25 retriever for a single document
- */
 export async function createDocumentBM25Retriever(
   documentId: number,
   topK = 8
@@ -123,9 +103,6 @@ export async function createDocumentBM25Retriever(
   return BM25Retriever.fromDocuments(docs, { k: topK });
 }
 
-/**
- * Create a BM25 retriever for all documents in a company
- */
 export async function createCompanyBM25Retriever(
   companyId: number,
   topK = 10
@@ -139,9 +116,6 @@ export async function createCompanyBM25Retriever(
   return BM25Retriever.fromDocuments(docs, { k: topK });
 }
 
-/**
- * Create a BM25 retriever for multiple specific documents
- */
 export async function createMultiDocBM25Retriever(
   documentIds: number[],
   topK = 8

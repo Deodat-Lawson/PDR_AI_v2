@@ -2,7 +2,6 @@ import type { OCRProvider } from "~/lib/ocr/types";
 import type { ClassificationResult } from "@huggingface/transformers";
 import { PDFDocument } from "pdf-lib";
 
-// --- Configuration ---
 const SAMPLING_CONFIG = {
     MIN_PAGES_TO_SAMPLE: 3,
     MAX_PAGES_TO_SAMPLE: 5,
@@ -26,7 +25,6 @@ const SIMPLE_LABELS = [
 
 const ALL_COMPLEXITY_LABELS = [...COMPLEX_LABELS, ...SIMPLE_LABELS];
 
-// --- Interfaces ---
 interface VisionClassification {
   label: string;
   score: number;
@@ -92,7 +90,6 @@ async function runVisionCheck(images: Uint8Array[]): Promise<VisionClassificatio
 
 async function renderPagesToImages(buffer: ArrayBuffer, pageIndices: number[]): Promise<Uint8Array[]> {
   try {
-    // Lazy import pdf2pic (which also pulls in pdfjs-dist) - only loads when rendering is needed
     const { fromBuffer } = await import("pdf2pic");
 
     const converter = fromBuffer(Buffer.from(buffer), {
@@ -111,7 +108,6 @@ async function renderPagesToImages(buffer: ArrayBuffer, pageIndices: number[]): 
           images.push(result.buffer);
         }
       } catch (pageError: unknown) {
-        // Only log if it's not a common error
         const errorMessage = pageError instanceof Error ? pageError.message : String(pageError);
         if (!errorMessage.includes('page number')) {
           console.warn(`Failed to render page ${pageIndex}:`, pageError);
@@ -149,17 +145,14 @@ export async function determineDocumentRouting(documentUrl: string): Promise<Rou
     }
   } catch (e) {
     console.warn("PDF Structure load failed, assuming standard processing needed", e);
-    // If we can't load structure, we might default pageCount to 1 or fail
     pageCount = 1; 
   }
 
 try {
-    // Use pdf-parse to extract text sample (dynamic import to avoid test file issues)
     const { default: pdfParse } = await import("pdf-parse");
     const data = await pdfParse(new Uint8Array(buffer));
     const sampleText = data.text.substring(0, 200).trim();
 
-    // If we have substantial text, trust the native parser
     if (sampleText.length > 50) {
       return {
         provider: "NATIVE_PDF",
@@ -169,15 +162,12 @@ try {
       };
     }
   } catch (e: unknown) {
-    // Suppress pdf-parse debug mode test file errors (harmless)
     const err = e as { code?: string; path?: string };
     if (err.code !== 'ENOENT' || !err.path?.includes('test/data')) {
       console.warn("Text extraction failed, proceeding to vision check.", e);
     }
   }
 
-  // 4. Vision Analysis (Slow / Expensive)
-  // Only reached if it's not a Form and has no Text Layer (likely a scan)
   try {
     const pagesToSample = selectSamplePages(pageCount);
     const images = await renderPagesToImages(buffer, pagesToSample);
@@ -193,7 +183,6 @@ try {
 
     const visionResult = await runVisionCheck(images);
 
-    // If Vision detects handwriting/messiness -> Landing AI
     if (COMPLEX_LABELS.includes(visionResult.label) && visionResult.score > SAMPLING_CONFIG.CONFIDENCE_THRESHOLD) {
       return {
         provider: "LANDING_AI",
@@ -204,7 +193,6 @@ try {
       };
     }
 
-    // Otherwise -> Azure (clean scans)
     return {
       provider: "AZURE",
       reason: `Vision detected clean layout '${visionResult.label}'`,
@@ -214,7 +202,6 @@ try {
     };
 
   } catch (error: unknown) {
-    // Only log unexpected errors
     const errorMessage = error instanceof Error ? error.message : String(error);
     if (!errorMessage.includes('ENOENT')) {
       console.warn("Vision routing failed, defaulting to Azure OCR:", errorMessage);
