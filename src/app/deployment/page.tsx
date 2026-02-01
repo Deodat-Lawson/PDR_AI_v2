@@ -6,6 +6,7 @@ import { DeploymentNavbar } from './components/DeploymentNavbar';
 import { DeploymentSidebar } from './components/DeploymentSidebar';
 import {
   MainDeployment,
+  InngestPage,
   LangChainPage,
   TavilyPage,
   UploadThingPage,
@@ -79,6 +80,8 @@ const DeploymentPage = () => {
     switch (activeSection) {
       case 'main':
         return <MainDeployment {...props} />;
+      case 'inngest':
+        return <InngestPage {...props} />;
       case 'langchain':
         return <LangChainPage {...props} />;
       case 'tavily':

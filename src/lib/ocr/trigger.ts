@@ -3,7 +3,7 @@
  * Helper functions to invoke the OCR-to-Vector pipeline
  */
 
-import { inngest } from "~/server/inngest/client";
+import { env } from "~/env";
 import type { ProcessDocumentEventData, OCRProvider } from "./types";
 
 /**
@@ -17,7 +17,16 @@ export interface TriggerOptions {
 }
 
 /**
+ * Check if Inngest is enabled
+ * Returns true if INNGEST_EVENT_KEY is set
+ */
+export function isInngestEnabled(): boolean {
+  return !!env.server.INNGEST_EVENT_KEY;
+}
+
+/**
  * Trigger the OCR-to-Vector pipeline for a document
+ * Routes to Inngest or synchronous processing based on configuration
  * Returns the job ID for tracking
  */
 export async function triggerDocumentProcessing(
@@ -45,15 +54,43 @@ export async function triggerDocumentProcessing(
     },
   };
 
-  const result = await inngest.send({
-    name: "document/process.requested",
-    data: eventData,
-  });
+  if (isInngestEnabled()) {
+    // Use Inngest for background processing
+    const { inngest } = await import("~/server/inngest/client");
+    
+    if (!inngest) {
+      throw new Error("Inngest is enabled but client is not configured. Check INNGEST_EVENT_KEY.");
+    }
 
-  return {
-    jobId,
-    eventIds: result.ids,
-  };
+    const result = await inngest.send({
+      name: "document/process.requested",
+      data: eventData,
+    });
+
+    return {
+      jobId,
+      eventIds: result.ids,
+    };
+  } else {
+    // Use synchronous processing (fire-and-forget)
+    // Import dynamically to avoid circular dependencies
+    const { processDocumentSync } = await import("./processor");
+    
+    console.log(`[Trigger] Inngest not configured, using synchronous processing for job ${jobId}`);
+    
+    // Fire-and-forget: start processing without blocking the response
+    // Use setImmediate to allow the current request to complete first
+    setImmediate(() => {
+      processDocumentSync(eventData).catch((error) => {
+        console.error(`[Trigger] Sync processing failed for job ${jobId}:`, error);
+      });
+    });
+
+    return {
+      jobId,
+      eventIds: [], // No Inngest events in sync mode
+    };
+  }
 }
 
 /**
@@ -80,4 +117,3 @@ export function parseProvider(provider?: string): OCRProvider | undefined {
 
   return undefined;
 }
-

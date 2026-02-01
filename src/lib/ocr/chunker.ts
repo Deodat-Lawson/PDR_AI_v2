@@ -147,7 +147,7 @@ function splitWithOverlap(
     let end = Math.min(start + maxChars, text.length);
 
     if (end < text.length) {
-      const searchStart= Math.max(start, end - Math.floor(maxChars * 0.2));
+      const searchStart = Math.max(start, end - Math.floor(maxChars * 0.2));
       const searchRegion = text.slice(searchStart, end);
 
       const sentenceMatch = searchRegion.match(/[.!?]\s+(?=[A-Z])/g);
@@ -164,18 +164,30 @@ function splitWithOverlap(
       }
     }
 
-    chunks.push(text.slice(start, end).trim());
+    const chunk = text.slice(start, end).trim();
+    if (chunk.length > 0) {
+      chunks.push(chunk);
+    }
 
+    // Calculate next start position with overlap
     const newStart = end - overlapChars;
 
-    if (newStart >= start && newStart < text.length) {
+    // CRITICAL: Always ensure forward progress to prevent infinite loop
+    // newStart must be strictly greater than start, not just >= 
+    if (newStart > start && newStart < text.length) {
       start = newStart;
     } else {
+      // If we can't make progress with overlap, just move to end
       start = end;
+    }
+
+    // Safety check: if we're not at the end but haven't moved, force progress
+    if (start === end && start < text.length) {
+      start = Math.min(start + 1, text.length);
     }
   }
 
-  return chunks.filter((chunk) => chunk.length > 0);
+  return chunks;
 }
 
 export function estimateTokens(text: string, charsPerToken = 4): number {

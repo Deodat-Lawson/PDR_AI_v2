@@ -8,6 +8,19 @@ const config: NextConfig = {
   env: {
     TRANSFORMERS_BACKEND: "wasm",
     USE_ONNX_NODE: "false",
+    ONNX_EXECUTION_PROVIDERS: "wasm",
+  },
+
+  // Webpack config to completely ignore onnxruntime-node
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      // Mark onnxruntime-node as external - never bundle it
+      config.externals = config.externals || [];
+      config.externals.push({
+        "onnxruntime-node": "commonjs onnxruntime-node",
+      });
+    }
+    return config;
   },
 
   images: {
@@ -22,11 +35,14 @@ const config: NextConfig = {
   },
 
   // Exclude unnecessary files from Vercel output (moved from experimental in Next.js 15)
+  // Apply to all routes using "/*" wildcard
   outputFileTracingExcludes: {
-    "/api/inngest": [
-      // Exclude the massive onnxruntime-node package (404MB) - not needed for Inngest
+    "/*": [
+      // Exclude the massive onnxruntime-node package (404MB) - we use web/WASM backend only
       "node_modules/.pnpm/onnxruntime-node@*/**",
-      // Exclude sharp native bindings - not needed for Inngest
+      "node_modules/onnxruntime-node/**",
+      "**/onnxruntime-node/**",
+      // Exclude sharp native bindings - use external package
       "node_modules/.pnpm/@img+sharp-libvips-linuxmusl-x64@*/**",
       "node_modules/.pnpm/@img+sharp-libvips-linux-x64@*/**",
       // Exclude HuggingFace heavy files since we lazy load
@@ -35,8 +51,9 @@ const config: NextConfig = {
       // Exclude pdfjs heavy files since we lazy load
       "node_modules/.pnpm/pdfjs-dist@*/node_modules/pdfjs-dist/build/**/*.map",
       "node_modules/.pnpm/pdfjs-dist@*/node_modules/pdfjs-dist/legacy/**",
-      // Exclude pdf-parse test data
+      // Exclude pdf-parse test data (8MB)
       "node_modules/.pnpm/pdf-parse@*/node_modules/pdf-parse/test/**",
+      "node_modules/pdf-parse/test/**",
     ],
   },
 

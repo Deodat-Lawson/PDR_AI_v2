@@ -1,4 +1,5 @@
 export { MainDeployment } from './MainDeployment';
+export { InngestPage } from './InngestPage';
 export { LangChainPage } from './LangChainPage';
 export { TavilyPage } from './TavilyPage';
 export { UploadThingPage } from './UploadThingPage';

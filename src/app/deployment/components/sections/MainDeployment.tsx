@@ -103,11 +103,7 @@ NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_your_key_here
 CLERK_SECRET_KEY=sk_test_your_key_here
 
 # ============ AI (Required) ============
-OPENAI_API_KEY=sk-proj-your_key_here
-
-# ============ BACKGROUND JOBS (Required for production) ============
-INNGEST_EVENT_KEY=your_inngest_event_key
-INNGEST_SIGNING_KEY=your_inngest_signing_key`}
+OPENAI_API_KEY=sk-proj-your_key_here`}
             onCopy={() => copyToClipboard(`# ============ DATABASE (Required) ============
 DATABASE_URL="postgresql://user:password@host:5432/database?sslmode=require"
 
@@ -116,11 +112,7 @@ NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_your_key_here
 CLERK_SECRET_KEY=sk_test_your_key_here
 
 # ============ AI (Required) ============
-OPENAI_API_KEY=sk-proj-your_key_here
-
-# ============ BACKGROUND JOBS (Required for production) ============
-INNGEST_EVENT_KEY=your_inngest_event_key
-INNGEST_SIGNING_KEY=your_inngest_signing_key`, 'step-3')}
+OPENAI_API_KEY=sk-proj-your_key_here`, 'step-3')}
             copied={copiedCode === 'step-3'}
             darkMode={darkMode}
           />
@@ -137,9 +129,8 @@ INNGEST_SIGNING_KEY=your_inngest_signing_key`, 'step-3')}
           <Step
             number={5}
             title="Start Development"
-            description="Run Inngest dev server (separate terminal) and Next.js:"
-            code="# Terminal 1: Inngest dev server\nnpx inngest-cli@latest dev\n\n# Terminal 2: Next.js dev server\npnpm dev"
-            onCopy={() => copyToClipboard('npx inngest-cli@latest dev\npnpm dev', 'step-5')}
+            code="pnpm dev"
+            onCopy={() => copyToClipboard('pnpm dev', 'step-5')}
             copied={copiedCode === 'step-5'}
             darkMode={darkMode}
           />
@@ -190,19 +181,6 @@ INNGEST_SIGNING_KEY=your_inngest_signing_key`, 'step-3')}
             darkMode={darkMode}
           />
 
-          <ApiKeyCard
-            title="4. Inngest (Background Jobs)"
-            link="https://inngest.com"
-            description="Document processing and background jobs"
-            steps={[
-              'For development: Run npx inngest-cli@latest dev (no keys needed)',
-              'For production: Create account at inngest.com',
-              'Create new app in dashboard',
-              'Copy INNGEST_EVENT_KEY and INNGEST_SIGNING_KEY',
-              'Or use Vercel integration for auto-configuration'
-            ]}
-            darkMode={darkMode}
-          />
         </div>
       </Section>
 
@@ -228,11 +206,11 @@ INNGEST_SIGNING_KEY=your_inngest_signing_key`, 'step-3')}
             </li>
             <li className="flex items-start gap-3">
               <span className="flex-shrink-0 w-6 h-6 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center text-sm font-semibold">4</span>
-              <span>Install Inngest integration from Vercel marketplace</span>
+              <span>Deploy! Your app will be live at your-app.vercel.app</span>
             </li>
             <li className="flex items-start gap-3">
               <span className="flex-shrink-0 w-6 h-6 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center text-sm font-semibold">5</span>
-              <span>Deploy! Your app will be live at your-app.vercel.app</span>
+              <span>(Optional) For background processing, see <strong>Inngest</strong> in the sidebar</span>
             </li>
           </ol>
         </InfoBox>
