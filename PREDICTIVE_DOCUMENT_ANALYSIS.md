@@ -23,7 +23,7 @@ Frontend (React) → API Route → Database → OpenAI GPT-4.1 → Structured Re
 
 ### Core Components
 
-1. **API Endpoint**: `/api/predictive-document-analysis`
+1. **API Endpoint**: `/api/agents/predictive-document-analysis`
 2. **Database Integration**: Queries PDF chunks from `pdr_ai_v2_pdf_chunks` table
 3. **AI Processing**: Uses OpenAI's GPT-4.1 with specialized prompts
 4. **Frontend Display**: Integrated into the document viewer interface
@@ -32,7 +32,7 @@ Frontend (React) → API Route → Database → OpenAI GPT-4.1 → Structured Re
 
 ### Endpoint
 ```
-POST /api/predictive-document-analysis
+POST /api/agents/predictive-document-analysis
 ```
 
 ### Request Body

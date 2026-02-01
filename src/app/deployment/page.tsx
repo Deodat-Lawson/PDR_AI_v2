@@ -387,48 +387,44 @@ export default function DeploymentPage() {
                                 </p>
                                 <div className={styles.codeBlock}>
                                     <code>
-                                        # Database Configuration<br />
-                                        # Format: postgresql://[user]:[password]@[host]:[port]/[database]<br />
+                                        # ============ DATABASE ============<br />
                                         DATABASE_URL=&quot;postgresql://postgres:password@localhost:5432/pdr_ai_v2&quot;<br />
                                         <br />
-                                        # Clerk Authentication (get from https://clerk.com/)<br />
-                                        # Required for user authentication and authorization<br />
+                                        # ============ AUTHENTICATION ============<br />
                                         NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key<br />
                                         CLERK_SECRET_KEY=your_clerk_secret_key<br />
-                                        <br />
-                                        # Clerk Force Redirect URLs (Optional - for custom redirect after authentication)<br />
-                                        # These URLs control where users are redirected after sign in/up/sign out<br />
-                                        # If not set, Clerk will use default redirect behavior<br />
+                                        # Optional redirect URLs<br />
                                         NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL=https://your-domain.com/employer/home<br />
                                         NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL=https://your-domain.com/signup<br />
-                                        NEXT_PUBLIC_CLERK_SIGN_OUT_FORCE_REDIRECT_URL=https://your-domain.com/<br />
                                         <br />
-                                        # OpenAI API (get from https://platform.openai.com/)<br />
-                                        # Required for AI features: document analysis, embeddings, chat<br />
+                                        # ============ AI & EMBEDDINGS ============<br />
                                         OPENAI_API_KEY=your_openai_api_key<br />
-                                        <br />
-                                        # LangChain (get from https://smith.langchain.com/)<br />
-                                        # Optional: Required for LangSmith tracing and monitoring<br />
-                                        # LangSmith provides observability and debugging for LangChain operations<br />
-                                        LANGCHAIN_TRACING_V2=true<br />
-                                        LANGCHAIN_API_KEY=your_langchain_api_key<br />
-                                        <br />
-                                        # Tavily Search API (get from https://tavily.com/)<br />
-                                        # Optional: Required for enhanced web search capabilities<br />
-                                        # Used for finding related documents and external resources<br />
                                         TAVILY_API_KEY=your_tavily_api_key<br />
                                         <br />
-                                        # UploadThing (get from https://uploadthing.com/)<br />
-                                        # Required for file uploads (PDF documents)<br />
-                                        UPLOADTHING_SECRET=your_uploadthing_secret<br />
-                                        UPLOADTHING_APP_ID=your_uploadthing_app_id<br />
+                                        # ============ FILE UPLOADS ============<br />
+                                        UPLOADTHING_TOKEN=your_uploadthing_token<br />
                                         <br />
-                                        # Environment Configuration<br />
-                                        # Options: development, test, production<br />
-                                        NODE_ENV=development<br />
+                                        # ============ BACKGROUND JOBS (Inngest) ============<br />
+                                        # Required for production; optional in dev with `npx inngest-cli dev`<br />
+                                        INNGEST_EVENT_KEY=your_inngest_event_key<br />
+                                        INNGEST_SIGNING_KEY=your_inngest_signing_key<br />
                                         <br />
-                                        # Optional: Skip environment validation (useful for Docker builds)<br />
-                                        # SKIP_ENV_VALIDATION=false
+                                        # ============ OCR PROVIDERS (Optional) ============<br />
+                                        # Azure Document Intelligence (primary OCR)<br />
+                                        AZURE_DOC_INTELLIGENCE_ENDPOINT=https://your-resource.cognitiveservices.azure.com/<br />
+                                        AZURE_DOC_INTELLIGENCE_KEY=your_azure_key<br />
+                                        # Landing.AI (complex/handwritten docs)<br />
+                                        LANDING_AI_API_KEY=your_landing_ai_key<br />
+                                        # Datalab (legacy OCR)<br />
+                                        DATALAB_API_KEY=your_datalab_api_key<br />
+                                        <br />
+                                        # ============ OBSERVABILITY (Optional) ============<br />
+                                        LANGCHAIN_TRACING_V2=true<br />
+                                        LANGCHAIN_API_KEY=your_langchain_api_key<br />
+                                        LANGCHAIN_PROJECT=pdr-ai<br />
+                                        <br />
+                                        # ============ ENVIRONMENT ============<br />
+                                        NODE_ENV=development
                                     </code>
                                 </div>
                             </div>
@@ -448,7 +444,27 @@ export default function DeploymentPage() {
                             </div>
 
                             <div className={styles.codeSection}>
-                                <h3 className={styles.stepTitle}>5. Start Development Server</h3>
+                                <h3 className={styles.stepTitle}>5. Start Inngest Dev Server (Required)</h3>
+                                <p className={styles.stepDescription}>
+                                    PDR AI uses Inngest for background job processing (document OCR, vectorization). 
+                                    Start the Inngest dev server in a separate terminal:
+                                </p>
+                                <div className={styles.codeBlock}>
+                                    <code>
+                                        # Install Inngest CLI (one-time)<br />
+                                        npm install -g inngest-cli<br />
+                                        <br />
+                                        # Start Inngest Dev Server<br />
+                                        npx inngest-cli@latest dev
+                                    </code>
+                                </div>
+                                <p className={styles.stepDescription}>
+                                    The Inngest dashboard will be available at <code>http://localhost:8288</code>
+                                </p>
+                            </div>
+
+                            <div className={styles.codeSection}>
+                                <h3 className={styles.stepTitle}>6. Start Development Server</h3>
                                 <div className={styles.codeBlock}>
                                     <code>pnpm dev</code>
                                 </div>
@@ -520,8 +536,33 @@ export default function DeploymentPage() {
                                 <ol className={styles.orderedList}>
                                     <li>Create an account at <a href="https://uploadthing.com/" target="_blank" rel="noopener noreferrer" className={styles.link}>UploadThing.com <ExternalLink className={styles.linkIcon} /></a></li>
                                     <li>Create a new app</li>
-                                    <li>Copy the secret and app ID</li>
-                                    <li>Add them to your <code>.env</code> file</li>
+                                    <li>Copy the token from Settings → API Keys</li>
+                                    <li>Add <code>UPLOADTHING_TOKEN</code> to your <code>.env</code> file</li>
+                                </ol>
+                            </div>
+
+                            <div className={styles.apiKeySection}>
+                                <h3 className={styles.apiKeyTitle}>Inngest (Background Jobs)</h3>
+                                <ol className={styles.orderedList}>
+                                    <li>Create an account at <a href="https://www.inngest.com/" target="_blank" rel="noopener noreferrer" className={styles.link}>Inngest.com <ExternalLink className={styles.linkIcon} /></a></li>
+                                    <li>For <strong>development</strong>: Run <code>npx inngest-cli@latest dev</code> (no keys needed)</li>
+                                    <li>For <strong>production</strong>: 
+                                        <ul className={styles.list}>
+                                            <li>Create an app in your Inngest dashboard</li>
+                                            <li>Copy <code>INNGEST_EVENT_KEY</code> and <code>INNGEST_SIGNING_KEY</code></li>
+                                            <li>Or use the Vercel integration (auto-configures keys)</li>
+                                        </ul>
+                                    </li>
+                                </ol>
+                            </div>
+
+                            <div className={styles.apiKeySection}>
+                                <h3 className={styles.apiKeyTitle}>Azure Document Intelligence - Optional (OCR)</h3>
+                                <ol className={styles.orderedList}>
+                                    <li>Create an Azure account and go to <a href="https://portal.azure.com/" target="_blank" rel="noopener noreferrer" className={styles.link}>Azure Portal <ExternalLink className={styles.linkIcon} /></a></li>
+                                    <li>Create a Document Intelligence resource</li>
+                                    <li>Copy the endpoint and key from Keys and Endpoint</li>
+                                    <li>Add <code>AZURE_DOC_INTELLIGENCE_ENDPOINT</code> and <code>AZURE_DOC_INTELLIGENCE_KEY</code> to your <code>.env</code> file</li>
                                 </ol>
                             </div>
                         </section>
@@ -975,18 +1016,20 @@ export const features = {
                                                 <li>In Vercel dashboard, go to Settings → Environment Variables</li>
                                                 <li>Add all required environment variables:
                                                     <ul className={styles.list}>
-                                                        <li><code>NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY</code></li>
-                                                        <li><code>CLERK_SECRET_KEY</code></li>
-                                                        <li><code>OPENAI_API_KEY</code></li>
-                                                        <li><code>UPLOADTHING_SECRET</code></li>
-                                                        <li><code>UPLOADTHING_APP_ID</code></li>
+                                                        <li><code>NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY</code> (required)</li>
+                                                        <li><code>CLERK_SECRET_KEY</code> (required)</li>
+                                                        <li><code>OPENAI_API_KEY</code> (required)</li>
+                                                        <li><code>TAVILY_API_KEY</code> (required)</li>
+                                                        <li><code>UPLOADTHING_TOKEN</code> (required)</li>
+                                                        <li><code>INNGEST_EVENT_KEY</code> (auto-set by Inngest integration)</li>
+                                                        <li><code>INNGEST_SIGNING_KEY</code> (auto-set by Inngest integration)</li>
                                                         <li><code>NODE_ENV=production</code></li>
-                                                        <li><code>LANGCHAIN_TRACING_V2=true</code> (optional, for LangSmith tracing)</li>
-                                                        <li><code>LANGCHAIN_API_KEY</code> (optional, required if tracing enabled)</li>
-                                                        <li><code>TAVILY_API_KEY</code> (optional, for enhanced web search)</li>
-                                                        <li><code>NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL</code> (optional)</li>
-                                                        <li><code>NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL</code> (optional)</li>
-                                                        <li><code>NEXT_PUBLIC_CLERK_SIGN_OUT_FORCE_REDIRECT_URL</code> (optional)</li>
+                                                        <li><code>AZURE_DOC_INTELLIGENCE_ENDPOINT</code> (optional, for OCR)</li>
+                                                        <li><code>AZURE_DOC_INTELLIGENCE_KEY</code> (optional, for OCR)</li>
+                                                        <li><code>LANDING_AI_API_KEY</code> (optional, for complex OCR)</li>
+                                                        <li><code>LANGCHAIN_TRACING_V2=true</code> (optional)</li>
+                                                        <li><code>LANGCHAIN_API_KEY</code> (optional)</li>
+                                                        <li><code>LANGCHAIN_PROJECT</code> (optional)</li>
                                                     </ul>
                                                 </li>
                                             </ul>
@@ -1028,6 +1071,15 @@ export const features = {
                                                     DATABASE_URL=&quot;your_production_db_url&quot; pnpm db:migrate
                                     </code>
                                             </div>
+                                        </li>
+                                        <li><strong>Set up Inngest Integration (Required for background jobs):</strong>
+                                            <ul className={styles.list}>
+                                                <li>Go to Vercel → Integrations → Browse Marketplace</li>
+                                                <li>Search for &quot;Inngest&quot; and click Add Integration</li>
+                                                <li>Connect your Inngest account (create one at <a href="https://www.inngest.com" target="_blank" rel="noopener noreferrer" className={styles.link}>inngest.com</a>)</li>
+                                                <li>The integration will auto-set <code>INNGEST_EVENT_KEY</code> and <code>INNGEST_SIGNING_KEY</code></li>
+                                                <li>Visit <a href="https://app.inngest.com" target="_blank" rel="noopener noreferrer" className={styles.link}>Inngest Dashboard</a> to verify functions are synced</li>
+                                            </ul>
                                         </li>
                                         <li>Set up Clerk webhooks (if needed): Configure webhook URL in Clerk dashboard</li>
                                         <li>Configure UploadThing: Add your production domain to allowed origins</li>
@@ -1399,14 +1451,15 @@ CMD ["node", "server.js"]`}</pre>
                                 <ul className={styles.list}>
                                     <li>✅ Verify all environment variables are set correctly</li>
                                     <li>✅ Database migrations have been run</li>
+                                    <li>✅ Database has pgvector extension enabled</li>
                                     <li>✅ Clerk authentication is working</li>
                                     <li>✅ File uploads are working (UploadThing)</li>
                                     <li>✅ AI features are functioning (OpenAI API)</li>
-                                    <li>✅ Database has pgvector extension enabled</li>
+                                    <li>✅ <strong>Inngest is connected and functions are synced</strong></li>
+                                    <li>✅ Background document processing is working</li>
                                     <li>✅ SSL certificate is configured (if using custom domain)</li>
                                     <li>✅ Monitoring and logging are set up</li>
                                     <li>✅ Backup strategy is in place</li>
-                                    <li>✅ Error tracking is configured (e.g., Sentry)</li>
                                 </ul>
                             </div>
                         </section>

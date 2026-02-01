@@ -8,7 +8,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "~/server/db";
-import { users, ocrJobs } from "~/server/db/schema";
+import { users, ocrJobs, document } from "~/server/db/schema";
 import { triggerDocumentProcessing, parseProvider } from "~/lib/ocr/trigger";
 import { validateRequestBody } from "~/lib/validation";
 import { withRateLimit } from "~/lib/rate-limit-middleware";
@@ -22,18 +22,12 @@ const UploadDocumentSchema = z.object({
   documentUrl: z.string().url("Valid document URL is required"),
   documentName: z.string().min(1, "Document name is required"),
   category: z.string().optional(),
-  documentId: z.number().optional(),
   preferredProvider: z.string().optional(),
 });
 
-/**
- * POST /api/uploadDocument
- * Starts the async OCR-to-Vector pipeline
- */
 export async function POST(request: Request) {
   return withRateLimit(request, RateLimitPresets.strict, async () => {
     try {
-      // Validate request body
       const validation = await validateRequestBody(request, UploadDocumentSchema);
       if (!validation.success) {
         return validation.response;
@@ -44,11 +38,9 @@ export async function POST(request: Request) {
         documentUrl,
         documentName,
         category,
-        documentId,
         preferredProvider,
       } = validation.data;
 
-      // Get user info
       const [userInfo] = await db
         .select()
         .from(users)
@@ -62,24 +54,43 @@ export async function POST(request: Request) {
       }
 
       const companyId = userInfo.companyId.toString();
+      const documentCategory = category ?? "Uncategorized";
 
-      // Trigger the pipeline
+      const [newDocument] = await db.insert(document).values({
+        url: documentUrl,
+        title: documentName,
+        category: documentCategory,
+        companyId: userInfo.companyId,
+        ocrEnabled: true,
+        ocrProcessed: false,
+      }).returning({
+        id: document.id,
+        url: document.url,
+        title: document.title,
+        category: document.category,
+      });
+
+      if (!newDocument) {
+        return NextResponse.json(
+          { error: "Failed to create document record" },
+          { status: 500 }
+        );
+      }
+
       const { jobId, eventIds } = await triggerDocumentProcessing(
         documentUrl,
         documentName,
         companyId,
         userId,
+        newDocument.id,
+        documentCategory,
         {
           preferredProvider: parseProvider(preferredProvider),
-          documentId,
-          category,
         }
       );
 
-      // Create OCR job record for tracking
       await db.insert(ocrJobs).values({
         id: jobId,
-        documentId: documentId ? BigInt(documentId) : null,
         companyId: userInfo.companyId,
         userId,
         status: "queued",
@@ -93,6 +104,12 @@ export async function POST(request: Request) {
           jobId,
           eventIds,
           message: "Document processing started",
+          document: {
+            id: newDocument.id,
+            title: newDocument.title,
+            url: newDocument.url,
+            category: newDocument.category,
+          },
         },
         { status: 202 }
       );
@@ -109,10 +126,6 @@ export async function POST(request: Request) {
   });
 }
 
-/**
- * GET /api/uploadDocument?jobId=xxx
- * Check the status of a processing job
- */
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -125,7 +138,6 @@ export async function GET(request: Request) {
       );
     }
 
-    // Get job status from database
     const [job] = await db
       .select()
       .from(ocrJobs)

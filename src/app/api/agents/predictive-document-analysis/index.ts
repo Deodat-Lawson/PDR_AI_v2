@@ -1,9 +1,9 @@
 // Main exports for predictive document analysis
-export { analyzeDocumentChunks } from "./services/analysisEngine";
-export { extractReferences } from "./services/referenceExtractor";
-export { findSuggestedCompanyDocuments } from "./services/documentMatcher";
-export { getEmbeddings, batchGetEmbeddings } from "./utils/embeddings";
-export { groupContentFromChunks, cleanText, hasSpecificIdentifier } from "./utils/content";
+export { analyzeDocumentChunks } from "~/app/api/agents/predictive-document-analysis/services/analysisEngine";
+export { extractReferences } from "~/app/api/agents/predictive-document-analysis/services/referenceExtractor";
+export { findSuggestedCompanyDocuments } from "~/app/api/agents/predictive-document-analysis/services/documentMatcher";
+export { getEmbeddings, batchGetEmbeddings } from "~/app/api/agents/predictive-document-analysis/utils/embeddings";
+export { groupContentFromChunks, cleanText, hasSpecificIdentifier } from "~/app/api/agents/predictive-document-analysis/utils/content";
 
 // Type exports
 export type {
@@ -17,6 +17,6 @@ export type {
     CompanyDocument,
     DocumentMatch,
     ValidationResult
-} from "./types";
+} from "~/app/api/agents/predictive-document-analysis/types";
 
-export { ANALYSIS_TYPES } from "./types"; 
+export { ANALYSIS_TYPES } from "~/app/api/agents/predictive-document-analysis/types"; 

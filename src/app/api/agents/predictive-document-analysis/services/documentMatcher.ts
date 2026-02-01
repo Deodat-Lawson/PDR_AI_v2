@@ -1,15 +1,15 @@
-import { db } from "../../../../../server/db/index";
+import { db } from "~/server/db/index";
 import { and, eq, inArray, ne, sql } from "drizzle-orm";
-import { pdfChunks, document } from "~/server/db/schema";
+import { documentSections, document } from "~/server/db/schema";
 import type { 
     MissingDocumentPrediction, 
     CompanyDocument, 
     DocumentMatch, 
     ValidationResult 
-} from "../types";
-import { getEmbeddings } from "../utils/embeddings";
-import { cleanText, truncateText } from "../utils/content";
-import ANNOptimizer from "./annOptimizer";
+} from "~/app/api/agents/predictive-document-analysis/types";
+import { getEmbeddings } from "~/app/api/agents/predictive-document-analysis/utils/embeddings";
+import { cleanText, truncateText } from "~/app/api/agents/predictive-document-analysis/utils/content";
+import ANNOptimizer from "~/app/api/agents/predictive-document-analysis/services/annOptimizer";
 
 type MatchCandidate = {
     documentId: number;
@@ -138,13 +138,13 @@ async function findExactReferenceMatches(
         if (term.length < 3) continue;
 
         const results = await db.select({
-            id: pdfChunks.id,
-            content: pdfChunks.content,
-            page: pdfChunks.page,
-            documentId: pdfChunks.documentId,
-        }).from(pdfChunks).where(and(
-            inArray(pdfChunks.documentId, docIds.map(id => BigInt(id))),
-            sql`LOWER(${pdfChunks.content}) LIKE ${`%${term.replace(/"/g, '')}%`}`
+            id: documentSections.id,
+            content: documentSections.content,
+            page: documentSections.pageNumber,
+            documentId: documentSections.documentId,
+        }).from(documentSections).where(and(
+            inArray(documentSections.documentId, docIds.map(id => BigInt(id))),
+            sql`LOWER(${documentSections.content}) LIKE ${`%${term.replace(/"/g, '')}%`}`
         )).limit(3);
 
         for (const result of results) {
@@ -155,11 +155,11 @@ async function findExactReferenceMatches(
             if (exactMatch || hasQuotes) {
                 const confidence = hasQuotes ? 0.95 : exactMatch ? 0.85 : 0.7;
                 const snippet = truncateText(result.content, 120);
-                
+
                 matches.push({
                     documentId: Number(result.documentId),
                     confidence,
-                    page: result.page,
+                    page: result.page ?? 1,
                     snippet,
                     reasons: [hasQuotes ? 'Exact quoted reference' : 'Exact name match'],
                     matchTypes: ['exact'],
@@ -281,23 +281,23 @@ async function findTraditionalContextualMatches(
 ): Promise<DocumentMatch[]> {
     const distanceSql = sql`embedding <=> ${`[${queryEmbedding.join(',')}]`}::vector`;
     const results = await db.select({
-        id: pdfChunks.id,
-        content: pdfChunks.content,
-        page: pdfChunks.page,
-        documentId: pdfChunks.documentId,
+        id: documentSections.id,
+        content: documentSections.content,
+        page: documentSections.pageNumber,
+        documentId: documentSections.documentId,
         distance: distanceSql
-    }).from(pdfChunks).where(and(
-        inArray(pdfChunks.documentId, docIds.map(id => BigInt(id))),
+    }).from(documentSections).where(and(
+        inArray(documentSections.documentId, docIds.map(id => BigInt(id))),
         sql`${distanceSql} < 0.3`
     )).orderBy(distanceSql).limit(5);
 
     return results.map(result => {
         const distance = Number(result.distance) ?? 1;
         const similarity = Math.max(0, (1 - distance) * 0.7);
-        
+
         return {
             documentId: Number(result.documentId),
-            page: result.page,
+            page: result.page ?? 1,
             snippet: truncateText(result.content, 150),
             similarity,
             content: result.content

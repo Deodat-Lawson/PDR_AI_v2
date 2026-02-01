@@ -182,70 +182,86 @@ describe("POST /api/fetchDocument", () => {
   });
 
   it("should return 500 on database error during user lookup", async () => {
-    (validateRequestBody as jest.Mock).mockResolvedValue({
-      success: true,
-      data: { userId: "test-user-123" },
-    });
+    // Mock console.error to prevent test failure from error logging
+    const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
 
-    (auth as jest.Mock).mockResolvedValue({ userId: "test-user-123" });
+    try {
+      (validateRequestBody as jest.Mock).mockResolvedValue({
+        success: true,
+        data: { userId: "test-user-123" },
+      });
 
-    // Mock database error on user lookup
-    const mockSelect = jest.fn().mockReturnValue({
-      from: jest.fn().mockReturnValue({
-        where: jest.fn().mockRejectedValue(new Error("Database connection failed")),
-      }),
-    });
-    (db.select as jest.Mock) = mockSelect;
+      (auth as jest.Mock).mockResolvedValue({ userId: "test-user-123" });
 
-    const request = new Request("http://localhost/api/fetchDocument", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: "test-user-123" }),
-    });
+      // Mock database error on user lookup
+      const mockSelect = jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockRejectedValue(new Error("Database connection failed")),
+        }),
+      });
+      (db.select as jest.Mock) = mockSelect;
 
-    const response = await POST(request);
-    const json = await response.json();
+      const request = new Request("http://localhost/api/fetchDocument", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: "test-user-123" }),
+      });
 
-    expect(response.status).toBe(500);
-    expect(json.error).toBe("Unable to fetch documents");
+      const response = await POST(request);
+      const json = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(json.error).toBe("Unable to fetch documents");
+    } finally {
+      // Restore console.error even if test fails
+      consoleErrorSpy.mockRestore();
+    }
   });
 
   it("should return 500 on database error during documents fetch", async () => {
-    (validateRequestBody as jest.Mock).mockResolvedValue({
-      success: true,
-      data: { userId: "test-user-123" },
-    });
+    // Mock console.error to prevent test failure from error logging
+    const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
 
-    (auth as jest.Mock).mockResolvedValue({ userId: "test-user-123" });
-
-    // First call succeeds (user lookup), second call fails (documents fetch)
-    const mockSelect = jest.fn()
-      .mockReturnValueOnce({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockResolvedValue([
-            { userId: "test-user-123", role: "employer", companyId: 1 }
-          ]),
-        }),
-      })
-      .mockReturnValueOnce({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockRejectedValue(new Error("Failed to fetch documents")),
-        }),
+    try {
+      (validateRequestBody as jest.Mock).mockResolvedValue({
+        success: true,
+        data: { userId: "test-user-123" },
       });
 
-    (db.select as jest.Mock) = mockSelect;
+      (auth as jest.Mock).mockResolvedValue({ userId: "test-user-123" });
 
-    const request = new Request("http://localhost/api/fetchDocument", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: "test-user-123" }),
-    });
+      // First call succeeds (user lookup), second call fails (documents fetch)
+      const mockSelect = jest.fn()
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([
+              { userId: "test-user-123", role: "employer", companyId: 1 }
+            ]),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockRejectedValue(new Error("Failed to fetch documents")),
+          }),
+        });
 
-    const response = await POST(request);
-    const json = await response.json();
+      (db.select as jest.Mock) = mockSelect;
 
-    expect(response.status).toBe(500);
-    expect(json.error).toBe("Unable to fetch documents");
+      const request = new Request("http://localhost/api/fetchDocument", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: "test-user-123" }),
+      });
+
+      const response = await POST(request);
+      const json = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(json.error).toBe("Unable to fetch documents");
+    } finally {
+      // Restore console.error even if test fails
+      consoleErrorSpy.mockRestore();
+    }
   });
 
   it("should return 400 if auth returns null userId", async () => {

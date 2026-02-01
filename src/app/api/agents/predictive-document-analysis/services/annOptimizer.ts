@@ -1,6 +1,6 @@
-import { db } from "../../../../../server/db/index";
+import { db } from "~/server/db/index";
 import { eq, sql } from "drizzle-orm";
-import { pdfChunks } from "~/server/db/schema";
+import { documentSections } from "~/server/db/schema";
 
 interface ANNConfig {
     strategy: 'hnsw' | 'ivf' | 'hybrid' | 'prefiltered';
@@ -42,6 +42,9 @@ export class ANNOptimizer {
         limit = 10,
         distanceThreshold = 0.7
     ): Promise<ANNResult[]> {
+        if (!documentIds || documentIds.length === 0) {
+            return [];
+        }
         
         switch (this.config.strategy) {
             case 'hnsw':
@@ -71,19 +74,38 @@ export class ANNOptimizer {
         const approximateLimit = Math.min(limit * 5, 100);
         
         const results = await db.execute(sql`
-            SELECT 
+            SELECT
                 id,
                 content,
-                page,
+                page_number as page,
                 document_id as "documentId",
                 embedding <=> ${embeddingStr}::vector as distance
-            FROM pdr_ai_v2_pdf_chunks 
-            WHERE document_id = ANY(${documentIds})
+            FROM pdr_ai_v2_document_sections
+            WHERE document_id IN (${sql.join(documentIds, sql`, `)})
             ORDER BY embedding <=> ${embeddingStr}::vector
             LIMIT ${approximateLimit}
         `);
 
-        const refinedResults = results.rows
+        let rows = results.rows;
+
+        // Fallback to legacy table
+        if (rows.length === 0 && documentIds.length === 1) {
+            const legacyResults = await db.execute(sql`
+                SELECT
+                    id,
+                    content,
+                    page,
+                    document_id as "documentId",
+                    embedding <=> ${embeddingStr}::vector as distance
+                FROM pdr_ai_v2_pdf_chunks
+                WHERE document_id = ${documentIds[0]}
+                ORDER BY embedding <=> ${embeddingStr}::vector
+                LIMIT ${approximateLimit}
+            `);
+            rows = legacyResults.rows;
+        }
+
+        const refinedResults = rows
             .map(row => ({
                 ...row,
                 distance: Number(row.distance ?? 1),
@@ -114,17 +136,21 @@ export class ANNOptimizer {
 
         const clusterChunkIds = relevantClusters.flatMap(c => c.chunkIds);
         
+        if (clusterChunkIds.length === 0) {
+            return [];
+        }
+        
         const embeddingStr = `[${queryEmbedding.join(',')}]`;
         
         const results = await db.execute(sql`
-            SELECT 
+            SELECT
                 id,
                 content,
-                page,
+                page_number as page,
                 document_id as "documentId",
                 embedding <=> ${embeddingStr}::vector as distance
-            FROM pdr_ai_v2_pdf_chunks 
-            WHERE id = ANY(${clusterChunkIds})
+            FROM pdr_ai_v2_document_sections
+            WHERE id IN (${sql.join(clusterChunkIds, sql`, `)})
             AND embedding <=> ${embeddingStr}::vector <= ${threshold}
             ORDER BY embedding <=> ${embeddingStr}::vector
             LIMIT ${limit}
@@ -164,13 +190,13 @@ export class ANNOptimizer {
 
             const remaining = limit - results.length;
             const docResults = await db.execute(sql`
-                SELECT 
+                SELECT
                     id,
                     content,
-                    page,
+                    page_number as page,
                     document_id as "documentId",
                     embedding <=> ${embeddingStr}::vector as distance
-                FROM pdr_ai_v2_pdf_chunks 
+                FROM pdr_ai_v2_document_sections
                 WHERE document_id = ${docId}
                 AND embedding <=> ${embeddingStr}::vector <= ${threshold}
                 ORDER BY embedding <=> ${embeddingStr}::vector
@@ -231,9 +257,9 @@ export class ANNOptimizer {
 
     private async buildDocumentCluster(documentId: number): Promise<DocumentCluster> {
         const chunks = await db.select({
-            id: pdfChunks.id,
-            embedding: pdfChunks.embedding
-        }).from(pdfChunks).where(eq(pdfChunks.documentId, BigInt(documentId)));
+            id: documentSections.id,
+            embedding: documentSections.embedding
+        }).from(documentSections).where(eq(documentSections.documentId, BigInt(documentId)));
 
         if (chunks.length === 0) {
             return {
