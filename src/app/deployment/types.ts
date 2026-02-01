@@ -6,11 +6,13 @@ import {
   FileSearch,
   Mic,
   Upload,
+  Layers,
 } from 'lucide-react';
 
 // --- Types ---
 export type DeploymentSection =
   | 'main'
+  | 'inngest'
   | 'langchain'
   | 'tavily'
   | 'uploadthing'
@@ -47,6 +49,12 @@ export const SECTIONS: SectionConfig[] = [
     title: 'Main Deployment',
     icon: React.createElement(Zap, { className: 'w-4 h-4' }),
     badge: 'Core',
+  },
+  {
+    id: 'inngest',
+    title: 'Inngest Background Jobs',
+    icon: React.createElement(Layers, { className: 'w-4 h-4' }),
+    badge: 'Optional',
   },
   {
     id: 'langchain',

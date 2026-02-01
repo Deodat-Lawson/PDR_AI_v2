@@ -77,14 +77,6 @@ TAVILY_API_KEY=your_tavily_api_key
 UPLOADTHING_TOKEN=your_uploadthing_token
 
 # =============================================================================
-# BACKGROUND JOBS (Inngest)
-# =============================================================================
-# Get from https://www.inngest.com/ (required for production)
-# For local development, these are optional if using `npx inngest-cli dev`
-INNGEST_EVENT_KEY=your_inngest_event_key
-INNGEST_SIGNING_KEY=your_inngest_signing_key
-
-# =============================================================================
 # OCR PROVIDERS (Optional)
 # =============================================================================
 # Azure Document Intelligence (primary OCR provider)
@@ -99,6 +91,15 @@ LANDING_AI_API_KEY=your_landing_ai_key
 # Datalab Marker API (legacy OCR option)
 # Get from https://www.datalab.to/
 DATALAB_API_KEY=your_datalab_api_key
+
+# =============================================================================
+# BACKGROUND JOBS (Optional - enables reliable document processing)
+# =============================================================================
+# Inngest provides automatic retries, observability, and step-based execution
+# Without Inngest, document processing runs synchronously (fire-and-forget)
+# Get from https://www.inngest.com/ or use Vercel integration
+# INNGEST_EVENT_KEY=your_inngest_event_key
+# INNGEST_SIGNING_KEY=your_inngest_signing_key
 
 # =============================================================================
 # OBSERVABILITY (Optional)
@@ -195,66 +196,6 @@ pnpm dev
 ```
 
 The application will be available at `http://localhost:3000`
-
-### Running Inngest (Required for Background Jobs)
-
-PDR AI uses [Inngest](https://www.inngest.com/) for background job processing, including document OCR pipelines and async processing. **Inngest must be running for document processing to work.**
-
-#### Development Mode (Local)
-
-1. **Install the Inngest CLI** (one-time setup):
-   ```bash
-   # Using npm
-   npm install -g inngest-cli
-   
-   # Or using Homebrew (macOS)
-   brew install inngest/inngest/inngest
-   ```
-
-2. **Start the Inngest Dev Server** (in a separate terminal):
-   ```bash
-   npx inngest-cli@latest dev
-   ```
-   
-   This starts the Inngest Dev Server at `http://localhost:8288` which provides:
-   - A local dashboard to monitor jobs
-   - Event replay and debugging
-   - Function execution logs
-
-3. **Verify connection**: 
-   - Visit `http://localhost:8288` to see the Inngest dashboard
-   - Your functions should appear under the "Functions" tab
-
-#### Production Mode (Vercel)
-
-For Vercel deployments, Inngest runs as a serverless integration:
-
-1. **Add Inngest Integration on Vercel**:
-   - Go to your Vercel project dashboard
-   - Navigate to **Integrations** → **Browse Marketplace**
-   - Search for "Inngest" and click **Add Integration**
-   - Follow the prompts to connect your Inngest account
-
-2. **Configure Environment Variables** (auto-set by integration, or manual):
-   ```env
-   INNGEST_EVENT_KEY=your_inngest_event_key
-   INNGEST_SIGNING_KEY=your_inngest_signing_key
-   ```
-
-3. **Sync Functions**:
-   - Deploy your app to Vercel
-   - Inngest will automatically discover functions at `/api/inngest`
-   - Visit your [Inngest Dashboard](https://app.inngest.com) to verify
-
-4. **Production URL Configuration**:
-   - In Inngest Dashboard, ensure your production URL is registered
-   - The endpoint should be: `https://your-domain.com/api/inngest`
-
-#### Inngest Functions in This Project
-
-| Function | Event | Description |
-|----------|-------|-------------|
-| `process-document` | `document/process.requested` | OCR-to-Vector document pipeline (router → normalize → chunk → vectorize → store) |
 
 ### Production Build
 
@@ -358,7 +299,7 @@ Vercel is the recommended platform for Next.js applications:
 
 **Post-Deployment:**
 
-1. **Enable pgvector Extension** (Required)
+1. **Enable pgvector Extension** (Required for vector search)
    - **For Vercel Postgres**: Connect to your database using Vercel's database connection tool or SQL editor in the Storage dashboard
    - **For Neon**: Go to Neon dashboard → SQL Editor and run the command
    - **For External Database**: Connect using your preferred PostgreSQL client
@@ -378,13 +319,13 @@ Vercel is the recommended platform for Next.js applications:
      DATABASE_URL="your_production_db_url" pnpm db:studio
      ```
 
-3. **Set up Inngest Integration** (Required for background jobs)
+3. **(Optional) Set up Inngest Integration** for reliable background processing
    - Go to Vercel → Integrations → Browse Marketplace
    - Search for "Inngest" and click Add Integration
    - Connect your Inngest account (create one at [inngest.com](https://www.inngest.com))
    - The integration automatically sets `INNGEST_EVENT_KEY` and `INNGEST_SIGNING_KEY`
-   - Visit your [Inngest Dashboard](https://app.inngest.com) to verify functions are synced
-   - Endpoint: `https://your-domain.com/api/inngest`
+   - **Benefits**: Automatic retries, step-based execution, observability dashboard
+   - **Without Inngest**: Document processing runs synchronously (fire-and-forget)
 
 4. **Set up Clerk webhooks** (if needed)
    - Configure webhook URL in Clerk dashboard
@@ -497,8 +438,8 @@ DATABASE_URL="postgresql://user:password@ep-xxx.us-east-2.aws.neon.tech/dbname?s
 - [ ] Clerk authentication is working
 - [ ] File uploads are working (UploadThing)
 - [ ] AI features are functioning (OpenAI API)
-- [ ] **Inngest integration is connected and functions are synced**
-- [ ] Background document processing is working
+- [ ] Document processing is working (uploads and vectorization)
+- [ ] (Optional) Inngest integration connected for reliable background jobs
 - [ ] SSL certificate is configured (if using custom domain)
 - [ ] Monitoring and logging are set up
 - [ ] Backup strategy is in place
@@ -1094,8 +1035,8 @@ Key directories:
 | `OPENAI_API_KEY` | OpenAI API key for AI features (embeddings, chat, analysis) | ✅ | `sk-...` |
 | `TAVILY_API_KEY` | Tavily Search API for web search in document analysis | ✅ | `tvly-...` |
 | `UPLOADTHING_TOKEN` | UploadThing token for file uploads | ✅ | `your_uploadthing_token` |
-| `INNGEST_EVENT_KEY` | Inngest event key for background jobs (required for production) | ✅* | `your_inngest_event_key` |
-| `INNGEST_SIGNING_KEY` | Inngest signing key for webhook verification | ✅* | `signkey-...` |
+| `INNGEST_EVENT_KEY` | Inngest event key for reliable background jobs | ❌ | `your_inngest_event_key` |
+| `INNGEST_SIGNING_KEY` | Inngest signing key for webhook verification | ❌ | `signkey-...` |
 | `AZURE_DOC_INTELLIGENCE_ENDPOINT` | Azure Document Intelligence endpoint for OCR | ❌ | `https://your-resource.cognitiveservices.azure.com/` |
 | `AZURE_DOC_INTELLIGENCE_KEY` | Azure Document Intelligence API key | ❌ | `your_azure_key` |
 | `LANDING_AI_API_KEY` | Landing.AI API key for complex/handwritten document OCR | ❌ | `your_landing_ai_key` |
@@ -1108,14 +1049,12 @@ Key directories:
 | `NODE_ENV` | Environment mode (`development`, `test`, `production`) | ✅ | `development` |
 | `SKIP_ENV_VALIDATION` | Skip environment validation during build | ❌ | `true` |
 
-*Required for production; optional in development when using `npx inngest-cli dev`
-
 ### Environment Variables by Feature
 
 - **Authentication**: `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` (redirects handled by middleware)
 - **Database**: `DATABASE_URL` (PostgreSQL with pgvector)
 - **AI & Embeddings**: `OPENAI_API_KEY`, `TAVILY_API_KEY`
-- **Background Jobs**: `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`
+- **Background Jobs (Optional)**: `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY` — enables automatic retries, step isolation, and observability. Without these, document processing runs synchronously.
 - **File Uploads**: `UPLOADTHING_TOKEN`
 - **OCR Processing**: `AZURE_DOC_INTELLIGENCE_ENDPOINT`, `AZURE_DOC_INTELLIGENCE_KEY`, `LANDING_AI_API_KEY`, `DATALAB_API_KEY`
 - **Observability**: `LANGCHAIN_TRACING_V2`, `LANGCHAIN_API_KEY`, `LANGCHAIN_PROJECT`

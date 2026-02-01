@@ -31,6 +31,9 @@ const serverSchema = z.object({
   ),
   LANGCHAIN_API_KEY: optionalString(),
   LANGCHAIN_PROJECT: optionalString(), // Optional project name for LangSmith
+  // Inngest configuration (optional, for background job processing)
+  // When false or INNGEST_EVENT_KEY not set, document processing runs synchronously
+  INNGEST_EVENT_KEY: optionalString(),
 });
 
 const clientSchema = z.object({
@@ -76,6 +79,7 @@ export const env = {
     LANGCHAIN_TRACING_V2: process.env.LANGCHAIN_TRACING_V2,
     LANGCHAIN_API_KEY: process.env.LANGCHAIN_API_KEY,
     LANGCHAIN_PROJECT: process.env.LANGCHAIN_PROJECT,
+    INNGEST_EVENT_KEY: process.env.INNGEST_EVENT_KEY,
   }),
   client: parseEnv(clientSchema, {
     NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:
