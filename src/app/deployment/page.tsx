@@ -8,6 +8,7 @@ import {
   MainDeployment,
   LangChainPage,
   TavilyPage,
+  UploadThingPage,
   OCRAzurePage,
   OCRLandingPage,
   OCRDatalabPage,
@@ -82,6 +83,8 @@ const DeploymentPage = () => {
         return <LangChainPage {...props} />;
       case 'tavily':
         return <TavilyPage {...props} />;
+      case 'uploadthing':
+        return <UploadThingPage {...props} />;
       case 'ocr':
       case 'ocr-azure':
         return <OCRAzurePage {...props} />;

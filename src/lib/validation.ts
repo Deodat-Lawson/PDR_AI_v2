@@ -134,12 +134,19 @@ export const UpdateCompanySchema = z.object({
     .regex(/^\d*$/, "Number of employees must contain only digits")
     .max(9, "Number of employees is too long")
     .optional(),
+  useUploadThing: z.boolean().optional(),
 }).transform((data) => ({
   name: data.name,
   employerPasskey: data.employerPasskey,
   employeePasskey: data.employeePasskey,
   numberOfEmployees: data.numberOfEmployees && data.numberOfEmployees !== "" ? data.numberOfEmployees : "0",
+  useUploadThing: data.useUploadThing,
 }));
+
+// Schema for updating just the upload preference (lighter endpoint)
+export const UpdateUploadPreferenceSchema = z.object({
+  useUploadThing: z.boolean(),
+});
 
 export const EmployeeAuthSchema = z.object({
   userId: z.string().min(1, "User ID is required"),

@@ -20,10 +20,56 @@ type CategoryResponse = {
     name: string;
 }
 
+interface CompanyData {
+    id: number;
+    name: string;
+    useUploadThing: boolean;
+}
+
 const Page: React.FC = () => {
     const router = useRouter();
 
     const [categories, setCategories] = useState<Category[]>([]);
+    const [useUploadThing, setUseUploadThing] = useState<boolean>(true);
+    const [isUploadThingConfigured, setIsUploadThingConfigured] = useState<boolean>(false);
+    const [isUpdatingPreference, setIsUpdatingPreference] = useState(false);
+
+    const fetchUploadThingConfig = useCallback(async () => {
+        try {
+            const res = await fetch("/api/config/uploadthing", {
+                method: "GET",
+                headers: { "Content-Type": "application/json" },
+            });
+            if (res.ok) {
+                const data = await res.json() as { configured: boolean };
+                setIsUploadThingConfigured(data.configured);
+                // If not configured, force database storage
+                if (!data.configured) {
+                    setUseUploadThing(false);
+                }
+            }
+        } catch (error) {
+            console.error("Error fetching UploadThing config:", error);
+            setIsUploadThingConfigured(false);
+        }
+    }, []);
+
+    const fetchCompanyData = useCallback(async () => {
+        try {
+            const res = await fetch("/api/fetchCompany", {
+                method: "GET",
+                headers: { "Content-Type": "application/json" },
+            });
+            if (res.ok) {
+                const data = await res.json() as CompanyData[];
+                if (data.length > 0 && data[0]) {
+                    setUseUploadThing(data[0].useUploadThing ?? true);
+                }
+            }
+        } catch (error) {
+            console.error("Error fetching company data:", error);
+        }
+    }, []);
 
     const fetchCategories = useCallback(async () => {
         try {
@@ -44,6 +90,35 @@ const Page: React.FC = () => {
             }
         } catch (error) {
             console.error(error);
+        }
+    }, []);
+
+    const handleAuthSuccess = useCallback(async () => {
+        // Fetch categories, company data, and UploadThing config on auth success
+        await Promise.all([fetchCategories(), fetchCompanyData(), fetchUploadThingConfig()]);
+    }, [fetchCategories, fetchCompanyData, fetchUploadThingConfig]);
+
+    const handleToggleUploadMethod = useCallback(async (newValue: boolean) => {
+        setIsUpdatingPreference(true);
+        try {
+            const res = await fetch("/api/updateUploadPreference", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ useUploadThing: newValue }),
+            });
+
+            if (res.ok) {
+                const data = await res.json() as { success: boolean; useUploadThing: boolean };
+                if (data.success) {
+                    setUseUploadThing(data.useUploadThing);
+                }
+            } else {
+                console.error("Failed to update upload preference");
+            }
+        } catch (error) {
+            console.error("Error updating upload preference:", error);
+        } finally {
+            setIsUpdatingPreference(false);
         }
     }, []);
 
@@ -99,7 +174,7 @@ const Page: React.FC = () => {
     }, []);
 
     return (
-        <EmployerAuthCheck onAuthSuccess={fetchCategories}>
+        <EmployerAuthCheck onAuthSuccess={handleAuthSuccess}>
             <div className={styles.mainContainer}>
                 <nav className={styles.navbar}>
                     <div className={styles.navContent}>
@@ -126,7 +201,13 @@ const Page: React.FC = () => {
                     <p className={styles.subtitle}>Add a new document to your repository</p>
                 </div>
 
-                <UploadForm categories={categories} />
+                <UploadForm 
+                    categories={categories}
+                    useUploadThing={useUploadThing}
+                    isUploadThingConfigured={isUploadThingConfigured}
+                    onToggleUploadMethod={handleToggleUploadMethod}
+                    isUpdatingPreference={isUpdatingPreference}
+                />
 
                 <CategoryManagement
                     categories={categories}

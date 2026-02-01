@@ -5,6 +5,7 @@ import {
   Search as SearchIcon,
   FileSearch,
   Mic,
+  Upload,
 } from 'lucide-react';
 
 // --- Types ---
@@ -12,6 +13,7 @@ export type DeploymentSection =
   | 'main'
   | 'langchain'
   | 'tavily'
+  | 'uploadthing'
   | 'ocr'
   | 'ocr-azure'
   | 'ocr-landing'
@@ -56,6 +58,12 @@ export const SECTIONS: SectionConfig[] = [
     id: 'tavily',
     title: 'Tavily Search',
     icon: React.createElement(SearchIcon, { className: 'w-4 h-4' }),
+    badge: 'Optional',
+  },
+  {
+    id: 'uploadthing',
+    title: 'UploadThing Storage',
+    icon: React.createElement(Upload, { className: 'w-4 h-4' }),
     badge: 'Optional',
   },
   {
