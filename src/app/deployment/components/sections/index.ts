@@ -1,6 +1,7 @@
 export { MainDeployment } from './MainDeployment';
 export { LangChainPage } from './LangChainPage';
 export { TavilyPage } from './TavilyPage';
+export { UploadThingPage } from './UploadThingPage';
 export { OCRAzurePage } from './OCRAzurePage';
 export { OCRLandingPage } from './OCRLandingPage';
 export { OCRDatalabPage } from './OCRDatalabPage';

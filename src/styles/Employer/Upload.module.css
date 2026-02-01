@@ -66,6 +66,75 @@
     @apply space-y-8;
 }
 
+/* Storage Toggle - Upload Method Selection */
+.storageToggle {
+    @apply flex items-center gap-4 p-4 bg-white/60 backdrop-blur-sm rounded-xl border border-gray-100;
+}
+
+.storageToggleLabel {
+    @apply text-sm font-semibold text-gray-600;
+}
+
+.toggleContainer {
+    @apply flex rounded-lg overflow-hidden border border-gray-200;
+}
+
+.toggleOption {
+    @apply flex items-center gap-2 px-4 py-2 text-sm font-medium transition-all duration-200;
+    @apply bg-white text-gray-600 border-0 cursor-pointer;
+    @apply hover:bg-gray-50;
+    @apply focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-inset;
+}
+
+.toggleOption:first-child {
+    @apply border-r border-gray-200;
+}
+
+.toggleOptionActive {
+    @apply bg-gradient-to-r from-purple-600 to-indigo-600 text-white;
+    @apply hover:from-purple-700 hover:to-indigo-700;
+}
+
+.toggleIcon {
+    @apply w-4 h-4;
+}
+
+.updatingText {
+    @apply text-xs text-gray-400 animate-pulse;
+}
+
+.toggleOptionDisabled {
+    @apply opacity-50 cursor-not-allowed;
+    @apply hover:bg-white;
+}
+
+/* Configuration Warning */
+.configWarning {
+    @apply flex items-start gap-3 p-4 rounded-xl;
+    @apply bg-amber-50 border border-amber-200;
+}
+
+.configWarningIcon {
+    @apply w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5;
+}
+
+.configWarningContent {
+    @apply flex flex-col gap-1;
+}
+
+.configWarningText {
+    @apply text-sm text-amber-800 font-medium;
+}
+
+.configWarningLink {
+    @apply text-sm text-purple-600 hover:text-purple-700 font-medium;
+    @apply inline-flex items-center gap-1 transition-colors duration-200;
+}
+
+.configWarningLinkIcon {
+    @apply w-3.5 h-3.5;
+}
+
 /* Upload Area - Premium Design */
 .uploadArea {
     @apply border-2 border-dashed border-gray-300 rounded-2xl p-12
@@ -450,6 +519,57 @@
     @apply text-red-400;
 }
 
+/* Storage Toggle - Dark Mode */
+[data-theme="dark"] .storageToggle {
+    @apply bg-slate-800/60 border-purple-500/20;
+}
+
+[data-theme="dark"] .storageToggleLabel {
+    @apply text-gray-300;
+}
+
+[data-theme="dark"] .toggleContainer {
+    @apply border-purple-500/30;
+}
+
+[data-theme="dark"] .toggleOption {
+    @apply bg-slate-700/80 text-gray-300 hover:bg-slate-600/80;
+}
+
+[data-theme="dark"] .toggleOption:first-child {
+    @apply border-purple-500/30;
+}
+
+[data-theme="dark"] .toggleOptionActive {
+    @apply bg-gradient-to-r from-purple-500 to-indigo-500 text-white;
+    @apply hover:from-purple-400 hover:to-indigo-400;
+}
+
+[data-theme="dark"] .updatingText {
+    @apply text-gray-500;
+}
+
+[data-theme="dark"] .toggleOptionDisabled {
+    @apply opacity-40;
+}
+
+/* Configuration Warning - Dark Mode */
+[data-theme="dark"] .configWarning {
+    @apply bg-amber-900/30 border-amber-500/40;
+}
+
+[data-theme="dark"] .configWarningIcon {
+    @apply text-amber-400;
+}
+
+[data-theme="dark"] .configWarningText {
+    @apply text-amber-200;
+}
+
+[data-theme="dark"] .configWarningLink {
+    @apply text-purple-400 hover:text-purple-300;
+}
+
 [data-theme="dark"] .formFields {
     @apply bg-slate-900/50 border-purple-500/20;
 }
@@ -647,4 +767,66 @@
     .addCategoryForm button[type="submit"] {
         @apply w-full;
     }
+}
+
+/* ============================================================================
+   UploadThing Dropzone Overrides
+   These styles customize the UploadThing component to match our theme
+   ============================================================================ */
+
+/* Override UploadThing default dropzone styling */
+.uploadArea :global([data-ut-element="dropzone"]) {
+    @apply border-0 bg-transparent p-0 m-0;
+}
+
+.uploadArea :global([data-ut-element="button"]) {
+    @apply bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold;
+    @apply px-6 py-3 rounded-xl shadow-lg;
+    @apply hover:from-purple-700 hover:to-indigo-700 hover:shadow-xl;
+    @apply transition-all duration-300 transform hover:-translate-y-0.5;
+    @apply focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2;
+}
+
+.uploadArea :global([data-ut-element="upload-icon"]) {
+    @apply w-16 h-16 text-gray-400 mb-4;
+}
+
+.uploadArea :global([data-ut-element="label"]) {
+    @apply text-gray-700 text-lg font-medium mb-2;
+}
+
+.uploadArea :global([data-ut-element="allowed-content"]) {
+    @apply text-gray-500 text-sm mb-4;
+}
+
+/* UploadThing loading state */
+.uploadArea :global(.ut-uploading) {
+    @apply opacity-70;
+}
+
+.uploadArea :global(.ut-ready) {
+    @apply border-purple-400;
+}
+
+/* Dark mode overrides for UploadThing */
+[data-theme="dark"] .uploadArea :global([data-ut-element="button"]) {
+    @apply bg-gradient-to-r from-purple-500 to-indigo-500;
+    @apply hover:from-purple-400 hover:to-indigo-400;
+    box-shadow: 0 4px 15px rgba(124, 58, 237, 0.4);
+}
+
+[data-theme="dark"] .uploadArea :global([data-ut-element="button"]:hover) {
+    box-shadow: 0 6px 20px rgba(124, 58, 237, 0.6);
+}
+
+[data-theme="dark"] .uploadArea :global([data-ut-element="upload-icon"]) {
+    @apply text-purple-400;
+}
+
+[data-theme="dark"] .uploadArea :global([data-ut-element="label"]) {
+    @apply text-gray-200;
+}
+
+[data-theme="dark"] .uploadArea :global([data-ut-element="allowed-content"]) {
+    @apply text-gray-400;
 }

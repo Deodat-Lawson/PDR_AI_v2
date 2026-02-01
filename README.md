@@ -54,13 +54,9 @@ DATABASE_URL="postgresql://postgres:password@localhost:5432/pdr_ai_v2"
 # AUTHENTICATION (Clerk)
 # =============================================================================
 # Get from https://clerk.com/
+# Post-auth redirects are handled automatically by middleware based on user role
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
 CLERK_SECRET_KEY=your_clerk_secret_key
-
-# Clerk Force Redirect URLs (Optional)
-NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL=https://your-domain.com/employer/home
-NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL=https://your-domain.com/signup
-NEXT_PUBLIC_CLERK_SIGN_OUT_FORCE_REDIRECT_URL=https://your-domain.com/
 
 # =============================================================================
 # AI & EMBEDDINGS
@@ -159,6 +155,7 @@ pnpm db:push
 2. Create a new application
 3. Copy the publishable and secret keys to your `.env` file
 4. Configure sign-in/sign-up methods as needed
+5. Post-authentication redirects are handled automatically by the middleware based on user role
 
 #### OpenAI API
 1. Create account at [OpenAI](https://platform.openai.com/)
@@ -349,9 +346,6 @@ Vercel is the recommended platform for Next.js applications:
      - `LANGCHAIN_API_KEY` (optional, required if `LANGCHAIN_TRACING_V2=true`)
      - `TAVILY_API_KEY` (optional, for enhanced web search)
      - `DATALAB_API_KEY` (optional, for OCR processing)
-     - `NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL` (optional)
-     - `NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL` (optional)
-     - `NEXT_PUBLIC_CLERK_SIGN_OUT_FORCE_REDIRECT_URL` (optional)
 
 4. **Configure build settings**
    - Build Command: `pnpm build`
@@ -1118,8 +1112,7 @@ Key directories:
 
 ### Environment Variables by Feature
 
-- **Authentication**: `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`
-- **Authentication Redirects** (optional): `NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL`, `NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL`, `NEXT_PUBLIC_CLERK_SIGN_OUT_FORCE_REDIRECT_URL`
+- **Authentication**: `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` (redirects handled by middleware)
 - **Database**: `DATABASE_URL` (PostgreSQL with pgvector)
 - **AI & Embeddings**: `OPENAI_API_KEY`, `TAVILY_API_KEY`
 - **Background Jobs**: `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`

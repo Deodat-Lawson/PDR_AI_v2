@@ -16,9 +16,9 @@ const serverSchema = z.object({
     .default("development"),
   OPENAI_API_KEY: requiredString(),
   CLERK_SECRET_KEY: requiredString(),
-  UPLOADTHING_TOKEN: requiredString(),
+  UPLOADTHING_TOKEN: optionalString(),
   DATALAB_API_KEY: optionalString(),
-  TAVILY_API_KEY: requiredString(),
+  TAVILY_API_KEY: optionalString(),
   // Azure Document Intelligence (for OCR pipeline)
   AZURE_DOC_INTELLIGENCE_ENDPOINT: optionalString(),
   AZURE_DOC_INTELLIGENCE_KEY: optionalString(),
@@ -35,6 +35,10 @@ const serverSchema = z.object({
 
 const clientSchema = z.object({
   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: requiredString(),
+  NEXT_PUBLIC_UPLOADTHING_ENABLED: z.preprocess(
+    (val) => val === "true" || val === "1",
+    z.boolean().optional()
+  ),
 });
 
 const skipValidation =
@@ -76,6 +80,8 @@ export const env = {
   client: parseEnv(clientSchema, {
     NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:
       process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
+    NEXT_PUBLIC_UPLOADTHING_ENABLED:
+      process.env.NEXT_PUBLIC_UPLOADTHING_ENABLED,
   }),
 };
 

@@ -64,7 +64,7 @@ export const MainDeployment: React.FC<DeploymentProps> = ({
           <PrerequisiteCard
             icon={<Shield className="w-8 h-8" />}
             title="Core API Keys"
-            items={['OpenAI API', 'Clerk Auth', 'UploadThing']}
+            items={['OpenAI API', 'Clerk Auth']}
             darkMode={darkMode}
           />
         </div>
@@ -101,15 +101,9 @@ DATABASE_URL="postgresql://user:password@host:5432/database?sslmode=require"
 # ============ AUTHENTICATION (Required) ============
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_your_key_here
 CLERK_SECRET_KEY=sk_test_your_key_here
-NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL=/signup/loading
-NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL=/signup/loading
-NEXT_PUBLIC_CLERK_SIGN_OUT_FORCE_REDIRECT_URL=/
 
 # ============ AI (Required) ============
 OPENAI_API_KEY=sk-proj-your_key_here
-
-# ============ FILE UPLOADS (Required) ============
-UPLOADTHING_TOKEN=your_uploadthing_token
 
 # ============ BACKGROUND JOBS (Required for production) ============
 INNGEST_EVENT_KEY=your_inngest_event_key
@@ -120,15 +114,9 @@ DATABASE_URL="postgresql://user:password@host:5432/database?sslmode=require"
 # ============ AUTHENTICATION (Required) ============
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_your_key_here
 CLERK_SECRET_KEY=sk_test_your_key_here
-NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL=/signup/loading
-NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL=/signup/loading
-NEXT_PUBLIC_CLERK_SIGN_OUT_FORCE_REDIRECT_URL=/
 
 # ============ AI (Required) ============
 OPENAI_API_KEY=sk-proj-your_key_here
-
-# ============ FILE UPLOADS (Required) ============
-UPLOADTHING_TOKEN=your_uploadthing_token
 
 # ============ BACKGROUND JOBS (Required for production) ============
 INNGEST_EVENT_KEY=your_inngest_event_key
@@ -183,8 +171,7 @@ INNGEST_SIGNING_KEY=your_inngest_signing_key`, 'step-3')}
               'Create account at clerk.com',
               'Create new application',
               'Copy publishable and secret keys',
-              'Add NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY and CLERK_SECRET_KEY to .env',
-              'Configure redirect URLs as shown above'
+              'Add NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY and CLERK_SECRET_KEY to .env'
             ]}
             darkMode={darkMode}
           />
@@ -204,20 +191,7 @@ INNGEST_SIGNING_KEY=your_inngest_signing_key`, 'step-3')}
           />
 
           <ApiKeyCard
-            title="4. UploadThing"
-            link="https://uploadthing.com"
-            description="File upload and storage"
-            steps={[
-              'Create account at uploadthing.com',
-              'Create new app',
-              'Copy token from Settings → API Keys',
-              'Add UPLOADTHING_TOKEN to .env'
-            ]}
-            darkMode={darkMode}
-          />
-
-          <ApiKeyCard
-            title="5. Inngest (Background Jobs)"
+            title="4. Inngest (Background Jobs)"
             link="https://inngest.com"
             description="Document processing and background jobs"
             steps={[
