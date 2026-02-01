@@ -1,7 +1,7 @@
 import "~/styles/globals.css";
 import "@uploadthing/react/styles.css";
 import { Analytics } from '@vercel/analytics/next';
-
+import { ThemeProvider } from "next-themes";
 
 import { GeistSans } from "geist/font/sans";
 import { type Metadata } from "next";
@@ -21,10 +21,12 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <ClerkProvider>
-      <html lang="en" className={`${GeistSans.variable}`}>
+      <html lang="en" className={`${GeistSans.variable}`} suppressHydrationWarning>
       <body>
-      {children}
-      <Analytics />
+      <ThemeProvider attribute={["class", "data-theme"]} defaultTheme="dark" enableSystem>
+        {children}
+        <Analytics />
+      </ThemeProvider>
       </body>
       </html>
     </ClerkProvider>

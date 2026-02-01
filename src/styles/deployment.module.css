@@ -251,155 +251,155 @@
 }
 
 /* Light Theme Overrides */
-[data-theme="light"] .container {
+:global([data-theme="light"]) .container {
     @apply bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-50;
 }
 
-[data-theme="light"] .navContainer {
+:global([data-theme="light"]) .navContainer {
     @apply bg-white/80 border-b border-purple-200;
 }
 
-[data-theme="light"] .btnGhost {
+:global([data-theme="light"]) .btnGhost {
     @apply text-gray-600 hover:bg-purple-100 hover:text-purple-700;
 }
 
-[data-theme="light"] .btnOutline {
+:global([data-theme="light"]) .btnOutline {
     @apply text-purple-600 border-purple-600 hover:bg-purple-600;
 }
 
-[data-theme="light"] .iconPurple {
+:global([data-theme="light"]) .iconPurple {
     @apply text-purple-600;
 }
 
-[data-theme="light"] .logoText {
+:global([data-theme="light"]) .logoText {
     @apply bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent;
 }
 
-[data-theme="light"] .heroTitle {
+:global([data-theme="light"]) .heroTitle {
     @apply bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent;
 }
 
-[data-theme="light"] .heroDescription {
+:global([data-theme="light"]) .heroDescription {
     @apply text-gray-700;
 }
 
-[data-theme="light"] .sectionTitle {
+:global([data-theme="light"]) .sectionTitle {
     @apply text-gray-900;
 }
 
-[data-theme="light"] .sectionIcon {
+:global([data-theme="light"]) .sectionIcon {
     @apply text-purple-600;
 }
 
-[data-theme="light"] .prerequisiteCard {
+:global([data-theme="light"]) .prerequisiteCard {
     @apply bg-white/80 border border-purple-200;
 }
 
-[data-theme="light"] .prerequisiteCard h3 {
+:global([data-theme="light"]) .prerequisiteCard h3 {
     @apply text-gray-900;
 }
 
-[data-theme="light"] .prerequisiteIcon {
+:global([data-theme="light"]) .prerequisiteIcon {
     @apply text-purple-600;
 }
 
-[data-theme="light"] .stepTitle {
+:global([data-theme="light"]) .stepTitle {
     @apply text-gray-900;
 }
 
-[data-theme="light"] .stepDescription {
+:global([data-theme="light"]) .stepDescription {
     @apply text-gray-700;
 }
 
-[data-theme="light"] .stepDescription code {
+:global([data-theme="light"]) .stepDescription code {
     @apply bg-purple-100 text-purple-700;
 }
 
-[data-theme="light"] .codeBlock {
+:global([data-theme="light"]) .codeBlock {
     @apply bg-gray-50 border border-gray-200;
 }
 
-[data-theme="light"] .codeBlock code {
+:global([data-theme="light"]) .codeBlock code {
     @apply text-gray-800;
 }
 
-[data-theme="light"] .apiKeySection {
+:global([data-theme="light"]) .apiKeySection {
     @apply bg-white/80 border border-purple-200;
 }
 
-[data-theme="light"] .apiKeyTitle {
+:global([data-theme="light"]) .apiKeyTitle {
     @apply text-gray-900;
 }
 
-[data-theme="light"] .list {
+:global([data-theme="light"]) .list {
     @apply text-gray-700;
 }
 
-[data-theme="light"] .orderedList {
+:global([data-theme="light"]) .orderedList {
     @apply text-gray-700;
 }
 
-[data-theme="light"] .orderedList code {
+:global([data-theme="light"]) .orderedList code {
     @apply bg-purple-100 text-purple-700;
 }
 
-[data-theme="light"] .link {
+:global([data-theme="light"]) .link {
     @apply text-purple-600;
 }
 
-[data-theme="light"] .deploymentOption {
+:global([data-theme="light"]) .deploymentOption {
     @apply bg-white/80 border border-purple-200;
 }
 
-[data-theme="light"] .deploymentTitle {
+:global([data-theme="light"]) .deploymentTitle {
     @apply text-gray-900;
 }
 
-[data-theme="light"] .infoBox {
+:global([data-theme="light"]) .infoBox {
     @apply bg-white/80 border border-purple-300;
 }
 
-[data-theme="light"] .infoBox h3 {
+:global([data-theme="light"]) .infoBox h3 {
     @apply text-gray-900;
 }
 
-[data-theme="light"] .troubleshootSection {
+:global([data-theme="light"]) .troubleshootSection {
     @apply bg-white/80 border border-purple-200;
 }
 
-[data-theme="light"] .troubleshootTitle {
+:global([data-theme="light"]) .troubleshootTitle {
     @apply text-gray-900;
 }
 
-[data-theme="light"] .troubleshootSection code {
+:global([data-theme="light"]) .troubleshootSection code {
     @apply bg-purple-100 text-purple-700;
 }
 
-[data-theme="light"] .featureCard {
+:global([data-theme="light"]) .featureCard {
     @apply bg-white/80 border border-purple-200;
 }
 
-[data-theme="light"] .featureCard h3 {
+:global([data-theme="light"]) .featureCard h3 {
     @apply text-gray-900;
 }
 
-[data-theme="light"] .featureCard p {
+:global([data-theme="light"]) .featureCard p {
     @apply text-gray-700;
 }
 
-[data-theme="light"] .featureIcon {
+:global([data-theme="light"]) .featureIcon {
     @apply text-purple-600;
 }
 
-[data-theme="light"] .supportBox {
+:global([data-theme="light"]) .supportBox {
     @apply bg-gradient-to-br from-purple-100 to-indigo-100 border border-purple-300;
 }
 
-[data-theme="light"] .supportBox h2 {
+:global([data-theme="light"]) .supportBox h2 {
     @apply text-gray-900;
 }
 
-[data-theme="light"] .supportBox p {
+:global([data-theme="light"]) .supportBox p {
     @apply text-gray-700;
 }
 

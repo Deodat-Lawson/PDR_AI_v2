@@ -2,469 +2,6 @@
 
 A Next.js application that uses advanced AI technology to analyze, interpret, and extract insights from professional documents. Features employee/employer authentication, document upload and management, AI-powered chat, and **comprehensive predictive document analysis** that identifies missing documents, provides recommendations, and suggests related content.
 
-## 🧭 End-to-end workflow (how the features connect)
-
-PDR AI is designed as one connected loop: **capture documents → make them searchable → ask questions → spot gaps → act → learn**.
-
-1. **Authenticate & pick a workspace (Employer / Employee)**  
-   Clerk handles auth and role-based access so employers can manage documents + employees, while employees can view assigned materials.
-
-2. **Upload documents (optionally OCR)**  
-   Documents are uploaded via UploadThing. If a PDF is scanned/image-based, you can enable **OCR** (Datalab Marker API) to extract clean text.
-
-3. **Index & store for retrieval**  
-   The backend chunks the extracted text and generates embeddings, storing everything in PostgreSQL (+ pgvector) so downstream AI features can retrieve the right passages.
-
-4. **Interact with documents (RAG chat + viewer)**  
-   Users open a document in the viewer and ask questions. The AI uses **RAG** over your indexed chunks to answer with document-grounded context, and chat history persists per document/session.
-
-5. **Run Predictive Document Analysis (find gaps and next steps)**  
-   When you need completeness and compliance help, the predictive analyzer highlights **missing documents**, **broken references**, priority/urgency, and recommended actions (see deep dive below).
-
-6. **Study Agent: StudyBuddy + AI Teacher (learn from your own documents)**  
-   Turn uploaded PDFs into a guided study experience. The Study Agent reuses the same ingestion + indexing pipeline so both modes can answer questions with **RAG grounded in your uploaded documents**.
-   - **StudyBuddy mode**: a friendly coach that helps you stay consistent (plan, notes, timer, quick Q&A)
-   - **AI Teacher mode**: a structured instructor with multiple teaching surfaces (view/edit/draw) for lessons
-
-7. **Close the loop**  
-   Use insights from chat + predictive analysis + StudyBuddy sessions to upload missing docs, update categories, and keep your organization’s knowledge base complete and actionable.
-
-## Web Search Agent Workflow
-<img width="1106" height="336" alt="Screenshot 2025-11-16 at 2 53 18 PM" src="https://github.com/user-attachments/assets/8c2d5ec2-a57e-4afa-97cf-1961dcb9049f" />
-
-## 🎓 Study Agent (StudyBuddy + AI Teacher)
-
-The Study Agent is the “learn it” layer on top of the same document ingestion + RAG stack.
-
-### How sessions work (shared foundation)
-
-1. **Upload or select your study documents** (same documents used for document Q&A / analysis)
-2. **Start onboarding** at `/employer/studyAgent/onboarding`
-3. **Choose mode**: **StudyBuddy** or **AI Teacher**
-4. **Create a study session**:
-   - A new session is created and you’re redirected with `?sessionId=...`
-   - Your **profile** (name/grade/gender/field of study) and **preferences** (selected docs, AI personality) are stored
-   - An initial **study plan** is generated from the documents you selected
-5. **Resume anytime**: session data is loaded using `sessionId` so conversations and study progress persist
-
-### StudyBuddy (friendly coach)
-
-StudyBuddy is optimized for momentum and daily studying while staying grounded in your documents.
-
-- **Document-grounded help (RAG)**: ask questions about your selected PDFs, and the agent retrieves relevant chunks to answer.
-- **Voice chat**:
-  - Speech-to-text via the browser’s Web Speech API
-  - Optional text-to-speech via ElevenLabs (if configured)
-  - Messages are persisted to your session so you can continue later
-- **Study Plan (Goals)**:
-  - Create/edit/delete goals
-  - Mark goals complete/incomplete and track progress
-  - Attach “materials” (documents) to each goal and one-click “pull up” the doc in the viewer
-- **Notes**:
-  - Create/update/delete notes tied to your study session
-  - Tag notes and keep them organized while you study
-- **Pomodoro timer**:
-  - Run focus sessions alongside your plan/notes
-  - Timer state can be synced to your session
-- **AI Query tab**:
-  - A fast Q&A surface for questions while you keep your call / plan visible
-
-### AI Teacher (structured instructor)
-
-AI Teacher is optimized for guided instruction and “teaching by doing” across multiple views.
-
-- **Voice-led teaching + study plan tracking**:
-  - Voice chat for interactive lessons
-  - A persistent study plan with material links (click to open the relevant doc)
-- **Three teaching surfaces (switchable in-session)**:
-  - **View**: document viewer for reading/teaching directly from the selected PDF
-  - **Edit**: a collaborative docs editor where you and the AI can build structured notes/explanations and download the result
-  - **Draw**: a whiteboard for visual explanations (pen/eraser, undo/redo, clear, export as PNG)
-- **AI Query tab**:
-  - Ask targeted questions without interrupting the lesson flow
-
-### Persistence & sync (what’s saved)
-
-Per `sessionId`, the Study Agent persists:
-- **messages** (StudyBuddy/Teacher conversations)
-- **study goals** (plan items + completion state + attached materials)
-- **notes** (StudyBuddy notes + updates)
-- **preferences/profile** (selected documents and learner context)
-
-Key API surfaces used by the Study Agent:
-- `POST /api/study-agent/me/session` (create session)
-- `GET /api/study-agent/me?sessionId=...` (load session data)
-- `POST /api/study-agent/chat` (RAG chat + optional agentic tools for notes/tasks/timer)
-- `POST /api/study-agent/me/messages` (persist chat messages)
-- `POST/PUT/DELETE /api/study-agent/me/study-goals` (plan CRUD)
-- `POST /api/study-agent/sync/notes` (notes sync)
-
-## 📚 Improved Knowledge Base Formation
-
-PDR AI uses a sophisticated **Hybrid Retrieval-Augmented Generation (RAG)** architecture that combines multiple retrieval strategies for optimal document search and Q&A accuracy.
-
-### Knowledge Base Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                     DOCUMENT INGESTION PIPELINE                  │
-├─────────────────────────────────────────────────────────────────┤
-│  Upload → OCR/Parse → Intelligent Chunking → Vectorization      │
-│                            ↓                                     │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │                   PostgreSQL + pgvector                  │    │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐   │    │
-│  │  │  Documents   │  │  PDF Chunks  │  │  Embeddings  │   │    │
-│  │  │  (metadata)  │  │  (content)   │  │  (1536-dim)  │   │    │
-│  │  └──────────────┘  └──────────────┘  └──────────────┘   │    │
-│  └─────────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│                    ENSEMBLE RETRIEVAL SYSTEM                     │
-├─────────────────────────────────────────────────────────────────┤
-│                          Query                                   │
-│                            ↓                                     │
-│  ┌────────────────────┐       ┌────────────────────┐            │
-│  │   BM25 Retriever   │       │  Vector Retriever  │            │
-│  │   (Keyword/Lexical)│       │   (Semantic/ANN)   │            │
-│  │   Weight: 0.4      │       │   Weight: 0.6      │            │
-│  └─────────┬──────────┘       └─────────┬──────────┘            │
-│            │                            │                        │
-│            └──────────┬─────────────────┘                        │
-│                       ↓                                          │
-│         ┌─────────────────────────┐                             │
-│         │  Reciprocal Rank Fusion │                             │
-│         │      (RRF Merge)        │                             │
-│         └───────────┬─────────────┘                             │
-│                     ↓                                            │
-│              Ranked Results                                      │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Retrieval Components
-
-| Component | Description | Strength |
-|-----------|-------------|----------|
-| **BM25 Retriever** | Keyword-based lexical search using TF-IDF scoring | Exact term matching, acronyms, proper nouns |
-| **Vector Retriever** | Semantic search using OpenAI `text-embedding-3-small` embeddings (1536 dimensions) | Conceptual similarity, paraphrasing, synonyms |
-| **Ensemble Retriever** | Combines BM25 + Vector with Reciprocal Rank Fusion | Best of both approaches |
-
-### Search Scopes
-
-The retrieval system supports three search scopes:
-
-- **Document Scope**: Search within a single document for focused Q&A
-- **Company Scope**: Search across all documents in a company's knowledge base
-- **Multi-Document Scope**: Search across a selected subset of documents (used by Study Agent)
-
-### Chunking Strategy
-
-Documents are intelligently chunked using the following configuration:
-
-```typescript
-{
-  maxTokens: 500,        // ~2000 characters per chunk
-  overlapTokens: 50,     // ~200 characters overlap for context continuity
-  charsPerToken: 4,      // Character-to-token ratio
-  includePageContext: true  // Preserve page metadata
-}
-```
-
-**Chunk Types:**
-- **Text Chunks**: Prose content split at sentence boundaries with overlap
-- **Table Chunks**: Structured data preserved as markdown with semantic descriptions
-
-### Data Storage Schema
-
-```sql
--- PDF Chunks table with vector embeddings
-CREATE TABLE pdr_ai_v2_pdf_chunks (
-  id SERIAL PRIMARY KEY,
-  document_id BIGINT REFERENCES document(id),
-  page INTEGER NOT NULL,
-  chunk_index INTEGER NOT NULL,
-  content TEXT NOT NULL,
-  embedding VECTOR(1536)  -- pgvector type
-);
-
--- Indexes for fast retrieval
-CREATE INDEX ON pdf_chunks (document_id);
-CREATE INDEX ON pdf_chunks (document_id, page, chunk_index);
-```
-
-### Fallback Mechanisms
-
-The system includes automatic fallback:
-1. **Primary**: Ensemble (BM25 + Vector) retrieval
-2. **Fallback**: BM25-only retrieval if vector search fails
-3. **Graceful degradation**: Returns empty results rather than errors
-
-## 🔍 Predictive Document Analysis Deep Dive
-
-The **Predictive Document Analysis** feature is the cornerstone of PDR AI, providing intelligent document management and compliance assistance:
-
-### How It Works
-1. **Document Upload**: Upload your professional documents (PDFs, contracts, manuals, etc.)
-2. **AI Analysis**: Our advanced AI scans through the document content and structure
-3. **Missing Document Detection**: Identifies references to documents that should be present but aren't
-4. **Priority Classification**: Automatically categorizes findings by importance and urgency
-5. **Smart Recommendations**: Provides specific, actionable recommendations for document management
-6. **Related Content**: Suggests relevant external resources and related documents
-
-### Key Benefits
-- **Compliance Assurance**: Never miss critical documents required for compliance
-- **Workflow Optimization**: Streamline document management with AI-powered insights
-- **Risk Mitigation**: Identify potential gaps in documentation before they become issues
-- **Time Savings**: Automated analysis saves hours of manual document review
-- **Proactive Management**: Stay ahead of document requirements and deadlines
-
-### Analysis Output
-The system provides comprehensive analysis including:
-- **Missing Documents Count**: Total number of missing documents identified
-- **High Priority Items**: Critical documents requiring immediate attention
-- **Recommendations**: Specific actions to improve document organization
-- **Suggested Related Documents**: External resources and related content
-- **Page References**: Exact page numbers where missing documents are mentioned
-
-## 📖 Usage Examples
-
-### OCR Processing for Scanned Documents
-
-PDR AI includes optional advanced OCR (Optical Character Recognition) capabilities for processing scanned documents, images, and PDFs with poor text extraction:
-
-#### When to Use OCR
-- **Scanned Documents**: Physical documents that have been scanned to PDF
-- **Image-based PDFs**: PDFs that contain images of text rather than actual text
-- **Poor Quality Documents**: Documents with low-quality text that standard extraction can't read
-- **Handwritten Content**: Documents with handwritten notes or forms (with AI assistance)
-- **Mixed Content**: Documents combining text, images, tables, and diagrams
-
-#### How It Works
-
-**Backend Infrastructure:**
-1. **Environment Configuration**: Set `DATALAB_API_KEY` in your `.env` file (optional)
-2. **Database Schema**: Tracks OCR status with fields:
-   - `ocrEnabled`: Boolean flag indicating if OCR was requested
-   - `ocrProcessed`: Boolean flag indicating if OCR completed successfully
-   - `ocrMetadata`: JSON field storing OCR processing details (page count, processing time, etc.)
-
-3. **OCR Service Module** (`src/app/api/services/ocrService.ts`):
-   - Complete Datalab Marker API integration
-   - Asynchronous submission and polling architecture
-   - Configurable processing options (force_ocr, use_llm, output_format)
-   - Comprehensive error handling and retry logic
-   - Timeout management (5 minutes default)
-
-4. **Upload API Enhancement** (`src/app/api/uploadDocument/route.ts`):
-   - **Dual-path processing**:
-     - OCR Path: Uses Datalab Marker API when `enableOCR=true`
-     - Standard Path: Uses traditional PDFLoader for regular PDFs
-   - Unified chunking and embedding pipeline
-   - Stores OCR metadata with document records
-
-**Frontend Integration:**
-1. **Upload Form UI**: OCR checkbox appears when `DATALAB_API_KEY` is configured
-2. **Form Validation**: Schema validates `enableOCR` field
-3. **User Guidance**: Help text explains when to use OCR
-4. **Dark Theme Support**: Custom checkbox styling for both light and dark modes
-
-#### Processing Flow
-
-```typescript
-// Standard PDF Upload (enableOCR: false or not set)
-1. Download PDF from URL
-2. Extract text using PDFLoader
-3. Split into chunks
-4. Generate embeddings
-5. Store in database
-
-// OCR-Enhanced Upload (enableOCR: true)
-1. Download PDF from URL
-2. Submit to Datalab Marker API
-3. Poll for completion (up to 5 minutes)
-4. Receive markdown/HTML/JSON output
-5. Split into chunks
-6. Generate embeddings
-7. Store in database with OCR metadata
-```
-
-#### OCR Configuration Options
-
-```typescript
-interface OCROptions {
-  force_ocr?: boolean;        // Force OCR even if text exists
-  use_llm?: boolean;          // Use AI for better accuracy
-  output_format?: 'markdown' | 'json' | 'html';  // Output format
-  strip_existing_ocr?: boolean;  // Remove existing OCR layer
-}
-```
-
-#### Using the OCR Feature
-
-1. **Configure API Key** (one-time setup):
-   ```env
-   DATALAB_API_KEY=your_datalab_api_key
-   ```
-
-2. **Upload Document with OCR**:
-   - Navigate to the employer upload page
-   - Select your document
-   - Check the "Enable OCR Processing" checkbox
-   - Upload the document
-   - System will process with OCR and notify when complete
-
-3. **Monitor Processing**:
-   - OCR processing typically takes 1-3 minutes
-   - Progress is tracked in backend logs
-   - Document becomes available once processing completes
-
-#### OCR vs Standard Processing
-
-| Feature | Standard Processing | OCR Processing |
-|---------|-------------------|----------------|
-| **Best For** | Digital PDFs with embedded text | Scanned documents, images |
-| **Processing Time** | < 10 seconds | 1-3 minutes |
-| **Accuracy** | High for digital text | High for scanned/image text |
-| **Cost** | Free (OpenAI embeddings only) | Requires Datalab API credits |
-| **Handwriting Support** | No | Yes (with AI assistance) |
-| **Table Extraction** | Basic | Advanced |
-| **Image Analysis** | No | Yes |
-
-#### Error Handling
-
-The OCR system includes comprehensive error handling:
-- API connection failures
-- Timeout management (5-minute limit)
-- Retry logic for transient errors
-- Graceful fallback messages
-- Detailed error logging
-
-### Predictive Document Analysis
-
-The predictive analysis feature automatically scans uploaded documents and provides comprehensive insights:
-
-#### Example Analysis Response
-```json
-{
-  "success": true,
-  "documentId": 123,
-  "analysisType": "predictive",
-  "summary": {
-    "totalMissingDocuments": 5,
-    "highPriorityItems": 2,
-    "totalRecommendations": 3,
-    "totalSuggestedRelated": 4,
-    "analysisTimestamp": "2024-01-15T10:30:00Z"
-  },
-  "analysis": {
-    "missingDocuments": [
-      {
-        "documentName": "Employee Handbook",
-        "documentType": "Policy Document",
-        "reason": "Referenced in section 2.1 but not found in uploaded documents",
-        "page": 15,
-        "priority": "high",
-        "suggestedLinks": [
-          {
-            "title": "Sample Employee Handbook Template",
-            "link": "https://example.com/handbook-template",
-            "snippet": "Comprehensive employee handbook template..."
-          }
-        ]
-      }
-    ],
-    "recommendations": [
-      "Consider implementing a document version control system",
-      "Review document retention policies for compliance",
-      "Establish regular document audit procedures"
-    ],
-    "suggestedRelatedDocuments": [
-      {
-        "title": "Document Management Best Practices",
-        "link": "https://example.com/best-practices",
-        "snippet": "Industry standards for document organization..."
-      }
-    ]
-  }
-}
-```
-
-#### Using the Analysis in Your Workflow
-1. **Upload Documents**: Use the employer dashboard to upload your documents
-2. **Run Analysis**: Click the "Predictive Analysis" tab in the document viewer
-3. **Review Results**: Examine missing documents, recommendations, and suggestions
-4. **Take Action**: Follow the provided recommendations and suggested links
-5. **Track Progress**: Re-run analysis to verify improvements
-
-### AI Chat Integration
-
-Ask questions about your documents and get AI-powered responses:
-
-```typescript
-// Example API call for document Q&A
-const response = await fetch('/api/LangChain', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    question: "What are the key compliance requirements mentioned?",
-    documentId: 123,
-    style: "professional" // or "casual", "technical", "summary"
-  })
-});
-```
-
-## 🎯 Use Cases & Benefits
-
-### Industries That Benefit Most
-
-#### Legal & Compliance
-- **Contract Management**: Identify missing clauses, attachments, and referenced documents
-- **Regulatory Compliance**: Ensure all required documentation is present and up-to-date
-- **Due Diligence**: Comprehensive document review for mergers and acquisitions
-- **Risk Assessment**: Identify potential legal risks from missing documentation
-
-#### Human Resources
-- **Employee Documentation**: Ensure all required employee documents are collected
-- **Policy Compliance**: Verify policy documents are complete and current
-- **Onboarding Process**: Streamline new employee documentation requirements
-- **Audit Preparation**: Prepare for HR audits with confidence
-
-#### Finance & Accounting
-- **Financial Reporting**: Ensure all supporting documents are included
-- **Audit Trail**: Maintain complete documentation for financial audits
-- **Compliance Reporting**: Meet regulatory requirements for document retention
-- **Process Documentation**: Streamline financial process documentation
-
-#### Healthcare
-- **Patient Records**: Ensure complete patient documentation
-- **Regulatory Compliance**: Meet healthcare documentation requirements
-- **Quality Assurance**: Maintain high standards for medical documentation
-- **Risk Management**: Identify potential documentation gaps
-
-### Business Benefits
-
-#### Time Savings
-- **Automated Analysis**: Reduce manual document review time by 80%
-- **Instant Insights**: Get immediate feedback on document completeness
-- **Proactive Management**: Address issues before they become problems
-
-#### Risk Reduction
-- **Compliance Assurance**: Never miss critical required documents
-- **Error Prevention**: Catch documentation gaps before they cause issues
-- **Audit Readiness**: Always be prepared for regulatory audits
-
-#### Process Improvement
-- **Standardized Workflows**: Establish consistent document management processes
-- **Quality Control**: Maintain high standards for document organization
-- **Continuous Improvement**: Use AI insights to optimize processes
-
-### ROI Metrics
-- **Document Review Time**: 80% reduction in manual review time
-- **Compliance Risk**: 95% reduction in missing document incidents
-- **Audit Preparation**: 90% faster audit preparation time
-- **Process Efficiency**: 70% improvement in document management workflows
-
 ## 🛠 Tech Stack
 
 - **Framework**: [Next.js 15](https://nextjs.org/) with TypeScript
@@ -1011,6 +548,471 @@ pnpm format:check        # Check code formatting
 pnpm check               # Run linting and type checking
 pnpm preview             # Build and start production preview
 ```
+
+---
+
+## 🧭 End-to-end workflow (how the features connect)
+
+PDR AI is designed as one connected loop: **capture documents → make them searchable → ask questions → spot gaps → act → learn**.
+
+1. **Authenticate & pick a workspace (Employer / Employee)**  
+   Clerk handles auth and role-based access so employers can manage documents + employees, while employees can view assigned materials.
+
+2. **Upload documents (optionally OCR)**  
+   Documents are uploaded via UploadThing. If a PDF is scanned/image-based, you can enable **OCR** (Datalab Marker API) to extract clean text.
+
+3. **Index & store for retrieval**  
+   The backend chunks the extracted text and generates embeddings, storing everything in PostgreSQL (+ pgvector) so downstream AI features can retrieve the right passages.
+
+4. **Interact with documents (RAG chat + viewer)**  
+   Users open a document in the viewer and ask questions. The AI uses **RAG** over your indexed chunks to answer with document-grounded context, and chat history persists per document/session.
+
+5. **Run Predictive Document Analysis (find gaps and next steps)**  
+   When you need completeness and compliance help, the predictive analyzer highlights **missing documents**, **broken references**, priority/urgency, and recommended actions (see deep dive below).
+
+6. **Study Agent: StudyBuddy + AI Teacher (learn from your own documents)**  
+   Turn uploaded PDFs into a guided study experience. The Study Agent reuses the same ingestion + indexing pipeline so both modes can answer questions with **RAG grounded in your uploaded documents**.
+   - **StudyBuddy mode**: a friendly coach that helps you stay consistent (plan, notes, timer, quick Q&A)
+   - **AI Teacher mode**: a structured instructor with multiple teaching surfaces (view/edit/draw) for lessons
+
+7. **Close the loop**  
+   Use insights from chat + predictive analysis + StudyBuddy sessions to upload missing docs, update categories, and keep your organization's knowledge base complete and actionable.
+
+## Web Search Agent Workflow
+<img width="1106" height="336" alt="Screenshot 2025-11-16 at 2 53 18 PM" src="https://github.com/user-attachments/assets/8c2d5ec2-a57e-4afa-97cf-1961dcb9049f" />
+
+## 🎓 Study Agent (StudyBuddy + AI Teacher)
+
+The Study Agent is the "learn it" layer on top of the same document ingestion + RAG stack.
+
+### How sessions work (shared foundation)
+
+1. **Upload or select your study documents** (same documents used for document Q&A / analysis)
+2. **Start onboarding** at `/employer/studyAgent/onboarding`
+3. **Choose mode**: **StudyBuddy** or **AI Teacher**
+4. **Create a study session**:
+   - A new session is created and you're redirected with `?sessionId=...`
+   - Your **profile** (name/grade/gender/field of study) and **preferences** (selected docs, AI personality) are stored
+   - An initial **study plan** is generated from the documents you selected
+5. **Resume anytime**: session data is loaded using `sessionId` so conversations and study progress persist
+
+### StudyBuddy (friendly coach)
+
+StudyBuddy is optimized for momentum and daily studying while staying grounded in your documents.
+
+- **Document-grounded help (RAG)**: ask questions about your selected PDFs, and the agent retrieves relevant chunks to answer.
+- **Voice chat**:
+  - Speech-to-text via the browser's Web Speech API
+  - Optional text-to-speech via ElevenLabs (if configured)
+  - Messages are persisted to your session so you can continue later
+- **Study Plan (Goals)**:
+  - Create/edit/delete goals
+  - Mark goals complete/incomplete and track progress
+  - Attach "materials" (documents) to each goal and one-click "pull up" the doc in the viewer
+- **Notes**:
+  - Create/update/delete notes tied to your study session
+  - Tag notes and keep them organized while you study
+- **Pomodoro timer**:
+  - Run focus sessions alongside your plan/notes
+  - Timer state can be synced to your session
+- **AI Query tab**:
+  - A fast Q&A surface for questions while you keep your call / plan visible
+
+### AI Teacher (structured instructor)
+
+AI Teacher is optimized for guided instruction and "teaching by doing" across multiple views.
+
+- **Voice-led teaching + study plan tracking**:
+  - Voice chat for interactive lessons
+  - A persistent study plan with material links (click to open the relevant doc)
+- **Three teaching surfaces (switchable in-session)**:
+  - **View**: document viewer for reading/teaching directly from the selected PDF
+  - **Edit**: a collaborative docs editor where you and the AI can build structured notes/explanations and download the result
+  - **Draw**: a whiteboard for visual explanations (pen/eraser, undo/redo, clear, export as PNG)
+- **AI Query tab**:
+  - Ask targeted questions without interrupting the lesson flow
+
+### Persistence & sync (what's saved)
+
+Per `sessionId`, the Study Agent persists:
+- **messages** (StudyBuddy/Teacher conversations)
+- **study goals** (plan items + completion state + attached materials)
+- **notes** (StudyBuddy notes + updates)
+- **preferences/profile** (selected documents and learner context)
+
+Key API surfaces used by the Study Agent:
+- `POST /api/study-agent/me/session` (create session)
+- `GET /api/study-agent/me?sessionId=...` (load session data)
+- `POST /api/study-agent/chat` (RAG chat + optional agentic tools for notes/tasks/timer)
+- `POST /api/study-agent/me/messages` (persist chat messages)
+- `POST/PUT/DELETE /api/study-agent/me/study-goals` (plan CRUD)
+- `POST /api/study-agent/sync/notes` (notes sync)
+
+## 📚 Improved Knowledge Base Formation
+
+PDR AI uses a sophisticated **Hybrid Retrieval-Augmented Generation (RAG)** architecture that combines multiple retrieval strategies for optimal document search and Q&A accuracy.
+
+### Knowledge Base Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     DOCUMENT INGESTION PIPELINE                  │
+├─────────────────────────────────────────────────────────────────┤
+│  Upload → OCR/Parse → Intelligent Chunking → Vectorization      │
+│                            ↓                                     │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │                   PostgreSQL + pgvector                  │    │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐   │    │
+│  │  │  Documents   │  │  PDF Chunks  │  │  Embeddings  │   │    │
+│  │  │  (metadata)  │  │  (content)   │  │  (1536-dim)  │   │    │
+│  │  └──────────────┘  └──────────────┘  └──────────────┘   │    │
+│  └─────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                    ENSEMBLE RETRIEVAL SYSTEM                     │
+├─────────────────────────────────────────────────────────────────┤
+│                          Query                                   │
+│                            ↓                                     │
+│  ┌────────────────────┐       ┌────────────────────┐            │
+│  │   BM25 Retriever   │       │  Vector Retriever  │            │
+│  │   (Keyword/Lexical)│       │   (Semantic/ANN)   │            │
+│  │   Weight: 0.4      │       │   Weight: 0.6      │            │
+│  └─────────┬──────────┘       └─────────┬──────────┘            │
+│            │                            │                        │
+│            └──────────┬─────────────────┘                        │
+│                       ↓                                          │
+│         ┌─────────────────────────┐                             │
+│         │  Reciprocal Rank Fusion │                             │
+│         │      (RRF Merge)        │                             │
+│         └───────────┬─────────────┘                             │
+│                     ↓                                            │
+│              Ranked Results                                      │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Retrieval Components
+
+| Component | Description | Strength |
+|-----------|-------------|----------|
+| **BM25 Retriever** | Keyword-based lexical search using TF-IDF scoring | Exact term matching, acronyms, proper nouns |
+| **Vector Retriever** | Semantic search using OpenAI `text-embedding-3-small` embeddings (1536 dimensions) | Conceptual similarity, paraphrasing, synonyms |
+| **Ensemble Retriever** | Combines BM25 + Vector with Reciprocal Rank Fusion | Best of both approaches |
+
+### Search Scopes
+
+The retrieval system supports three search scopes:
+
+- **Document Scope**: Search within a single document for focused Q&A
+- **Company Scope**: Search across all documents in a company's knowledge base
+- **Multi-Document Scope**: Search across a selected subset of documents (used by Study Agent)
+
+### Chunking Strategy
+
+Documents are intelligently chunked using the following configuration:
+
+```typescript
+{
+  maxTokens: 500,        // ~2000 characters per chunk
+  overlapTokens: 50,     // ~200 characters overlap for context continuity
+  charsPerToken: 4,      // Character-to-token ratio
+  includePageContext: true  // Preserve page metadata
+}
+```
+
+**Chunk Types:**
+- **Text Chunks**: Prose content split at sentence boundaries with overlap
+- **Table Chunks**: Structured data preserved as markdown with semantic descriptions
+
+### Data Storage Schema
+
+```sql
+-- PDF Chunks table with vector embeddings
+CREATE TABLE pdr_ai_v2_pdf_chunks (
+  id SERIAL PRIMARY KEY,
+  document_id BIGINT REFERENCES document(id),
+  page INTEGER NOT NULL,
+  chunk_index INTEGER NOT NULL,
+  content TEXT NOT NULL,
+  embedding VECTOR(1536)  -- pgvector type
+);
+
+-- Indexes for fast retrieval
+CREATE INDEX ON pdf_chunks (document_id);
+CREATE INDEX ON pdf_chunks (document_id, page, chunk_index);
+```
+
+### Fallback Mechanisms
+
+The system includes automatic fallback:
+1. **Primary**: Ensemble (BM25 + Vector) retrieval
+2. **Fallback**: BM25-only retrieval if vector search fails
+3. **Graceful degradation**: Returns empty results rather than errors
+
+## 🔍 Predictive Document Analysis Deep Dive
+
+The **Predictive Document Analysis** feature is the cornerstone of PDR AI, providing intelligent document management and compliance assistance:
+
+### How It Works
+1. **Document Upload**: Upload your professional documents (PDFs, contracts, manuals, etc.)
+2. **AI Analysis**: Our advanced AI scans through the document content and structure
+3. **Missing Document Detection**: Identifies references to documents that should be present but aren't
+4. **Priority Classification**: Automatically categorizes findings by importance and urgency
+5. **Smart Recommendations**: Provides specific, actionable recommendations for document management
+6. **Related Content**: Suggests relevant external resources and related documents
+
+### Key Benefits
+- **Compliance Assurance**: Never miss critical documents required for compliance
+- **Workflow Optimization**: Streamline document management with AI-powered insights
+- **Risk Mitigation**: Identify potential gaps in documentation before they become issues
+- **Time Savings**: Automated analysis saves hours of manual document review
+- **Proactive Management**: Stay ahead of document requirements and deadlines
+
+### Analysis Output
+The system provides comprehensive analysis including:
+- **Missing Documents Count**: Total number of missing documents identified
+- **High Priority Items**: Critical documents requiring immediate attention
+- **Recommendations**: Specific actions to improve document organization
+- **Suggested Related Documents**: External resources and related content
+- **Page References**: Exact page numbers where missing documents are mentioned
+
+## 📖 Usage Examples
+
+### OCR Processing for Scanned Documents
+
+PDR AI includes optional advanced OCR (Optical Character Recognition) capabilities for processing scanned documents, images, and PDFs with poor text extraction:
+
+#### When to Use OCR
+- **Scanned Documents**: Physical documents that have been scanned to PDF
+- **Image-based PDFs**: PDFs that contain images of text rather than actual text
+- **Poor Quality Documents**: Documents with low-quality text that standard extraction can't read
+- **Handwritten Content**: Documents with handwritten notes or forms (with AI assistance)
+- **Mixed Content**: Documents combining text, images, tables, and diagrams
+
+#### How It Works
+
+**Backend Infrastructure:**
+1. **Environment Configuration**: Set `DATALAB_API_KEY` in your `.env` file (optional)
+2. **Database Schema**: Tracks OCR status with fields:
+   - `ocrEnabled`: Boolean flag indicating if OCR was requested
+   - `ocrProcessed`: Boolean flag indicating if OCR completed successfully
+   - `ocrMetadata`: JSON field storing OCR processing details (page count, processing time, etc.)
+
+3. **OCR Service Module** (`src/app/api/services/ocrService.ts`):
+   - Complete Datalab Marker API integration
+   - Asynchronous submission and polling architecture
+   - Configurable processing options (force_ocr, use_llm, output_format)
+   - Comprehensive error handling and retry logic
+   - Timeout management (5 minutes default)
+
+4. **Upload API Enhancement** (`src/app/api/uploadDocument/route.ts`):
+   - **Dual-path processing**:
+     - OCR Path: Uses Datalab Marker API when `enableOCR=true`
+     - Standard Path: Uses traditional PDFLoader for regular PDFs
+   - Unified chunking and embedding pipeline
+   - Stores OCR metadata with document records
+
+**Frontend Integration:**
+1. **Upload Form UI**: OCR checkbox appears when `DATALAB_API_KEY` is configured
+2. **Form Validation**: Schema validates `enableOCR` field
+3. **User Guidance**: Help text explains when to use OCR
+4. **Dark Theme Support**: Custom checkbox styling for both light and dark modes
+
+#### Processing Flow
+
+```typescript
+// Standard PDF Upload (enableOCR: false or not set)
+1. Download PDF from URL
+2. Extract text using PDFLoader
+3. Split into chunks
+4. Generate embeddings
+5. Store in database
+
+// OCR-Enhanced Upload (enableOCR: true)
+1. Download PDF from URL
+2. Submit to Datalab Marker API
+3. Poll for completion (up to 5 minutes)
+4. Receive markdown/HTML/JSON output
+5. Split into chunks
+6. Generate embeddings
+7. Store in database with OCR metadata
+```
+
+#### OCR Configuration Options
+
+```typescript
+interface OCROptions {
+  force_ocr?: boolean;        // Force OCR even if text exists
+  use_llm?: boolean;          // Use AI for better accuracy
+  output_format?: 'markdown' | 'json' | 'html';  // Output format
+  strip_existing_ocr?: boolean;  // Remove existing OCR layer
+}
+```
+
+#### Using the OCR Feature
+
+1. **Configure API Key** (one-time setup):
+   ```env
+   DATALAB_API_KEY=your_datalab_api_key
+   ```
+
+2. **Upload Document with OCR**:
+   - Navigate to the employer upload page
+   - Select your document
+   - Check the "Enable OCR Processing" checkbox
+   - Upload the document
+   - System will process with OCR and notify when complete
+
+3. **Monitor Processing**:
+   - OCR processing typically takes 1-3 minutes
+   - Progress is tracked in backend logs
+   - Document becomes available once processing completes
+
+#### OCR vs Standard Processing
+
+| Feature | Standard Processing | OCR Processing |
+|---------|-------------------|----------------|
+| **Best For** | Digital PDFs with embedded text | Scanned documents, images |
+| **Processing Time** | < 10 seconds | 1-3 minutes |
+| **Accuracy** | High for digital text | High for scanned/image text |
+| **Cost** | Free (OpenAI embeddings only) | Requires Datalab API credits |
+| **Handwriting Support** | No | Yes (with AI assistance) |
+| **Table Extraction** | Basic | Advanced |
+| **Image Analysis** | No | Yes |
+
+#### Error Handling
+
+The OCR system includes comprehensive error handling:
+- API connection failures
+- Timeout management (5-minute limit)
+- Retry logic for transient errors
+- Graceful fallback messages
+- Detailed error logging
+
+### Predictive Document Analysis
+
+The predictive analysis feature automatically scans uploaded documents and provides comprehensive insights:
+
+#### Example Analysis Response
+```json
+{
+  "success": true,
+  "documentId": 123,
+  "analysisType": "predictive",
+  "summary": {
+    "totalMissingDocuments": 5,
+    "highPriorityItems": 2,
+    "totalRecommendations": 3,
+    "totalSuggestedRelated": 4,
+    "analysisTimestamp": "2024-01-15T10:30:00Z"
+  },
+  "analysis": {
+    "missingDocuments": [
+      {
+        "documentName": "Employee Handbook",
+        "documentType": "Policy Document",
+        "reason": "Referenced in section 2.1 but not found in uploaded documents",
+        "page": 15,
+        "priority": "high",
+        "suggestedLinks": [
+          {
+            "title": "Sample Employee Handbook Template",
+            "link": "https://example.com/handbook-template",
+            "snippet": "Comprehensive employee handbook template..."
+          }
+        ]
+      }
+    ],
+    "recommendations": [
+      "Consider implementing a document version control system",
+      "Review document retention policies for compliance",
+      "Establish regular document audit procedures"
+    ],
+    "suggestedRelatedDocuments": [
+      {
+        "title": "Document Management Best Practices",
+        "link": "https://example.com/best-practices",
+        "snippet": "Industry standards for document organization..."
+      }
+    ]
+  }
+}
+```
+
+#### Using the Analysis in Your Workflow
+1. **Upload Documents**: Use the employer dashboard to upload your documents
+2. **Run Analysis**: Click the "Predictive Analysis" tab in the document viewer
+3. **Review Results**: Examine missing documents, recommendations, and suggestions
+4. **Take Action**: Follow the provided recommendations and suggested links
+5. **Track Progress**: Re-run analysis to verify improvements
+
+### AI Chat Integration
+
+Ask questions about your documents and get AI-powered responses:
+
+```typescript
+// Example API call for document Q&A
+const response = await fetch('/api/LangChain', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    question: "What are the key compliance requirements mentioned?",
+    documentId: 123,
+    style: "professional" // or "casual", "technical", "summary"
+  })
+});
+```
+
+## 🎯 Use Cases & Benefits
+
+### Industries That Benefit Most
+
+#### Legal & Compliance
+- **Contract Management**: Identify missing clauses, attachments, and referenced documents
+- **Regulatory Compliance**: Ensure all required documentation is present and up-to-date
+- **Due Diligence**: Comprehensive document review for mergers and acquisitions
+- **Risk Assessment**: Identify potential legal risks from missing documentation
+
+#### Human Resources
+- **Employee Documentation**: Ensure all required employee documents are collected
+- **Policy Compliance**: Verify policy documents are complete and current
+- **Onboarding Process**: Streamline new employee documentation requirements
+- **Audit Preparation**: Prepare for HR audits with confidence
+
+#### Finance & Accounting
+- **Financial Reporting**: Ensure all supporting documents are included
+- **Audit Trail**: Maintain complete documentation for financial audits
+- **Compliance Reporting**: Meet regulatory requirements for document retention
+- **Process Documentation**: Streamline financial process documentation
+
+#### Healthcare
+- **Patient Records**: Ensure complete patient documentation
+- **Regulatory Compliance**: Meet healthcare documentation requirements
+- **Quality Assurance**: Maintain high standards for medical documentation
+- **Risk Management**: Identify potential documentation gaps
+
+### Business Benefits
+
+#### Time Savings
+- **Automated Analysis**: Reduce manual document review time by 80%
+- **Instant Insights**: Get immediate feedback on document completeness
+- **Proactive Management**: Address issues before they become problems
+
+#### Risk Reduction
+- **Compliance Assurance**: Never miss critical required documents
+- **Error Prevention**: Catch documentation gaps before they cause issues
+- **Audit Readiness**: Always be prepared for regulatory audits
+
+#### Process Improvement
+- **Standardized Workflows**: Establish consistent document management processes
+- **Quality Control**: Maintain high standards for document organization
+- **Continuous Improvement**: Use AI insights to optimize processes
+
+### ROI Metrics
+- **Document Review Time**: 80% reduction in manual review time
+- **Compliance Risk**: 95% reduction in missing document incidents
+- **Audit Preparation**: 90% faster audit preparation time
+- **Process Efficiency**: 70% improvement in document management workflows
 
 ## 📁 Project Structure
 
