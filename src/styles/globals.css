@@ -102,13 +102,15 @@ html, body {
   border: none;
   cursor: pointer;
   transition: all 0.3s ease;
-  color: inherit;
+  color: #7c3aed;
 }
 
+.dark .theme-toggle-btn,
 [data-theme="dark"] .theme-toggle-btn {
   color: #c084fc;
 }
 
+:not(.dark) .theme-toggle-btn,
 [data-theme="light"] .theme-toggle-btn {
   color: #7c3aed;
 }

@@ -41,19 +41,19 @@
 }
 
 /* Light Theme Overrides */
-[data-theme="light"] .navContainer {
+:global([data-theme="light"]) .navContainer {
     @apply bg-white/80 border-b border-purple-200;
 }
 
-[data-theme="light"] .btnGhost {
+:global([data-theme="light"]) .btnGhost {
     @apply text-gray-600 hover:bg-purple-100 hover:text-purple-700;
 }
 
-[data-theme="light"] .iconPurple {
+:global([data-theme="light"]) .iconPurple {
     @apply text-purple-600;
 }
 
-[data-theme="light"] .logoText {
+:global([data-theme="light"]) .logoText {
     @apply bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent;
 }
 
