@@ -8,6 +8,19 @@ const config: NextConfig = {
   env: {
     TRANSFORMERS_BACKEND: "wasm",
     USE_ONNX_NODE: "false",
+    ONNX_EXECUTION_PROVIDERS: "wasm",
+  },
+
+  // Webpack config to completely ignore onnxruntime-node
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      // Mark onnxruntime-node as external - never bundle it
+      config.externals = config.externals || [];
+      config.externals.push({
+        "onnxruntime-node": "commonjs onnxruntime-node",
+      });
+    }
+    return config;
   },
 
   images: {
