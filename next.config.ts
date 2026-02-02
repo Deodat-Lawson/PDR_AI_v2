@@ -12,15 +12,19 @@ const config: NextConfig = {
   },
 
   // Webpack config to completely ignore onnxruntime-node
-  webpack: (config, { isServer }) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  webpack: (webpackConfig: any, { isServer }: { isServer: boolean }) => {
     if (isServer) {
       // Mark onnxruntime-node as external - never bundle it
-      config.externals = config.externals || [];
-      config.externals.push({
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      webpackConfig.externals = webpackConfig.externals ?? [];
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      webpackConfig.externals.push({
         "onnxruntime-node": "commonjs onnxruntime-node",
       });
     }
-    return config;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return webpackConfig;
   },
 
   images: {
