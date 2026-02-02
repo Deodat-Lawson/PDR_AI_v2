@@ -139,12 +139,10 @@ export function Sidebar({
       <div className="p-4 border-b border-border bg-background/50 backdrop-blur-sm">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <Link href="/" className="flex items-center gap-3 group">
               <div className="w-10 h-10 bg-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/20 group-hover:scale-105 transition-transform duration-300">
                 <Brain className="w-6 h-6 text-white" />
               </div>
               <span className="font-bold text-lg tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-indigo-600 dark:from-purple-400 dark:to-indigo-400">PDR AI</span>
-            </Link>
           </div>
           <div className="flex items-center gap-1">
             <Link href="/employer/home">

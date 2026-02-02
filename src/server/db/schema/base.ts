@@ -54,6 +54,7 @@ export const company = pgTable("company", {
     employerpasskey: varchar("employerPasskey", { length: 256 }).notNull(),
     employeepasskey: varchar("employeePasskey", { length: 256 }).notNull(),
     numberOfEmployees: varchar("numberOfEmployees", { length: 256 }).notNull(),
+    useUploadThing: boolean("use_uploadthing").default(true).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
         .default(sql`CURRENT_TIMESTAMP`)
         .notNull(),
@@ -247,6 +248,28 @@ export const documentReferenceResolution = pgTable(
         companyRefIdx: index("document_reference_resolutions_company_ref_idx").on(
             table.companyId
         ),
+    })
+);
+
+// ============================================================================
+// File Uploads (for local storage when UploadThing is disabled)
+// ============================================================================
+
+export const fileUploads = pgTable(
+    "file_uploads",
+    {
+        id: serial("id").primaryKey(),
+        userId: varchar("user_id", { length: 256 }).notNull(),
+        filename: varchar("filename", { length: 256 }).notNull(),
+        mimeType: varchar("mime_type", { length: 128 }).notNull(),
+        fileData: text("file_data").notNull(), // Base64 encoded file data
+        fileSize: integer("file_size").notNull(),
+        createdAt: timestamp("created_at", { withTimezone: true })
+            .default(sql`CURRENT_TIMESTAMP`)
+            .notNull(),
+    },
+    (table) => ({
+        userIdIdx: index("file_uploads_user_id_idx").on(table.userId),
     })
 );
 
@@ -489,6 +512,7 @@ export type PdfChunk = InferSelectModel<typeof pdfChunks>;
 export type ChatHistoryEntry = InferSelectModel<typeof ChatHistory>;
 export type PredictiveDocumentAnalysisResult = InferSelectModel<typeof predictiveDocumentAnalysisResults>;
 export type DocumentReferenceResolution = InferSelectModel<typeof documentReferenceResolution>;
+export type FileUpload = InferSelectModel<typeof fileUploads>;
 export type OcrJob = InferSelectModel<typeof ocrJobs>;
 export type OcrProcessingStep = InferSelectModel<typeof ocrProcessingSteps>;
 export type OcrCostTracking = InferSelectModel<typeof ocrCostTracking>;

@@ -158,7 +158,6 @@ async function callEmbeddingAPIWithRetry(
       );
 
       if (attempt < config.maxRetries - 1) {
-        // Exponential backoff
         const backoffMs = config.retryDelayMs * Math.pow(2, attempt);
         await delay(backoffMs);
       }
@@ -170,14 +169,10 @@ async function callEmbeddingAPIWithRetry(
   );
 }
 
-/**
- * Call OpenAI embedding API
- */
 async function callEmbeddingAPI(
   texts: string[],
   config: Required<EmbeddingConfig>
 ): Promise<{ embeddings: number[][]; tokensUsed: number }> {
-  // Sanitize texts - remove null characters and trim
   const sanitizedTexts = texts.map((text) =>
     text.replace(/\0/g, "").trim() || " "
   );
@@ -202,7 +197,6 @@ async function callEmbeddingAPI(
 
   const data = (await response.json()) as OpenAIEmbeddingResponse;
 
-  // Sort by index to ensure correct order
   const sortedData = [...data.data].sort((a, b) => a.index - b.index);
   const embeddings = sortedData.map((item) => item.embedding);
 
@@ -213,9 +207,6 @@ async function callEmbeddingAPI(
 }
 
 
-/**
- * Utility delay function
- */
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }

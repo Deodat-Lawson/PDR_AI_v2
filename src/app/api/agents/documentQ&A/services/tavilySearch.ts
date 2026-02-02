@@ -11,6 +11,12 @@ export async function performTavilySearch(
     query: string,
     maxResults = 5
 ): Promise<WebSearchResult[]> {
+    // Return empty results if Tavily API key is not configured
+    if (!env.server.TAVILY_API_KEY) {
+        console.warn('Tavily API key not configured. Web search disabled.');
+        return [];
+    }
+
     try {
         const response = await fetch('https://api.tavily.com/search', {
             method: 'POST',

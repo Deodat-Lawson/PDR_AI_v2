@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
-import { Calendar, FileText, FolderPlus, Plus } from "lucide-react";
+import React, { useState, useRef, useCallback } from "react";
+import { Calendar, FileText, FolderPlus, Plus, Upload, Cloud, Database, ExternalLink, AlertCircle } from "lucide-react";
+import Link from "next/link";
 import { UploadDropzone } from "~/app/utils/uploadthing";
 import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
@@ -18,11 +19,22 @@ interface UploadFormData {
 
 interface UploadFormProps {
     categories: { id: string; name: string }[];
+    useUploadThing: boolean;
+    isUploadThingConfigured: boolean;
+    onToggleUploadMethod: (useUploadThing: boolean) => Promise<void>;
+    isUpdatingPreference: boolean;
 }
 
-const UploadForm: React.FC<UploadFormProps> = ({ categories }) => {
+const UploadForm: React.FC<UploadFormProps> = ({ 
+    categories, 
+    useUploadThing, 
+    isUploadThingConfigured,
+    onToggleUploadMethod,
+    isUpdatingPreference 
+}) => {
     const { userId } = useAuth();
     const router = useRouter();
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // --- Form State ---
     const [formData, setFormData] = useState<UploadFormData>({
@@ -35,7 +47,9 @@ const UploadForm: React.FC<UploadFormProps> = ({ categories }) => {
     });
 
     const [errors, setErrors] = useState<Partial<UploadFormData>>({});
-    const [isSubmitting, setIsSubmitting] = useState(false); // For "Uploading..." state
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    const [isDragActive, setIsDragActive] = useState(false);
 
     // --- Handlers ---
     const handleInputChange = (
@@ -68,12 +82,100 @@ const UploadForm: React.FC<UploadFormProps> = ({ categories }) => {
         return Object.keys(newErrors).length === 0;
     };
 
+    // Handle local file upload (when UploadThing is disabled)
+    const handleLocalFileUpload = useCallback(async (file: File) => {
+        if (file.type !== "application/pdf") {
+            setErrors((prev) => ({ ...prev, fileUrl: "Only PDF files are allowed" }));
+            return;
+        }
+
+        if (file.size > 16 * 1024 * 1024) {
+            setErrors((prev) => ({ ...prev, fileUrl: "File size must be less than 16MB" }));
+            return;
+        }
+
+        setIsUploading(true);
+        setErrors((prev) => ({ ...prev, fileUrl: undefined }));
+
+        try {
+            const formDataToUpload = new FormData();
+            formDataToUpload.append("file", file);
+
+            const response = await fetch("/api/upload-local", {
+                method: "POST",
+                body: formDataToUpload,
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json() as { error?: string };
+                throw new Error(errorData.error ?? "Upload failed");
+            }
+
+            const data = await response.json() as { url: string; name: string };
+            
+            setFormData((prev) => ({
+                ...prev,
+                fileUrl: data.url,
+                fileName: data.name,
+            }));
+        } catch (error) {
+            console.error("Upload error:", error);
+            setErrors((prev) => ({
+                ...prev,
+                fileUrl: error instanceof Error ? error.message : "Failed to upload file",
+            }));
+        } finally {
+            setIsUploading(false);
+        }
+    }, []);
+
+    // Native file input change handler
+    const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            void handleLocalFileUpload(file);
+        }
+    }, [handleLocalFileUpload]);
+
+    // Drag and drop handlers
+    const handleDragEnter = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragActive(true);
+    }, []);
+
+    const handleDragLeave = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragActive(false);
+    }, []);
+
+    const handleDragOver = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+    }, []);
+
+    const handleDrop = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragActive(false);
+
+        const file = e.dataTransfer.files?.[0];
+        if (file) {
+            void handleLocalFileUpload(file);
+        }
+    }, [handleLocalFileUpload]);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!validateForm()) return;
 
         try {
             setIsSubmitting(true);
+
+            // Determine storage type based on current mode
+            // If UploadThing is configured and enabled, use cloud; otherwise database
+            const storageType = useUploadThing && isUploadThingConfigured ? "cloud" : "database";
 
             const response = await fetch("/api/uploadDocument", {
                 method: "POST",
@@ -83,14 +185,13 @@ const UploadForm: React.FC<UploadFormProps> = ({ categories }) => {
                     documentName: formData.title,
                     category: formData.category,
                     documentUrl: formData.fileUrl,
+                    storageType,
                 }),
             });
 
             if (!response.ok) {
                 console.error("Error uploading document");
-                // You could surface an error message or toast here
             } else {
-                // On success, redirect or reset
                 router.push("/employer/documents");
             }
         } catch (error) {
@@ -100,11 +201,36 @@ const UploadForm: React.FC<UploadFormProps> = ({ categories }) => {
         }
     };
 
-    // --- Render ---
-    return (
-        <form onSubmit={handleSubmit} className={styles.form}>
-            {/* File Upload Area */}
-            {!formData.fileUrl ? (
+    // Handle toggle change
+    const handleToggleChange = useCallback(() => {
+        // Clear any uploaded file when switching methods
+        setFormData((prev) => ({ ...prev, fileUrl: null, fileName: "" }));
+        void onToggleUploadMethod(!useUploadThing);
+    }, [useUploadThing, onToggleUploadMethod]);
+
+    // --- Render Upload Area ---
+    const renderUploadArea = () => {
+        if (formData.fileUrl) {
+            return (
+                <div className={styles.fileInfo}>
+                    <FileText className={styles.fileIcon} />
+                    <span className={styles.fileName}>{formData.fileName}</span>
+                    <button
+                        type="button"
+                        onClick={() =>
+                            setFormData((prev) => ({ ...prev, fileUrl: null, fileName: "" }))
+                        }
+                        className={styles.removeFile}
+                    >
+                        Remove
+                    </button>
+                </div>
+            );
+        }
+
+        // Use UploadThing if enabled
+        if (useUploadThing) {
+            return (
                 <UploadDropzone
                     endpoint="pdfUploader"
                     onClientUploadComplete={(res) => {
@@ -122,21 +248,98 @@ const UploadForm: React.FC<UploadFormProps> = ({ categories }) => {
                     }}
                     className={styles.uploadArea}
                 />
-            ) : (
-                <div className={styles.fileInfo}>
-                    <FileText className={styles.fileIcon} />
-                    <span className={styles.fileName}>{formData.fileName}</span>
+            );
+        }
+
+        // Native file upload when UploadThing is disabled
+        return (
+            <div
+                className={`${styles.uploadArea} ${isDragActive ? styles.dragActive : ""}`}
+                onDragEnter={handleDragEnter}
+                onDragLeave={handleDragLeave}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                        fileInputRef.current?.click();
+                    }
+                }}
+            >
+                <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="application/pdf"
+                    onChange={handleFileInputChange}
+                    className={styles.fileInput}
+                />
+                <Upload className={styles.uploadIcon} />
+                {isUploading ? (
+                    <p className={styles.uploadText}>Uploading...</p>
+                ) : (
+                    <>
+                        <p className={styles.uploadText}>
+                            Drag & drop your PDF here, or{" "}
+                            <span className={styles.browseButton}>browse</span>
+                        </p>
+                        <p className={styles.uploadHint}>PDF files up to 16MB</p>
+                    </>
+                )}
+            </div>
+        );
+    };
+
+    // --- Render ---
+    return (
+        <form onSubmit={handleSubmit} className={styles.form}>
+            {/* Storage Toggle */}
+            <div className={styles.storageToggle}>
+                <span className={styles.storageToggleLabel}>Upload Storage:</span>
+                <div className={styles.toggleContainer}>
                     <button
                         type="button"
-                        onClick={() =>
-                            setFormData((prev) => ({ ...prev, fileUrl: null, fileName: "" }))
-                        }
-                        className={styles.removeFile}
+                        className={`${styles.toggleOption} ${useUploadThing && isUploadThingConfigured ? styles.toggleOptionActive : ""} ${!isUploadThingConfigured ? styles.toggleOptionDisabled : ""}`}
+                        onClick={() => isUploadThingConfigured && !useUploadThing && handleToggleChange()}
+                        disabled={isUpdatingPreference || useUploadThing || !isUploadThingConfigured}
+                        title={!isUploadThingConfigured ? "UploadThing not configured" : undefined}
                     >
-                        Remove
+                        <Cloud className={styles.toggleIcon} />
+                        <span>Cloud</span>
+                    </button>
+                    <button
+                        type="button"
+                        className={`${styles.toggleOption} ${!useUploadThing || !isUploadThingConfigured ? styles.toggleOptionActive : ""}`}
+                        onClick={() => useUploadThing && handleToggleChange()}
+                        disabled={isUpdatingPreference || !useUploadThing}
+                    >
+                        <Database className={styles.toggleIcon} />
+                        <span>Database</span>
                     </button>
                 </div>
+                {isUpdatingPreference && (
+                    <span className={styles.updatingText}>Updating...</span>
+                )}
+            </div>
+
+            {/* UploadThing not configured message */}
+            {!isUploadThingConfigured && (
+                <div className={styles.configWarning}>
+                    <AlertCircle className={styles.configWarningIcon} />
+                    <div className={styles.configWarningContent}>
+                        <span className={styles.configWarningText}>
+                            Cloud storage (UploadThing) is not configured.
+                        </span>
+                        <Link href="/deployment" className={styles.configWarningLink}>
+                            Set up in Deployment Guide <ExternalLink className={styles.configWarningLinkIcon} />
+                        </Link>
+                    </div>
+                </div>
             )}
+
+            {/* File Upload Area */}
+            {renderUploadArea()}
             {errors.fileUrl && <span className={styles.error}>{errors.fileUrl}</span>}
 
             {/* Document Details */}
@@ -219,7 +422,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ categories }) => {
             <button
                 type="submit"
                 className={styles.submitButton}
-                disabled={isSubmitting}
+                disabled={isSubmitting || isUploading}
             >
                 <Plus className={styles.buttonIcon} />
                 {isSubmitting ? "Uploading..." : "Upload Document"}
