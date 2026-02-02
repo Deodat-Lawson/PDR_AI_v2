@@ -101,7 +101,7 @@ interface PredictiveAnalysisResponse {
 
 const DocumentViewer: React.FC = () => {
     const router = useRouter();
-    const { isLoaded, userId } = useAuth();
+    const { isLoaded, isSignedIn, userId } = useAuth();
     const [documents, setDocuments] = useState<DocumentType[]>([]);
     const [selectedDoc, setSelectedDoc] = useState<DocumentType | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
@@ -124,10 +124,12 @@ const DocumentViewer: React.FC = () => {
 
 
     useEffect(() => {
+        // Wait for Clerk to fully load
         if (!isLoaded) return;
 
-        if (!userId) {
-            window.alert("Authentication failed! No user found.");
+        // Use isSignedIn which is more reliable than checking userId directly
+        if (!isSignedIn || !userId) {
+            console.error("[Auth Debug] isLoaded:", isLoaded, "isSignedIn:", isSignedIn, "userId:", userId);
             router.push("/");
             return;
         }
@@ -156,7 +158,7 @@ const DocumentViewer: React.FC = () => {
         };
 
         checkEmployeeRole().catch(console.error);
-    }, [isLoaded, userId, router]);
+    }, [isLoaded, isSignedIn, userId, router]);
 
     useEffect(() => {
         if (!userId) return;
