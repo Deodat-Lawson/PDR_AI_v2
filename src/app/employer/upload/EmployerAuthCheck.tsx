@@ -13,15 +13,16 @@ const EmployerAuthCheck: React.FC<PropsWithChildren<EmployerAuthCheckProps>> = (
                                                                                     onAuthSuccess,
                                                                                     children,
                                                                                 }) => {
-    const { isLoaded, userId } = useAuth();
+    const { isLoaded, isSignedIn, userId } = useAuth();
     const router = useRouter();
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         if (!isLoaded) return;
 
-        if (!userId) {
-            alert("Authentication failed! No user found.");
+        // Use isSignedIn for reliable auth check
+        if (!isSignedIn || !userId) {
+            console.error("[Auth Debug] isLoaded:", isLoaded, "isSignedIn:", isSignedIn, "userId:", userId);
             router.push("/");
             return;
         }
@@ -49,7 +50,7 @@ const EmployerAuthCheck: React.FC<PropsWithChildren<EmployerAuthCheckProps>> = (
         };
 
         checkEmployerRole().catch(console.error);
-    }, [isLoaded, userId, router, onAuthSuccess]);
+    }, [isLoaded, isSignedIn, userId, router, onAuthSuccess]);
 
     if (loading) {
         return <LoadingPage />;

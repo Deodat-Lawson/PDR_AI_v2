@@ -31,7 +31,7 @@ const SettingsPage = () => {
     const router = useRouter();
 
     // Clerk Auth
-    const { isLoaded, userId } = useAuth();
+    const { isLoaded, isSignedIn, userId } = useAuth();
     const { user } = useUser();
 
     // --------------------------------------------------------------------------
@@ -85,9 +85,10 @@ const SettingsPage = () => {
     useEffect(() => {
         if (!isLoaded) return;
 
-        if (!userId) {
-            // Show popup and redirect home
-            showPopupAndRedirect("Authentication failed! No user found.", "/");
+        // Use isSignedIn for reliable auth check
+        if (!isSignedIn || !userId) {
+            console.error("[Auth Debug] isLoaded:", isLoaded, "isSignedIn:", isSignedIn, "userId:", userId);
+            router.push("/");
             return;
         }
 
@@ -139,7 +140,7 @@ const SettingsPage = () => {
         };
 
         void checkEmployerAndFetchCompany();
-    }, [isLoaded, userId, user, router]);
+    }, [isLoaded, isSignedIn, userId, user, router]);
 
     // --------------------------------------------------------------------------
     // Save Handler
