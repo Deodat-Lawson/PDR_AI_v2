@@ -54,43 +54,51 @@ export async function triggerDocumentProcessing(
     },
   };
 
+  // Try Inngest first if configured
   if (isInngestEnabled()) {
-    // Use Inngest for background processing
-    const { inngest } = await import("~/server/inngest/client");
-    
-    if (!inngest) {
-      throw new Error("Inngest is enabled but client is not configured. Check INNGEST_EVENT_KEY.");
+    try {
+      const { inngest } = await import("~/server/inngest/client");
+      
+      if (inngest) {
+        const result = await inngest.send({
+          name: "document/process.requested",
+          data: eventData,
+        });
+
+        console.log(`[Trigger] Successfully queued job ${jobId} via Inngest`);
+        return {
+          jobId,
+          eventIds: result.ids,
+        };
+      }
+    } catch (error) {
+      // Inngest failed - log and fall through to sync processing
+      console.warn(
+        `[Trigger] Inngest failed for job ${jobId}, falling back to sync processing:`,
+        error instanceof Error ? error.message : error
+      );
     }
-
-    const result = await inngest.send({
-      name: "document/process.requested",
-      data: eventData,
-    });
-
-    return {
-      jobId,
-      eventIds: result.ids,
-    };
-  } else {
-    // Use synchronous processing (fire-and-forget)
-    // Import dynamically to avoid circular dependencies
-    const { processDocumentSync } = await import("./processor");
-    
-    console.log(`[Trigger] Inngest not configured, using synchronous processing for job ${jobId}`);
-    
-    // Fire-and-forget: start processing without blocking the response
-    // Use setImmediate to allow the current request to complete first
-    setImmediate(() => {
-      processDocumentSync(eventData).catch((error) => {
-        console.error(`[Trigger] Sync processing failed for job ${jobId}:`, error);
-      });
-    });
-
-    return {
-      jobId,
-      eventIds: [], // No Inngest events in sync mode
-    };
   }
+
+  // Fallback: synchronous processing
+  // This runs when Inngest is not configured OR when Inngest fails
+  const { processDocumentSync } = await import("./processor");
+  
+  console.log(`[Trigger] Using synchronous processing for job ${jobId}`);
+  
+  // Await processing to ensure it completes in serverless environments
+  // setImmediate doesn't work on Vercel/serverless as the function terminates after response
+  try {
+    await processDocumentSync(eventData);
+  } catch (error) {
+    console.error(`[Trigger] Sync processing failed for job ${jobId}:`, error);
+    // Don't throw - the document record was already created, job will show as failed
+  }
+
+  return {
+    jobId,
+    eventIds: [], // No Inngest events in sync mode
+  };
 }
 
 /**

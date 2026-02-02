@@ -27,7 +27,7 @@ const SYSTEM_PROMPTS = {
 
 export default function DocumentViewerPage() {
   const router = useRouter();
-  const { isLoaded, userId } = useAuth();
+  const { isLoaded, isSignedIn, userId } = useAuth();
   
   // Data States
   const [documents, setDocuments] = useState<DocumentType[]>([]);
@@ -105,7 +105,15 @@ export default function DocumentViewerPage() {
   }, [userId]);
 
   useEffect(() => {
-    if (!isLoaded || !userId) return;
+    // Wait for Clerk to fully load
+    if (!isLoaded) return;
+    
+    // Use isSignedIn for reliable auth check
+    if (!isSignedIn || !userId) {
+      console.error("[Auth Debug] isLoaded:", isLoaded, "isSignedIn:", isSignedIn, "userId:", userId);
+      router.push("/");
+      return;
+    }
 
     const checkEmployeeRole = async () => {
       try {
@@ -116,7 +124,7 @@ export default function DocumentViewerPage() {
         });
 
         if (!response.ok) {
-          window.alert("Authentication failed! No user found.");
+          console.error("[Auth Debug] fetchUserInfo failed:", response.status);
           router.push("/");
           return;
         }
@@ -138,7 +146,7 @@ export default function DocumentViewerPage() {
     };
 
     void checkEmployeeRole();
-  }, [isLoaded, userId, router]);
+  }, [isLoaded, isSignedIn, userId, router]);
 
   useEffect(() => {
     if (!userId || isRoleLoading) return;

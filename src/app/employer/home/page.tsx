@@ -12,19 +12,19 @@ const HomeScreen = () => {
     const router = useRouter();
 
     // check if authorized. If not authorized as employer, return home
-    const { isLoaded, userId } = useAuth();
+    const { isLoaded, isSignedIn, userId } = useAuth();
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         if (!isLoaded) return;
-        // If there is no user at all, send them home
-        if (!userId) {
-            window.alert("Authentication failed! No user found.");
+        // Use isSignedIn for reliable auth check
+        if (!isSignedIn || !userId) {
+            console.error("[Auth Debug] isLoaded:", isLoaded, "isSignedIn:", isSignedIn, "userId:", userId);
             router.push("/");
             return;
         }
 
-        // Check if the user’s role is employer
+        // Check if the user's role is employer
         const checkEmployerRole = async () => {
             try {
                 const response = await fetch("/api/employerAuth", {
@@ -51,7 +51,7 @@ const HomeScreen = () => {
         };
 
         checkEmployerRole().catch(console.error);
-    }, [userId, router, isLoaded]);
+    }, [userId, router, isLoaded, isSignedIn]);
 
     // Updated menu options with Manage Employees
     const menuOptions = [
