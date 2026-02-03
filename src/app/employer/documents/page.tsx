@@ -148,6 +148,26 @@ export default function DocumentViewerPage() {
     void checkEmployeeRole();
   }, [isLoaded, isSignedIn, userId, router]);
 
+  // Handle docId from URL
+  useEffect(() => {
+      if (!isRoleLoading && documents.length > 0) {
+          const params = new URLSearchParams(window.location.search);
+          const docIdParam = params.get('docId');
+          
+          if (docIdParam) {
+              const docId = parseInt(docIdParam);
+              const targetDoc = documents.find(d => d.id === docId);
+              
+              if (targetDoc) {
+                  setSelectedDoc(targetDoc);
+                  // Clean up URL without reload
+                  const newUrl = window.location.pathname;
+                  window.history.replaceState({}, '', newUrl);
+              }
+          }
+      }
+  }, [isRoleLoading, documents]);
+
   useEffect(() => {
     if (!userId || isRoleLoading) return;
     void fetchDocuments();

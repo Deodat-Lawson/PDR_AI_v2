@@ -14,7 +14,7 @@ import {
   MessageCircle,
   PenTool,
   Clock,
-  Brain
+  Brain,
 } from 'lucide-react';
 import Link from 'next/link';
 import { Input } from '~/app/employer/documents/components/ui/input';
