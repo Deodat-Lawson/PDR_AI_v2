@@ -31,6 +31,7 @@ export const users = pgTable(
             .references(() => company.id, { onDelete: "cascade" }),
         role: varchar("role", { length: 256 }).notNull(),
         status: varchar("status", { length: 256 }).notNull(),
+        lastActiveAt: timestamp("last_active_at", { withTimezone: true }),
         createdAt: timestamp("created_at", { withTimezone: true })
             .default(sql`CURRENT_TIMESTAMP`)
             .notNull(),
@@ -420,6 +421,36 @@ export const ocrCostTracking = pgTable(
 );
 
 // ============================================================================
+// Document Views (for tracking document click/view events)
+// ============================================================================
+
+export const documentViews = pgTable(
+    "document_views",
+    {
+        id: serial("id").primaryKey(),
+        documentId: bigint("document_id", { mode: "bigint" })
+            .notNull()
+            .references(() => document.id, { onDelete: "cascade" }),
+        userId: varchar("user_id", { length: 256 }).notNull(),
+        companyId: bigint("company_id", { mode: "bigint" })
+            .notNull()
+            .references(() => company.id, { onDelete: "cascade" }),
+        viewedAt: timestamp("viewed_at", { withTimezone: true })
+            .default(sql`CURRENT_TIMESTAMP`)
+            .notNull(),
+    },
+    (table) => ({
+        documentIdIdx: index("document_views_document_id_idx").on(table.documentId),
+        companyIdIdx: index("document_views_company_id_idx").on(table.companyId),
+        userIdIdx: index("document_views_user_id_idx").on(table.userId),
+        companyIdViewedAtIdx: index("document_views_company_id_viewed_at_idx").on(
+            table.companyId,
+            table.viewedAt
+        ),
+    })
+);
+
+// ============================================================================
 // Relations
 // ============================================================================
 
@@ -444,6 +475,7 @@ export const documentsRelations = relations(document, ({ one, many }) => ({
     pdfChunks: many(pdfChunks),
     chatHistory: many(ChatHistory),
     predictiveAnalysisResults: many(predictiveDocumentAnalysisResults),
+    views: many(documentViews),
 }));
 
 export const categoryRelations = relations(category, ({ one }) => ({
@@ -500,6 +532,17 @@ export const ocrCostTrackingRelations = relations(ocrCostTracking, ({ one }) => 
     }),
 }));
 
+export const documentViewsRelations = relations(documentViews, ({ one }) => ({
+    document: one(document, {
+        fields: [documentViews.documentId],
+        references: [document.id],
+    }),
+    company: one(company, {
+        fields: [documentViews.companyId],
+        references: [company.id],
+    }),
+}));
+
 // ============================================================================
 // Type exports
 // ============================================================================
@@ -516,3 +559,4 @@ export type FileUpload = InferSelectModel<typeof fileUploads>;
 export type OcrJob = InferSelectModel<typeof ocrJobs>;
 export type OcrProcessingStep = InferSelectModel<typeof ocrProcessingSteps>;
 export type OcrCostTracking = InferSelectModel<typeof ocrCostTracking>;
+export type DocumentView = InferSelectModel<typeof documentViews>;
