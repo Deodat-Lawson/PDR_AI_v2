@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { FileText } from 'lucide-react';
 import type { DocumentType } from '../types';
 
@@ -21,6 +21,26 @@ export function DocumentViewer({
   minimal = false,
   isCollapsed = false
 }: DocumentViewerProps) {
+  
+  // Track document view
+  useEffect(() => {
+    if (document?.id && !isCollapsed) {
+      const trackView = async () => {
+        try {
+          await fetch('/api/documents/track-view', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ documentId: document.id }),
+          });
+        } catch (error) {
+          console.error('Failed to track document view:', error);
+        }
+      };
+      
+      void trackView();
+    }
+  }, [document?.id, isCollapsed]);
+
   if (isCollapsed) {
     return (
       <div className="flex flex-col items-center py-4 bg-muted/20 h-full border-l border-border animate-in fade-in duration-300">

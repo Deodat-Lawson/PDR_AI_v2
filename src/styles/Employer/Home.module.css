@@ -59,6 +59,33 @@
     @apply text-xl md:text-2xl text-gray-600 max-w-4xl mx-auto leading-relaxed;
 }
 
+/* Stats Grid - Dashboard Style */
+.statsGrid {
+    @apply grid grid-cols-2 lg:grid-cols-4 gap-4 mb-12;
+}
+
+.statsCard {
+    @apply bg-white/80 backdrop-blur-sm rounded-xl shadow-lg p-5 
+    border-l-4 border border-gray-100
+    transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5;
+}
+
+.statsHeader {
+    @apply flex items-center justify-between mb-2;
+}
+
+.statsLabel {
+    @apply text-[10px] font-bold text-gray-500 uppercase tracking-widest;
+}
+
+.statsIcon {
+    @apply w-4 h-4;
+}
+
+.statsValue {
+    @apply text-3xl font-black text-gray-900;
+}
+
 /* Menu Grid - Premium Card Layout */
 .menuGrid {
     @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16;
@@ -272,6 +299,18 @@
     @apply text-gray-300;
 }
 
+[data-theme="dark"] .statsCard {
+    @apply bg-slate-900/50 border-gray-700;
+}
+
+[data-theme="dark"] .statsLabel {
+    @apply text-gray-400;
+}
+
+[data-theme="dark"] .statsValue {
+    @apply text-white;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .main {
@@ -308,6 +347,18 @@
 
     .statsContainer {
         @apply gap-6;
+    }
+
+    .statsGrid {
+        @apply grid-cols-2 gap-3;
+    }
+
+    .statsCard {
+        @apply p-4;
+    }
+
+    .statsValue {
+        @apply text-2xl;
     }
 }
 
