@@ -544,6 +544,59 @@ export const documentViewsRelations = relations(documentViews, ({ one }) => ({
 }));
 
 // ============================================================================
+// Generated Documents (Document Generator feature)
+// ============================================================================
+
+export const generatedDocuments = pgTable(
+    "generated_documents",
+    {
+        id: serial("id").primaryKey(),
+        userId: varchar("user_id", { length: 256 }).notNull(),
+        companyId: bigint("company_id", { mode: "bigint" })
+            .notNull()
+            .references(() => company.id, { onDelete: "cascade" }),
+        title: varchar("title", { length: 512 }).notNull(),
+        content: text("content").notNull(),
+        templateId: varchar("template_id", { length: 64 }),
+        metadata: jsonb("metadata").$type<{
+            tone?: string;
+            audience?: string;
+            length?: string;
+            description?: string;
+        }>(),
+        citations: jsonb("citations").$type<Array<{
+            id: string;
+            text: string;
+            sourceUrl?: string;
+            sourceTitle?: string;
+            format: string;
+            createdAt: string;
+        }>>(),
+        createdAt: timestamp("created_at", { withTimezone: true })
+            .default(sql`CURRENT_TIMESTAMP`)
+            .notNull(),
+        updatedAt: timestamp("updated_at", { withTimezone: true }).$onUpdate(
+            () => new Date()
+        ),
+    },
+    (table) => ({
+        userIdIdx: index("generated_documents_user_id_idx").on(table.userId),
+        companyIdIdx: index("generated_documents_company_id_idx").on(table.companyId),
+        companyUserIdx: index("generated_documents_company_user_idx").on(
+            table.companyId,
+            table.userId
+        ),
+    })
+);
+
+export const generatedDocumentsRelations = relations(generatedDocuments, ({ one }) => ({
+    company: one(company, {
+        fields: [generatedDocuments.companyId],
+        references: [company.id],
+    }),
+}));
+
+// ============================================================================
 // Type exports
 // ============================================================================
 
@@ -560,3 +613,4 @@ export type OcrJob = InferSelectModel<typeof ocrJobs>;
 export type OcrProcessingStep = InferSelectModel<typeof ocrProcessingSteps>;
 export type OcrCostTracking = InferSelectModel<typeof ocrCostTracking>;
 export type DocumentView = InferSelectModel<typeof documentViews>;
+export type GeneratedDocument = InferSelectModel<typeof generatedDocuments>;

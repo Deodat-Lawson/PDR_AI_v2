@@ -47,6 +47,7 @@ export function DocumentGenerator() {
   const [currentDocument, setCurrentDocument] = useState<GeneratedDocument | null>(null);
   const [generatedDocuments, setGeneratedDocuments] = useState<GeneratedDocument[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -236,6 +237,7 @@ export function DocumentGenerator() {
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _handleDeleteDocument = async (documentId: string) => {
     try {
       const response = await fetch('/api/document-generator/documents', {
@@ -260,6 +262,7 @@ export function DocumentGenerator() {
     setSelectedTemplate(null);
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _generateInitialContent = (template: DocumentTemplate): string => {
     const templates: Record<string, string> = {
       'blank': '',
