@@ -1,19 +1,21 @@
 "use client";
 
 import { 
-  Settings2,
-  Layout,
-  Maximize2,
-  Minimize2
+  FileText,
+  Building2,
+  Zap,
+  BookOpen,
+  GraduationCap,
+  List,
+  User,
+  Briefcase,
+  Scale,
+  Calculator,
+  Sparkles,
+  PanelRightClose,
+  PanelRightOpen
 } from 'lucide-react';
 import { Button } from '~/app/employer/documents/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '~/app/employer/documents/components/ui/select';
 import { cn } from "~/lib/utils";
 import { AgentChatInterface } from './AgentChatInterface';
 import type { DocumentType } from '../types';
@@ -37,6 +39,21 @@ interface ChatPanelProps {
   onTogglePreview?: () => void;
 }
 
+const styleConfig = [
+  { key: 'concise', icon: Zap, label: 'Concise' },
+  { key: 'detailed', icon: BookOpen, label: 'Detailed' },
+  { key: 'academic', icon: GraduationCap, label: 'Academic' },
+  { key: 'bullet-points', icon: List, label: 'Bullets' },
+];
+
+const personaConfig = [
+  { key: 'general', icon: User, label: 'General' },
+  { key: 'learning-coach', icon: Sparkles, label: 'Coach' },
+  { key: 'financial-expert', icon: Briefcase, label: 'Finance' },
+  { key: 'legal-expert', icon: Scale, label: 'Legal' },
+  { key: 'math-reasoning', icon: Calculator, label: 'Math' },
+];
+
 export function ChatPanel({
   userId,
   selectedDoc,
@@ -50,113 +67,136 @@ export function ChatPanel({
   setSearchScope,
   companyId,
   setPdfPageNumber,
-  styleOptions,
+  styleOptions: _styleOptions,
   onCreateChat,
   isPreviewCollapsed,
   onTogglePreview
 }: ChatPanelProps) {
   return (
-    <div className="flex flex-col h-full relative overflow-hidden bg-background transition-all duration-300">
-      {/* Chat Header/Settings - Now part of flex flow */}
-      <div className="flex-shrink-0 bg-background/80 backdrop-blur-md border-b border-border p-4 z-20 transition-all duration-200">
-        <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-full border border-border">
-              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">AI Online</span>
-            </div>
-          </div>
-
+    <div className="flex flex-col h-full relative overflow-hidden bg-gradient-to-b from-slate-50/30 to-white dark:from-slate-950/30 dark:to-slate-900 transition-all duration-300">
+      {/* Chat Header */}
+      <div className="flex-shrink-0 border-b border-slate-200/60 dark:border-slate-800/60 px-5 py-3 z-20 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md">
+        <div className="flex items-center justify-between gap-4">
+          {/* Left: Status & Scope */}
           <div className="flex items-center gap-3">
-            <div className="flex items-center bg-muted/50 border border-border rounded-xl p-1">
+            {/* Online Status */}
+            <div className="flex items-center gap-2 px-2.5 py-1.5 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg border border-emerald-200/50 dark:border-emerald-800/30">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Online</span>
+            </div>
+
+            {/* Scope Toggle */}
+            <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5">
               <button
                 onClick={() => setSearchScope('document')}
                 className={cn(
-                  "px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all",
-                  searchScope === 'document' 
-                    ? "bg-background text-purple-600 dark:text-purple-400 shadow-sm" 
-                    : "text-muted-foreground hover:text-foreground"
+                  "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all",
+                  searchScope === 'document'
+                    ? "bg-white dark:bg-slate-700 text-violet-600 dark:text-violet-400 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
                 )}
               >
-                Document
+                <FileText className="w-3 h-3" />
+                Doc
               </button>
               <button
-                onClick={() => setSearchScope('company')}
+                onClick={() => companyId && setSearchScope('company')}
                 disabled={!companyId}
                 className={cn(
-                  "px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all",
-                  searchScope === 'company' 
-                    ? "bg-background text-purple-600 dark:text-purple-400 shadow-sm" 
-                    : "text-muted-foreground hover:text-foreground",
-                  !companyId && "opacity-50 cursor-not-allowed"
+                  "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all",
+                  searchScope === 'company'
+                    ? "bg-white dark:bg-slate-700 text-violet-600 dark:text-violet-400 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300",
+                  !companyId && "opacity-40 cursor-not-allowed"
                 )}
               >
-                Company
+                <Building2 className="w-3 h-3" />
+                All
               </button>
             </div>
+          </div>
 
-            <div className="h-8 w-px bg-border" />
-
-            <div className="hidden sm:flex items-center gap-2">
-              <Select value={aiStyle} onValueChange={setAiStyle}>
-                <SelectTrigger className="h-9 w-[140px] bg-transparent border-none text-[10px] font-bold uppercase tracking-widest focus:ring-0">
-                  <Settings2 className="w-3.5 h-3.5 mr-2 text-purple-600" />
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(styleOptions).map(([key, label]) => (
-                    <SelectItem key={key} value={key} className="text-xs uppercase font-bold tracking-wider">{label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={aiPersona} onValueChange={setAiPersona}>
-                <SelectTrigger className="h-9 w-[160px] bg-transparent border-none text-[10px] font-bold uppercase tracking-widest focus:ring-0">
-                  <Layout className="w-3.5 h-3.5 mr-2 text-purple-600" />
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="general" className="text-xs font-bold uppercase tracking-wider">General</SelectItem>
-                  <SelectItem value="learning-coach" className="text-xs font-bold uppercase tracking-wider">Learning Coach</SelectItem>
-                  <SelectItem value="financial-expert" className="text-xs font-bold uppercase tracking-wider">Financial Expert</SelectItem>
-                  <SelectItem value="legal-expert" className="text-xs font-bold uppercase tracking-wider">Legal Expert</SelectItem>
-                  <SelectItem value="math-reasoning" className="text-xs font-bold uppercase tracking-wider">Math Reasoning</SelectItem>
-                </SelectContent>
-              </Select>
+          {/* Center: Style & Persona Pills */}
+          <div className="hidden md:flex items-center gap-4">
+            {/* Style Pills */}
+            <div className="flex items-center gap-1">
+              {styleConfig.map(({ key, icon: Icon }) => (
+                <button
+                  key={key}
+                  onClick={() => setAiStyle(key)}
+                  className={cn(
+                    "w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-200",
+                    aiStyle === key
+                      ? "bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400"
+                      : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  )}
+                  title={key.charAt(0).toUpperCase() + key.slice(1).replace('-', ' ')}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                </button>
+              ))}
             </div>
 
-            <div className="h-8 w-px bg-border" />
-            
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onTogglePreview}
-              className="h-9 w-9 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 text-purple-600"
-              title={isPreviewCollapsed ? "Show Document Preview" : "Hide Document Preview"}
-            >
-              {isPreviewCollapsed ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
-            </Button>
+            <div className="w-px h-5 bg-slate-200 dark:bg-slate-700" />
+
+            {/* Persona Pills */}
+            <div className="flex items-center gap-1">
+              {personaConfig.map(({ key, icon: Icon, label }) => (
+                <button
+                  key={key}
+                  onClick={() => setAiPersona(key)}
+                  className={cn(
+                    "h-7 px-2 rounded-lg flex items-center gap-1 text-[10px] font-semibold transition-all duration-200",
+                    aiPersona === key
+                      ? "bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400"
+                      : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  )}
+                  title={label}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  <span className="hidden lg:inline">{label}</span>
+                </button>
+              ))}
+            </div>
           </div>
+
+          {/* Right: Preview Toggle */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onTogglePreview}
+            className={cn(
+              "h-8 px-2.5 rounded-lg transition-all",
+              isPreviewCollapsed
+                ? "text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-900/20"
+                : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+            )}
+            title={isPreviewCollapsed ? "Show Preview" : "Hide Preview"}
+          >
+            {isPreviewCollapsed ? (
+              <PanelRightOpen className="w-4 h-4" />
+            ) : (
+              <PanelRightClose className="w-4 h-4" />
+            )}
+          </Button>
         </div>
       </div>
 
-          {/* Messages Area - Now occupies remaining space */}
-          <div className="flex-1 relative overflow-hidden">
-            <AgentChatInterface
-              chatId={currentChatId}
-              userId={userId}
-              selectedDocTitle={selectedDoc?.title}
-              searchScope={searchScope}
-              selectedDocId={selectedDoc?.id}
-              companyId={companyId}
-              aiStyle={aiStyle}
-              aiPersona={aiPersona}
-              onPageClick={setPdfPageNumber}
-              onCreateChat={onCreateChat}
-            />
-          </div>
+      {/* Messages Area */}
+      <div className="flex-1 relative overflow-hidden">
+        <AgentChatInterface
+          chatId={currentChatId}
+          userId={userId}
+          selectedDocTitle={selectedDoc?.title}
+          searchScope={searchScope}
+          selectedDocId={selectedDoc?.id}
+          companyId={companyId}
+          aiStyle={aiStyle}
+          aiPersona={aiPersona}
+          onPageClick={setPdfPageNumber}
+          onCreateChat={onCreateChat}
+        />
+      </div>
     </div>
   );
 }
-
-

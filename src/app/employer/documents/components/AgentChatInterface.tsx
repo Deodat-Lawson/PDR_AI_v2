@@ -1,10 +1,23 @@
- 
+"use client";
+
 import React, { useState, useEffect, useRef } from 'react';
-import { Brain, Send, ThumbsUp, ThumbsDown, Plus, Search, ExternalLink } from 'lucide-react';
+import { 
+  Sparkles, 
+  Send, 
+  ThumbsUp, 
+  ThumbsDown, 
+  Plus, 
+  Search, 
+  ExternalLink,
+  Copy,
+  Check,
+  MessageSquare,
+  X
+} from 'lucide-react';
 import { useAIChatbot, type Message } from '../hooks/useAIChatbot';
 import { useAIChat } from '../hooks/useAIChat';
 import MarkdownMessage from "~/app/_components/MarkdownMessage";
-import clsx from 'clsx';
+import { cn } from '~/lib/utils';
 
 interface AgentChatInterfaceProps {
   chatId: string | null;
@@ -40,6 +53,7 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [enableWebSearch, setEnableWebSearch] = useState(false);
   const [showToolsMenu, setShowToolsMenu] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const toolsMenuRef = useRef<HTMLDivElement>(null);
@@ -50,9 +64,7 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
         const msgs = await getMessages(chatId);
         setMessages(msgs);
         
-        // Check if this is a new chat and send learning coach welcome message
         if (msgs.length === 0 && aiPersona === 'learning-coach') {
-          // Send welcome message
           sendMessage({
             chatId,
             role: 'assistant',
@@ -78,7 +90,6 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Close tools menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (toolsMenuRef.current && !toolsMenuRef.current.contains(event.target as Node)) {
@@ -94,16 +105,14 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
 
   useEffect(() => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = '48px'; // Reset to minimum height
+      textareaRef.current.style.height = '52px';
       const scrollHeight = textareaRef.current.scrollHeight;
-      textareaRef.current.style.height = `${Math.min(Math.max(scrollHeight, 48), 200)}px`;
+      textareaRef.current.style.height = `${Math.min(Math.max(scrollHeight, 52), 180)}px`;
     }
   }, [input]);
 
-  // Keyboard shortcuts handler
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Escape to clear input and close tools menu
       if (e.key === 'Escape') {
         if (showToolsMenu) {
           setShowToolsMenu(false);
@@ -118,6 +127,11 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [input, showToolsMenu]);
 
+  const handleCopy = async (text: string, id: string) => {
+    await navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,7 +144,6 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
     let activeChatId = chatId;
 
     try {
-      // Create chat if it doesn't exist
       if (!activeChatId && onCreateChat) {
         activeChatId = await onCreateChat();
       }
@@ -139,7 +152,6 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
         throw new Error("Failed to create chat session");
       }
 
-      // Send user message
       const userMsg = await sendMessage({
         chatId: activeChatId,
         role: 'user',
@@ -151,12 +163,10 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
         setMessages(prev => [...prev, userMsg]);
       }
 
-      // Call AI service to generate response
       try {
-        // Build conversation context from previous messages
         const conversationContext = messages
           .filter(msg => msg.role === 'user' || msg.role === 'assistant')
-          .slice(-6) // Last 6 messages for context (3 exchanges)
+          .slice(-6)
           .map(msg => {
             const role = msg.role === 'user' ? 'User' : 'Assistant';
             const content = typeof msg.content === 'string' 
@@ -187,7 +197,6 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
         const pages = aiData.recommendedPages ?? [];
         const webSources = aiData.webSources ?? [];
 
-        // Save AI response as a message
         const aiResponse = await sendMessage({
           chatId: activeChatId,
           role: 'assistant',
@@ -207,7 +216,6 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
         }
       } catch (err) {
         console.error('AI service error:', err);
-        // Send error message
         const errorResponse = await sendMessage({
           chatId: activeChatId,
           role: 'assistant',
@@ -231,23 +239,46 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden" role="region" aria-label="AI Chat Interface">
-      {/* Messages - Now uses natural flex height */}
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Messages */}
       <div
-        className="flex-1 overflow-y-auto space-y-4 px-6 py-4 custom-scrollbar"
+        className="flex-1 overflow-y-auto px-6 py-6 space-y-6"
         role="log"
         aria-live="polite"
-        aria-relevant="additions"
-        aria-label="Chat messages"
       >
         {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <Brain className="w-16 h-16 text-purple-600/30 dark:text-purple-400/30 mb-4" />
-            <p className="text-muted-foreground text-lg font-medium">Hi there! 👋</p>
-            <p className="text-sm text-muted-foreground/60 mt-2">
-              I&apos;m here to help you understand {searchScope === 'document' ? selectedDocTitle ?? 'your documents' : 'all your company documents'}. 
-              Feel free to ask me anything!
+          <div className="flex flex-col items-center justify-center h-full text-center px-4">
+            <div className="relative mb-6">
+              <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-violet-100 to-indigo-100 dark:from-violet-900/30 dark:to-indigo-900/30 flex items-center justify-center">
+                <MessageSquare className="w-9 h-9 text-violet-500/60 dark:text-violet-400/50" />
+              </div>
+              <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/25">
+                <Sparkles className="w-4 h-4 text-white" />
+              </div>
+            </div>
+            <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-2">
+              Start a conversation
+            </h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm leading-relaxed">
+              Ask me anything about {searchScope === 'document' ? (selectedDocTitle ?? 'your document') : 'all your company documents'}. I&apos;m here to help!
             </p>
+            
+            {/* Quick prompts */}
+            <div className="flex flex-wrap gap-2 mt-6 justify-center max-w-md">
+              {[
+                "Summarize the key points",
+                "What are the main takeaways?",
+                "Explain the technical terms"
+              ].map((prompt) => (
+                <button
+                  key={prompt}
+                  onClick={() => setInput(prompt)}
+                  className="px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 rounded-full hover:bg-violet-100 dark:hover:bg-violet-900/30 hover:text-violet-600 dark:hover:text-violet-400 transition-all"
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
           </div>
         ) : (
           messages.map((msg) => {
@@ -259,115 +290,150 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
                   : JSON.stringify(msg.content);
 
             return (
-            <div
-              key={msg.id}
-              className={clsx(
-                'flex',
-                msg.role === 'user' ? 'justify-end' : 'justify-start'
-              )}
-            >
               <div
-                className={clsx(
-                  'max-w-[80%] rounded-2xl px-4 py-3 shadow-sm',
-                  msg.role === 'user'
-                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white'
-                    : 'bg-muted text-foreground border border-border/50'
+                key={msg.id}
+                className={cn(
+                  'flex gap-3',
+                  msg.role === 'user' ? 'justify-end' : 'justify-start'
                 )}
               >
-                {msg.role === 'assistant' ? (
-                  <MarkdownMessage
-                    content={displayText}
-                    className="text-sm leading-relaxed text-foreground"
-                  />
-                ) : (
-                  <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                    {displayText}
-                  </p>
+                {/* AI Avatar */}
+                {msg.role === 'assistant' && (
+                  <div className="flex-shrink-0 w-8 h-8 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center shadow-md shadow-violet-500/20">
+                    <Sparkles className="w-4 h-4 text-white" />
+                  </div>
                 )}
-                
-                {msg.role === 'assistant' && typeof msg.content === 'object' && msg.content !== null && (
-                  <>
-                    {'pages' in msg.content && Array.isArray(msg.content.pages) && msg.content.pages.length > 0 && (
-                      <div className="mt-2 pt-2 border-t border-border">
-                        <div className="flex flex-wrap gap-1.5">
-                          {msg.content.pages.map((page: number, idx: number) => (
-                            <button
-                              key={`${msg.id}-page-${page}-${idx}`}
-                              onClick={() => onPageClick?.(page)}
-                              className="inline-flex items-center bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 px-2 py-1 rounded-full text-xs font-medium hover:bg-purple-200 dark:hover:bg-purple-900/70 transition-all duration-200"
-                              title={`Go to page ${page}`}
-                            >
-                              p{page}
-                            </button>
-                          ))}
+
+                <div
+                  className={cn(
+                    'max-w-[75%] rounded-2xl transition-all',
+                    msg.role === 'user'
+                      ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-4 py-3 shadow-lg shadow-violet-500/20'
+                      : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-4 py-3 shadow-sm'
+                  )}
+                >
+                  {msg.role === 'assistant' ? (
+                    <MarkdownMessage
+                      content={displayText}
+                      className="text-sm leading-relaxed text-slate-700 dark:text-slate-200 prose prose-sm dark:prose-invert max-w-none prose-p:my-2 prose-headings:mt-4 prose-headings:mb-2"
+                    />
+                  ) : (
+                    <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                      {displayText}
+                    </p>
+                  )}
+                  
+                  {msg.role === 'assistant' && typeof msg.content === 'object' && msg.content !== null && (
+                    <>
+                      {/* Page References */}
+                      {'pages' in msg.content && Array.isArray(msg.content.pages) && msg.content.pages.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700">
+                          <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                            Referenced Pages
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {msg.content.pages.map((page: number, idx: number) => (
+                              <button
+                                key={`${msg.id}-page-${page}-${idx}`}
+                                onClick={() => onPageClick?.(page)}
+                                className="inline-flex items-center bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 px-2.5 py-1 rounded-lg text-xs font-semibold hover:bg-violet-200 dark:hover:bg-violet-800/50 transition-all"
+                              >
+                                Page {page}
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
-                    {'webSources' in msg.content && Array.isArray(msg.content.webSources) && msg.content.webSources.length > 0 && (
-                      <div className="mt-2 pt-2 border-t border-border">
-                        <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Web Sources</p>
-                        <div className="space-y-2">
-                          {msg.content.webSources.map((source: { title: string; url: string; snippet: string }, idx: number) => (
-                            <a
-                              key={`${msg.id}-source-${idx}`}
-                              href={source.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="block p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors group border border-blue-100 dark:border-blue-900/30"
-                            >
-                              <div className="flex items-start gap-2">
-                                <ExternalLink className="w-3 h-3 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-medium text-blue-700 dark:text-blue-300 group-hover:text-blue-800 dark:group-hover:text-blue-200 truncate">
-                                    [Source {idx + 1}] {source.title}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                                    {source.snippet}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground/50 mt-1 truncate">
-                                    {source.url}
-                                  </p>
+                      )}
+
+                      {/* Web Sources */}
+                      {'webSources' in msg.content && Array.isArray(msg.content.webSources) && msg.content.webSources.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700">
+                          <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                            Web Sources
+                          </p>
+                          <div className="space-y-2">
+                            {msg.content.webSources.map((source: { title: string; url: string; snippet: string }, idx: number) => (
+                              <a
+                                key={`${msg.id}-source-${idx}`}
+                                href={source.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block p-2.5 bg-blue-50 dark:bg-blue-950/30 rounded-xl hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors group border border-blue-100 dark:border-blue-900/50"
+                              >
+                                <div className="flex items-start gap-2">
+                                  <ExternalLink className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-semibold text-blue-700 dark:text-blue-300 truncate">
+                                      {source.title}
+                                    </p>
+                                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">
+                                      {source.snippet}
+                                    </p>
+                                  </div>
                                 </div>
-                              </div>
-                            </a>
-                          ))}
+                              </a>
+                            ))}
+                          </div>
                         </div>
+                      )}
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-1 mt-3 pt-3 border-t border-slate-100 dark:border-slate-700">
+                        <button
+                          onClick={() => handleCopy(displayText, msg.id)}
+                          className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-all"
+                          title="Copy response"
+                        >
+                          {copiedId === msg.id ? (
+                            <Check className="w-3.5 h-3.5 text-emerald-500" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                        <button
+                          onClick={() => handleVote(msg.id, true)}
+                          className="p-1.5 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all"
+                          title="Helpful"
+                        >
+                          <ThumbsUp className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleVote(msg.id, false)}
+                          className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-all"
+                          title="Not helpful"
+                        >
+                          <ThumbsDown className="w-3.5 h-3.5" />
+                        </button>
                       </div>
-                    )}
-                    <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border" role="group" aria-label="Message actions">
-                      <button
-                        onClick={() => handleVote(msg.id, true)}
-                        className="p-1 hover:bg-muted rounded transition-colors"
-                        title="Upvote this response"
-                        aria-label="Upvote this response"
-                        type="button"
-                      >
-                        <ThumbsUp className="w-4 h-4" aria-hidden="true" />
-                      </button>
-                      <button
-                        onClick={() => handleVote(msg.id, false)}
-                        className="p-1 hover:bg-muted rounded transition-colors"
-                        title="Downvote this response"
-                        aria-label="Downvote this response"
-                        type="button"
-                      >
-                        <ThumbsDown className="w-4 h-4" aria-hidden="true" />
-                      </button>
-                    </div>
-                  </>
+                    </>
+                  )}
+                </div>
+
+                {/* User Avatar placeholder for alignment */}
+                {msg.role === 'user' && (
+                  <div className="flex-shrink-0 w-8 h-8 rounded-xl bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center shadow-md">
+                    <span className="text-xs font-bold text-white">You</span>
+                  </div>
                 )}
               </div>
-            </div>
-          );
+            );
           })
         )}
         
+        {/* Typing Indicator */}
         {isSubmitting && (
-          <div className="flex justify-start" role="status" aria-live="polite">
-            <div className="bg-muted rounded-2xl px-4 py-3 shadow-sm border border-border/50">
-              <div className="flex items-center space-x-2">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600" aria-hidden="true"></div>
-                <span className="text-sm text-muted-foreground">AI is thinking...</span>
+          <div className="flex gap-3 justify-start">
+            <div className="flex-shrink-0 w-8 h-8 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center shadow-md shadow-violet-500/20">
+              <Sparkles className="w-4 h-4 text-white" />
+            </div>
+            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 shadow-sm">
+              <div className="flex items-center gap-2">
+                <div className="flex gap-1">
+                  <div className="w-2 h-2 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-2 h-2 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-2 h-2 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Thinking...</span>
               </div>
             </div>
           </div>
@@ -376,15 +442,16 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
         <div ref={chatEndRef} />
       </div>
 
-      {/* Input */}
-      <div className="border-t border-border p-4 bg-background" role="complementary" aria-label="Message input area">
+      {/* Input Area */}
+      <div className="border-t border-slate-200/60 dark:border-slate-800/60 p-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md">
         {error && (
-          <div className="mb-2 text-sm text-destructive" role="alert" aria-live="assertive">
-            {error}
+          <div className="mb-3 px-3 py-2 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-lg flex items-center gap-2">
+            <span className="text-xs text-red-600 dark:text-red-400">{error}</span>
           </div>
         )}
-        <form onSubmit={handleSubmit} className="flex gap-2 items-center" aria-label="Send message form">
-          {/* Add Tools Button with Dropdown */}
+
+        <form onSubmit={handleSubmit} className="flex gap-2 items-end">
+          {/* Tools Button */}
           <div className="relative flex-shrink-0" ref={toolsMenuRef}>
             <button
               type="button"
@@ -393,29 +460,28 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
                 e.stopPropagation();
                 setShowToolsMenu(!showToolsMenu);
               }}
-              className={clsx(
-                "h-12 w-12 flex items-center justify-center rounded-xl transition-all border-2",
+              className={cn(
+                "w-11 h-11 flex items-center justify-center rounded-xl transition-all border",
                 showToolsMenu || enableWebSearch
-                  ? "bg-purple-600 text-white border-purple-600 hover:bg-purple-700 shadow-lg shadow-purple-500/20"
-                  : "bg-muted/50 text-muted-foreground border-border hover:bg-muted hover:text-foreground"
+                  ? "bg-violet-600 text-white border-violet-600 shadow-lg shadow-violet-500/25"
+                  : "bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-300"
               )}
-              title="Add tools"
-              aria-label="Add tools"
-              aria-expanded={showToolsMenu}
-              aria-haspopup="menu"
+              title="Tools"
             >
-              <Plus className="w-5 h-5" aria-hidden="true" />
+              <Plus className={cn("w-5 h-5 transition-transform", showToolsMenu && "rotate-45")} />
             </button>
             
-            {/* Tools Dropdown Menu */}
+            {/* Tools Menu */}
             {showToolsMenu && (
-              <div
-                className="absolute bottom-full left-0 mb-2 w-56 bg-card rounded-xl shadow-xl border border-border py-2 z-50 animate-in slide-in-from-bottom-2"
-                role="menu"
-                aria-label="Available tools"
-              >
-                <div className="px-3 py-2 border-b border-border">
-                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Tools</p>
+              <div className="absolute bottom-full left-0 mb-2 w-64 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden z-50 animate-in slide-in-from-bottom-2 fade-in duration-200">
+                <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Tools</span>
+                  <button 
+                    onClick={() => setShowToolsMenu(false)}
+                    className="w-5 h-5 rounded flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
                 </div>
                 <button
                   type="button"
@@ -425,33 +491,34 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
                     setEnableWebSearch(!enableWebSearch);
                     setShowToolsMenu(false);
                   }}
-                  className={clsx(
-                    "w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted transition-colors",
-                    enableWebSearch && "bg-purple-50 dark:bg-purple-900/20"
+                  className={cn(
+                    "w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors",
+                    enableWebSearch && "bg-violet-50 dark:bg-violet-900/20"
                   )}
-                  role="menuitem"
-                  aria-label={enableWebSearch ? "Disable web search" : "Enable web search"}
                 >
-                  <Search className={clsx(
-                    "w-5 h-5 flex-shrink-0",
-                    enableWebSearch ? "text-purple-600 dark:text-purple-400" : "text-muted-foreground"
-                  )} aria-hidden="true" />
-                  <div className="flex-1 min-w-0">
-                    <p className={clsx(
-                      "text-sm font-bold",
-                      enableWebSearch ? "text-purple-600 dark:text-purple-400" : "text-foreground"
+                  <div className={cn(
+                    "w-8 h-8 rounded-lg flex items-center justify-center",
+                    enableWebSearch 
+                      ? "bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400" 
+                      : "bg-slate-100 dark:bg-slate-700 text-slate-500"
+                  )}>
+                    <Search className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <p className={cn(
+                      "text-sm font-semibold",
+                      enableWebSearch ? "text-violet-600 dark:text-violet-400" : "text-slate-700 dark:text-slate-300"
                     )}>
                       Web Search
                     </p>
-                    <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">
-                      Search the web for additional information
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                      Search the web for more info
                     </p>
                   </div>
                   {enableWebSearch && (
-                    <div className="w-2 h-2 rounded-full bg-purple-600 dark:bg-purple-400 flex-shrink-0 animate-pulse"></div>
+                    <div className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />
                   )}
                 </button>
-                {/* Add more tools here in the future */}
               </div>
             )}
           </div>
@@ -459,9 +526,9 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
           {/* Input Field */}
           <div className="flex-1 relative">
             {enableWebSearch && (
-              <div className="absolute -top-6 left-0 flex items-center gap-1.5 text-[10px] text-purple-600 dark:text-purple-400 font-black uppercase tracking-widest">
-                <Search className="w-3 h-3" />
-                <span>Web search enabled</span>
+              <div className="absolute -top-7 left-0 flex items-center gap-1.5 px-2 py-1 bg-violet-100 dark:bg-violet-900/30 rounded-md">
+                <Search className="w-3 h-3 text-violet-600 dark:text-violet-400" />
+                <span className="text-[10px] font-bold text-violet-600 dark:text-violet-400 uppercase tracking-wider">Web search on</span>
               </div>
             )}
             <textarea
@@ -478,12 +545,10 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
                 }
               }}
               onClick={(e) => e.stopPropagation()}
-              placeholder={`Ask about ${searchScope === 'document' ? selectedDocTitle ?? 'documents' : 'all company documents'}...`}
-              className="w-full border border-border bg-muted/30 text-foreground placeholder:text-muted-foreground rounded-xl px-4 py-3 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 leading-relaxed resize-none min-h-[48px] max-h-[200px] overflow-y-auto transition-all"
+              placeholder={`Ask about ${searchScope === 'document' ? (selectedDocTitle ?? 'your document') : 'all company documents'}...`}
+              className="w-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:bg-white dark:focus:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-violet-300 dark:focus:border-violet-700 resize-none min-h-[52px] max-h-[180px] transition-all leading-relaxed"
               rows={1}
               disabled={isSubmitting}
-              aria-label={`Ask about ${searchScope === 'document' ? selectedDocTitle ?? 'documents' : 'all company documents'}`}
-              aria-multiline="true"
             />
           </div>
 
@@ -491,15 +556,18 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
           <button
             type="submit"
             disabled={!input.trim() || isSubmitting}
-            className="h-12 px-6 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:from-purple-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed font-bold shadow-lg shadow-purple-500/20 flex items-center gap-2 flex-shrink-0"
-            aria-label="Send message"
-            title="Send message (Enter)"
+            className={cn(
+              "h-11 px-5 rounded-xl flex items-center gap-2 font-semibold text-sm transition-all",
+              !input.trim() || isSubmitting
+                ? "bg-slate-200 dark:bg-slate-700 text-slate-400 cursor-not-allowed"
+                : "bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700 shadow-lg shadow-violet-500/25 active:scale-95"
+            )}
           >
-            <Send className="w-5 h-5" aria-hidden="true" />
+            <Send className="w-4 h-4" />
+            <span className="hidden sm:inline">Send</span>
           </button>
         </form>
       </div>
     </div>
   );
 };
-

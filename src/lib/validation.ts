@@ -126,8 +126,8 @@ export const UploadDocumentSchema = z.object({
 
 export const UpdateCompanySchema = z.object({
   name: z.string().min(1, "Company name is required").max(256, "Company name is too long").trim(),
-  employerPasskey: z.string().min(1, "Employer passkey is required").max(256, "Employer passkey is too long").trim(),
-  employeePasskey: z.string().min(1, "Employee passkey is required").max(256, "Employee passkey is too long").trim(),
+  employerPasskey: z.string().max(256, "Employer passkey is too long").trim().optional(),
+  employeePasskey: z.string().max(256, "Employee passkey is too long").trim().optional(),
   numberOfEmployees: z
     .string()
     .trim()

@@ -69,63 +69,71 @@ export function Sidebar({
 
   if (isCollapsed) {
     return (
-      <div className="w-16 bg-background border-r border-border flex flex-col items-center py-4 gap-4 h-full transition-all duration-300 ease-in-out">
+      <div className="w-14 bg-gradient-to-b from-background to-muted/20 flex flex-col items-center py-3 h-full transition-all duration-300 ease-in-out">
+        {/* Logo / Expand */}
         <Button
           variant="ghost"
           size="icon"
           onClick={() => onCollapseToggle?.(false)}
-          className="w-10 h-10 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all active:scale-90 mb-2"
+          className="w-10 h-10 rounded-xl bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-500/25 transition-all hover:scale-105 active:scale-95 mb-4"
           title="Expand Sidebar"
         >
-          <ChevronRight className="w-5 h-5 text-purple-600" />
+          <Brain className="w-5 h-5" />
         </Button>
 
-        <div className="w-px h-4 bg-border mx-auto" />
-
-        <div className="flex flex-col gap-3 w-full px-2 mt-2">
+        {/* View Mode Buttons */}
+        <div className="flex flex-col gap-1.5 w-full px-2 flex-1">
           <Button
-            variant={viewMode === 'with-ai-qa' ? 'default' : 'ghost'}
+            variant="ghost"
             size="icon"
             onClick={() => setViewMode('with-ai-qa')}
             className={cn(
               "w-full h-10 rounded-xl transition-all duration-200",
-              viewMode === 'with-ai-qa' ? "bg-purple-600 text-white shadow-md shadow-purple-500/20" : "text-muted-foreground hover:text-purple-600"
+              viewMode === 'with-ai-qa' 
+                ? "bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400" 
+                : "text-muted-foreground hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
             )}
             title="AI Q&A"
           >
-            <MessageCircle className="w-5 h-5" />
+            <MessageCircle className="w-4 h-4" />
           </Button>
           <Button
-            variant={viewMode === 'predictive-analysis' ? 'default' : 'ghost'}
+            variant="ghost"
             size="icon"
             onClick={() => setViewMode('predictive-analysis')}
             className={cn(
               "w-full h-10 rounded-xl transition-all duration-200",
-              viewMode === 'predictive-analysis' ? "bg-purple-600 text-white shadow-md shadow-purple-500/20" : "text-muted-foreground hover:text-purple-600"
+              viewMode === 'predictive-analysis' 
+                ? "bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400" 
+                : "text-muted-foreground hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
             )}
             title="Predictive Analysis"
           >
-            <BarChart3 className="w-5 h-5" />
+            <BarChart3 className="w-4 h-4" />
           </Button>
           <Button
-            variant={viewMode === 'generator' ? 'default' : 'ghost'}
+            variant="ghost"
             size="icon"
             onClick={() => setViewMode('generator')}
             className={cn(
-              "w-full h-10 rounded-xl transition-all duration-200",
-              viewMode === 'generator' ? "bg-purple-600 text-white shadow-md shadow-purple-500/20" : "text-muted-foreground hover:text-purple-600"
+              "w-full h-10 rounded-xl transition-all duration-200 relative",
+              viewMode === 'generator' 
+                ? "bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400" 
+                : "text-muted-foreground hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
             )}
             title="Document Generator"
           >
-            <PenTool className="w-5 h-5" />
+            <PenTool className="w-4 h-4" />
+            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-500 rounded-full" />
           </Button>
         </div>
 
-        <div className="mt-auto flex flex-col items-center gap-3 pb-4">
+        {/* Bottom Actions */}
+        <div className="flex flex-col items-center gap-1.5 px-2 w-full">
           <ThemeToggle />
-          <Link href="/employer/home">
-            <Button variant="ghost" size="icon" className="w-10 h-10 rounded-xl hover:bg-muted transition-colors">
-              <Home className="w-5 h-5 text-muted-foreground" />
+          <Link href="/employer/home" className="w-full">
+            <Button variant="ghost" size="icon" className="w-full h-10 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all">
+              <Home className="w-4 h-4" />
             </Button>
           </Link>
         </div>
@@ -134,7 +142,7 @@ export function Sidebar({
   }
 
   return (
-    <div className="bg-background border-r border-border flex flex-col h-full w-full transition-all duration-300 ease-in-out overflow-hidden">
+    <div className="bg-background flex flex-col h-full w-full transition-all duration-300 ease-in-out overflow-hidden">
       {/* Header */}
       <div className="p-4 border-b border-border bg-background/50 backdrop-blur-sm">
         <div className="flex items-center justify-between mb-4">

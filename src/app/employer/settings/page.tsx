@@ -19,8 +19,6 @@ import styles from "~/styles/Employer/Settings.module.css";
 interface Company {
     id: number;
     name: string;
-    employerpasskey: string;
-    employeepasskey: string;
     numberOfEmployees: string;
     createdAt: string;
     updatedAt: string;
@@ -46,8 +44,6 @@ const SettingsPage = () => {
 
     // New fields
     const [companyName, setCompanyName] = useState("");
-    const [employerPasskey, setEmployerPasskey] = useState("");
-    const [employeePasskey, setEmployeePasskey] = useState("");
     const [staffCount, setStaffCount] = useState("");
 
     // --------------------------------------------------------------------------
@@ -125,8 +121,6 @@ const SettingsPage = () => {
                 const data = rawData as Company;
 
                 setCompanyName(data.name ?? "");
-                setEmployerPasskey(data.employerpasskey ?? "");
-                setEmployeePasskey(data.employeepasskey ?? "");
                 setStaffCount(data.numberOfEmployees ?? "");
 
                 setDisplayName(user?.fullName ?? "");
@@ -153,8 +147,6 @@ const SettingsPage = () => {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     name: companyName,
-                    employerPasskey,
-                    employeePasskey,
                     numberOfEmployees: staffCount,
                 }),
             });
@@ -210,13 +202,9 @@ const SettingsPage = () => {
                 displayName={displayName}
                 email={email}
                 companyName={companyName}
-                employerPasskey={employerPasskey}
-                employeePasskey={employeePasskey}
                 staffCount={staffCount}
                 isSaving={isSaving}
                 onCompanyNameChange={setCompanyName}
-                onEmployerPasskeyChange={setEmployerPasskey}
-                onEmployeePasskeyChange={setEmployeePasskey}
                 onStaffCountChange={setStaffCount}
                 onSave={handleSave}
             />

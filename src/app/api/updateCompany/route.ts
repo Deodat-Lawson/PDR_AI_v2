@@ -65,10 +65,16 @@ export async function POST(request: Request) {
       useUploadThing: boolean;
     }> = {
       name,
-      employerpasskey: employerPasskey,
-      employeepasskey: employeePasskey,
       numberOfEmployees,
     };
+
+    // Only include passkeys if they were explicitly provided
+    if (employerPasskey !== undefined) {
+      updateData.employerpasskey = employerPasskey;
+    }
+    if (employeePasskey !== undefined) {
+      updateData.employeepasskey = employeePasskey;
+    }
 
     // Only include useUploadThing if it was explicitly provided
     if (useUploadThing !== undefined) {

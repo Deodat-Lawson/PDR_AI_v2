@@ -10,8 +10,6 @@ interface SettingsFormProps {
 
     // Editable fields
     companyName: string;
-    employerPasskey: string;
-    employeePasskey: string;
     staffCount: string;
 
     // State flags
@@ -19,8 +17,6 @@ interface SettingsFormProps {
 
     // Callbacks for updating parent state
     onCompanyNameChange: (value: string) => void;
-    onEmployerPasskeyChange: (value: string) => void;
-    onEmployeePasskeyChange: (value: string) => void;
     onStaffCountChange: (value: string) => void;
 
     // Callback for saving
@@ -31,13 +27,9 @@ const SettingsForm: FC<SettingsFormProps> = ({
                                                  displayName,
                                                  email,
                                                  companyName,
-                                                 employerPasskey,
-                                                 employeePasskey,
                                                  staffCount,
                                                  isSaving,
                                                  onCompanyNameChange,
-                                                 onEmployerPasskeyChange,
-                                                 onEmployeePasskeyChange,
                                                  onStaffCountChange,
                                                  onSave,
                                              }) => {
@@ -84,34 +76,6 @@ const SettingsForm: FC<SettingsFormProps> = ({
                     className={styles.input}
                     value={companyName}
                     onChange={(e) => onCompanyNameChange(e.target.value)}
-                />
-            </div>
-
-            {/* Employer Passkey */}
-            <div className={styles.formGroup}>
-                <label htmlFor="employerPasskey" className={styles.label}>
-                    Employer Passkey
-                </label>
-                <input
-                    id="employerPasskey"
-                    type="text"
-                    className={styles.input}
-                    value={employerPasskey}
-                    onChange={(e) => onEmployerPasskeyChange(e.target.value)}
-                />
-            </div>
-
-            {/* Employee Passkey */}
-            <div className={styles.formGroup}>
-                <label htmlFor="employeePasskey" className={styles.label}>
-                    Employee Passkey
-                </label>
-                <input
-                    id="employeePasskey"
-                    type="text"
-                    className={styles.input}
-                    value={employeePasskey}
-                    onChange={(e) => onEmployeePasskeyChange(e.target.value)}
                 />
             </div>
 
