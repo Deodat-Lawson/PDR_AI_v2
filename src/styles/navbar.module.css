@@ -36,6 +36,11 @@
     @apply bg-transparent text-gray-400 hover:bg-purple-500/10 hover:text-purple-300;
 }
 
+.btnSecondary {
+    @apply bg-transparent text-purple-400 border border-purple-500/40
+    hover:bg-purple-500/10 hover:border-purple-400 hover:-translate-y-0.5;
+}
+
 .btnPrimary {
     @apply bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:opacity-90 hover:-translate-y-0.5;
 }
@@ -47,6 +52,10 @@
 
 :global([data-theme="light"]) .btnGhost {
     @apply text-gray-600 hover:bg-purple-100 hover:text-purple-700;
+}
+
+:global([data-theme="light"]) .btnSecondary {
+    @apply text-purple-600 border-purple-300 hover:bg-purple-50 hover:border-purple-500;
 }
 
 :global([data-theme="light"]) .iconPurple {
@@ -82,8 +91,8 @@
         @apply hidden;
     }
     
-    /* Keep theme toggle and Get Started visible */
-    .navLinks > :nth-last-child(-n+2) {
+    /* Keep theme toggle, Sign In, and Get Started visible */
+    .navLinks > :nth-last-child(-n+3) {
         @apply flex;
     }
 }
