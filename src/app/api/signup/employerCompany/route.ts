@@ -8,16 +8,12 @@ type PostBody = {
     companyName: string;
     name: string;
     email: string;
-    employerPasskey: string;
-    employeePasskey: string;
     numberOfEmployees: string;
 }
 
-
-
 export async function POST(request: Request) {
     try {
-        const {userId, name, email, companyName, employerPasskey, employeePasskey, numberOfEmployees} = (await request.json()) as PostBody;
+        const {userId, name, email, companyName, numberOfEmployees} = (await request.json()) as PostBody;
 
         // Check if company already exists
         const [existingCompany] = await db
@@ -31,13 +27,10 @@ export async function POST(request: Request) {
             );
         }
 
-
         const [newCompany] = await db
             .insert(company)
             .values({
                 name: companyName,
-                employerpasskey: employerPasskey,  // MUST match the property name in createTable
-                employeepasskey: employeePasskey,  // Ditto
                 numberOfEmployees: numberOfEmployees || "0",
             })
             .returning({ id: company.id });
@@ -49,7 +42,6 @@ export async function POST(request: Request) {
         }
 
         const companyId = BigInt(newCompany.id);
-
 
         await db.insert(users).values({
             userId,

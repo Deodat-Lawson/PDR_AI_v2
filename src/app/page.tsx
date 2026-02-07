@@ -6,7 +6,6 @@ import { Navbar } from './_components/Navbar';
 
 import {
     ClerkProvider,
-    SignUpButton,
 } from '@clerk/nextjs'
 
 
@@ -38,12 +37,12 @@ export default function HomePage() {
                             Transform how your team analyzes and interprets professional documents with cutting-edge AI technology. Features predictive document analysis, intelligent company management tools, and enterprise-grade security.
                         </p>
                         <div className={styles['hero-buttons']}>
-                            <SignUpButton>
+                            <Link href="/signup">
                                 <button className={`${styles.btn} ${styles['btn-primary']} ${styles['btn-lg']}`}>
                                     Start Free Trial
                                     <ArrowRight className="ml-2 w-5 h-5" />
                                 </button>
-                            </SignUpButton>
+                            </Link>
                             <Link href="/contact">
                                 <button className={`${styles.btn} ${styles['btn-outline']} ${styles['btn-lg']}`}>
                                     Schedule Demo
@@ -232,12 +231,12 @@ export default function HomePage() {
                             Experience the power of predictive document analysis and advanced company management tools. Join thousands of professionals who have revolutionized their document processes with PDR-AI.
                         </p>
                         <div className={styles['cta-buttons']}>
-                            <SignUpButton>
+                            <Link href="/signup">
                                 <button className={`${styles.btn} ${styles['btn-lg']}`} style={{backgroundColor: 'white', color: '#7c3aed'}}>
                                     Start Your Free Trial
                                     <ArrowRight className="ml-2 w-5 h-5" />
                                 </button>
-                            </SignUpButton>
+                            </Link>
                             <Link href="/contact">
                                 <button className={`${styles.btn} ${styles['btn-outline']} ${styles['btn-lg']}`} style={{borderColor: 'white', color: 'white'}}>
                                     Contact Sales
