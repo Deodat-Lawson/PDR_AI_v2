@@ -118,7 +118,7 @@ const SignupPage: React.FC = () => {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         userId,
-                        name: user.fullName,
+                        name: user.fullName ?? user.username,
                         email: user.emailAddresses[0]?.emailAddress,
                         inviteCode: code,
                     }),
