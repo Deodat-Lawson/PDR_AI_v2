@@ -92,6 +92,13 @@
       "when": 1769617086407,
       "tag": "0012_foamy_the_phantom",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1770773554966,
+      "tag": "0013_greedy_scorpion",
+      "breakpoints": true
     }
   ]
 }

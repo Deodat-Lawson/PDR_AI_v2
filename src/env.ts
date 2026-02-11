@@ -31,6 +31,8 @@ const serverSchema = z.object({
   ),
   LANGCHAIN_API_KEY: optionalString(),
   LANGCHAIN_PROJECT: optionalString(), // Optional project name for LangSmith
+  // Encryption key for encrypting per-company service API keys at rest
+  ENCRYPTION_KEY: optionalString(),
 });
 
 const clientSchema = z.object({
@@ -72,6 +74,7 @@ export const env = {
     LANGCHAIN_TRACING_V2: process.env.LANGCHAIN_TRACING_V2,
     LANGCHAIN_API_KEY: process.env.LANGCHAIN_API_KEY,
     LANGCHAIN_PROJECT: process.env.LANGCHAIN_PROJECT,
+    ENCRYPTION_KEY: process.env.ENCRYPTION_KEY,
   }),
   client: parseEnv(clientSchema, {
     NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:

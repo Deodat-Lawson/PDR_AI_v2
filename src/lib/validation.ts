@@ -151,6 +151,17 @@ export const EmployerAuthSchema = z.object({
   companyPasskey: z.string().min(1, "Company passkey is required"),
 });
 
+export const ServiceConnectionsSchema = z.object({
+  keys: z
+    .array(
+      z.object({
+        keyType: z.string().min(1, "Key type is required").max(100),
+        keyValue: z.string().max(2048, "Key value is too long"),
+      })
+    )
+    .min(1, "At least one service key must be provided"),
+});
+
 // ============================================================================
 // RLM (Recursive Language Model) Query Schema
 // ============================================================================

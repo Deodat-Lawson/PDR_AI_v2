@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { Upload, FileText, BarChart, Brain, Settings, Users, HelpCircle, GraduationCap } from "lucide-react";
+import { Upload, FileText, BarChart, Brain, Settings, Users, HelpCircle, GraduationCap, Plug } from "lucide-react";
 import styles from "~/styles/Employer/Home.module.css";
 import { useRouter } from "next/navigation";
 import ProfileDropdown from "~/app/employer/_components/ProfileDropdown";
@@ -88,6 +88,13 @@ const HomeScreen = () => {
             title: "Manage Employees",
             description: "View and manage employees in your organization",
             path: "/employer/employees",
+            isBeta: false,
+        },
+        {
+            icon: <Plug className={styles.menuIcon} />,
+            title: "Integrations",
+            description: "Connect and configure external services like search, OCR, and storage",
+            path: "/employer/integrations",
             isBeta: false,
         },
         {

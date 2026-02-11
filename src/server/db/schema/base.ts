@@ -8,6 +8,7 @@ import {
     serial,
     text,
     timestamp,
+    unique,
     varchar,
     bigint,
 } from "drizzle-orm/pg-core";
@@ -397,6 +398,33 @@ export const ocrCostTracking = pgTable(
 );
 
 // ============================================================================
+// Company Service Keys (per-company API keys, encrypted at rest, KV design)
+// ============================================================================
+
+export const companyServiceKeys = pgTable(
+    "company_service_keys",
+    {
+        id: serial("id").primaryKey(),
+        companyId: bigint("company_id", { mode: "bigint" })
+            .notNull()
+            .references(() => company.id, { onDelete: "cascade" }),
+        keyType: varchar("key_type", { length: 100 }).notNull(),
+        keyValue: text("key_value").notNull(),
+        createdAt: timestamp("created_at", { withTimezone: true })
+            .default(sql`CURRENT_TIMESTAMP`)
+            .notNull(),
+        updatedAt: timestamp("updated_at", { withTimezone: true }).$onUpdate(
+            () => new Date()
+        ),
+    },
+    (table) => ({
+        companyIdIdx: index("company_service_keys_company_id_idx").on(table.companyId),
+        keyTypeIdx: index("company_service_keys_key_type_idx").on(table.companyId, table.keyType),
+        companyKeyUnique: unique("company_service_keys_company_key_unique").on(table.companyId, table.keyType),
+    })
+);
+
+// ============================================================================
 // Relations
 // ============================================================================
 
@@ -404,6 +432,7 @@ export const companyRelations = relations(company, ({ many }) => ({
     users: many(users),
     documents: many(document),
     categories: many(category),
+    serviceKeys: many(companyServiceKeys),
 }));
 
 export const usersRelations = relations(users, ({ one }) => ({
@@ -477,6 +506,13 @@ export const ocrCostTrackingRelations = relations(ocrCostTracking, ({ one }) => 
     }),
 }));
 
+export const companyServiceKeysRelations = relations(companyServiceKeys, ({ one }) => ({
+    company: one(company, {
+        fields: [companyServiceKeys.companyId],
+        references: [company.id],
+    }),
+}));
+
 // ============================================================================
 // Type exports
 // ============================================================================
@@ -492,3 +528,4 @@ export type DocumentReferenceResolution = InferSelectModel<typeof documentRefere
 export type OcrJob = InferSelectModel<typeof ocrJobs>;
 export type OcrProcessingStep = InferSelectModel<typeof ocrProcessingSteps>;
 export type OcrCostTracking = InferSelectModel<typeof ocrCostTracking>;
+export type CompanyServiceKey = InferSelectModel<typeof companyServiceKeys>;
