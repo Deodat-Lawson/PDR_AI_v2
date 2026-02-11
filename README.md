@@ -2,6 +2,490 @@
 
 A Next.js application that uses advanced AI technology to analyze, interpret, and extract insights from professional documents. Features employee/employer authentication, document upload and management, AI-powered chat, and **comprehensive predictive document analysis** that identifies missing documents, provides recommendations, and suggests related content.
 
+## 🛠 Tech Stack
+
+- **Framework**: [Next.js 15](https://nextjs.org/) with TypeScript
+- **Authentication**: [Clerk](https://clerk.com/)
+- **Database**: PostgreSQL with [Drizzle ORM](https://orm.drizzle.team/)
+- **AI Integration**: [OpenAI](https://openai.com/) + [LangChain](https://langchain.com/)
+- **OCR Processing**: [Datalab Marker API](https://www.datalab.to/) (optional)
+- **File Upload**: [UploadThing](https://uploadthing.com/)
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
+- **Package Manager**: [pnpm](https://pnpm.io/)
+
+## 📋 Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+- **Node.js** (version 18.0 or higher)
+- **pnpm** (recommended) or npm
+- **Docker** (for local database)
+- **Git**
+
+## 🔧 Installation & Setup
+
+### 1. Clone the Repository
+
+```bash
+git clone <repository-url>
+cd pdr_ai_v2-2
+```
+
+### 2. Install Dependencies
+
+```bash
+pnpm install
+```
+
+### 3. Environment Configuration
+
+Create a `.env` file in the root directory with the following variables:
+
+```env
+# =============================================================================
+# DATABASE
+# =============================================================================
+# Format: postgresql://[user]:[password]@[host]:[port]/[database]
+# For local development using Docker: postgresql://postgres:password@localhost:5432/pdr_ai_v2
+# For production: Use your production PostgreSQL connection string
+DATABASE_URL="postgresql://postgres:password@localhost:5432/pdr_ai_v2"
+
+# =============================================================================
+# AUTHENTICATION (Clerk)
+# =============================================================================
+# Get from https://clerk.com/
+# Post-auth redirects are handled automatically by middleware based on user role
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
+CLERK_SECRET_KEY=your_clerk_secret_key
+
+# =============================================================================
+# AI & EMBEDDINGS
+# =============================================================================
+# OpenAI API (get from https://platform.openai.com/)
+# Required for AI features: document analysis, embeddings, chat functionality
+OPENAI_API_KEY=your_openai_api_key
+
+# Tavily Search API (get from https://tavily.com/)
+# Required for web search capabilities in document analysis
+TAVILY_API_KEY=your_tavily_api_key
+
+# =============================================================================
+# FILE UPLOADS
+# =============================================================================
+# UploadThing (get from https://uploadthing.com/)
+# Required for file uploads (PDF documents)
+UPLOADTHING_TOKEN=your_uploadthing_token
+
+# =============================================================================
+# OCR PROVIDERS (Optional)
+# =============================================================================
+# Azure Document Intelligence (primary OCR provider)
+# Get from https://azure.microsoft.com/en-us/products/ai-services/ai-document-intelligence
+AZURE_DOC_INTELLIGENCE_ENDPOINT=https://your-resource.cognitiveservices.azure.com/
+AZURE_DOC_INTELLIGENCE_KEY=your_azure_key
+
+# Landing.AI (fallback for complex/handwritten documents)
+# Get from https://landing.ai/
+LANDING_AI_API_KEY=your_landing_ai_key
+
+# Datalab Marker API (legacy OCR option)
+# Get from https://www.datalab.to/
+DATALAB_API_KEY=your_datalab_api_key
+
+# =============================================================================
+# BACKGROUND JOBS (Optional - enables reliable document processing)
+# =============================================================================
+# Inngest provides automatic retries, observability, and step-based execution
+# Without Inngest, document processing runs synchronously (fire-and-forget)
+# Get from https://www.inngest.com/ or use Vercel integration
+# INNGEST_EVENT_KEY=your_inngest_event_key
+# INNGEST_SIGNING_KEY=your_inngest_signing_key
+
+# =============================================================================
+# OBSERVABILITY (Optional)
+# =============================================================================
+# LangChain/LangSmith (get from https://smith.langchain.com/)
+LANGCHAIN_TRACING_V2=true
+LANGCHAIN_API_KEY=your_langchain_api_key
+LANGCHAIN_PROJECT=pdr-ai-production
+
+# =============================================================================
+# ENVIRONMENT
+# =============================================================================
+# Options: development, test, production
+NODE_ENV=development
+
+# Optional: Skip environment validation (useful for Docker builds)
+# SKIP_ENV_VALIDATION=false
+```
+
+### 4. Database Setup
+
+#### Start Local PostgreSQL Database
+
+```bash
+# Make the script executable
+chmod +x start-database.sh
+
+# Start the database container
+./start-database.sh
+```
+
+This will:
+- Create a Docker container with PostgreSQL
+- Set up the database with proper credentials
+- Generate a secure password if using default settings
+
+#### Run Database Migrations
+
+```bash
+# Generate migration files
+pnpm db:generate
+
+# Apply migrations to database
+pnpm db:migrate
+
+# Alternative: Push schema directly (for development)
+pnpm db:push
+```
+
+### 5. Set Up External Services
+
+#### Clerk Authentication
+1. Create account at [Clerk](https://clerk.com/)
+2. Create a new application
+3. Copy the publishable and secret keys to your `.env` file
+4. Configure sign-in/sign-up methods as needed
+5. Post-authentication redirects are handled automatically by the middleware based on user role
+
+#### OpenAI API
+1. Create account at [OpenAI](https://platform.openai.com/)
+2. Generate an API key
+3. Add the key to your `.env` file
+
+#### LangChain (LangSmith) - Optional
+1. Create account at [LangSmith](https://smith.langchain.com/)
+2. Generate an API key from your account settings
+3. Set `LANGCHAIN_TRACING_V2=true` and add `LANGCHAIN_API_KEY` to your `.env` file
+4. This enables tracing and monitoring of LangChain operations for debugging and observability
+
+#### Tavily Search API - Optional
+1. Create account at [Tavily](https://tavily.com/)
+2. Generate an API key from your dashboard
+3. Add `TAVILY_API_KEY` to your `.env` file
+4. Used for enhanced web search capabilities in document analysis features
+
+#### Datalab Marker API - Optional
+1. Create account at [Datalab](https://www.datalab.to/)
+2. Navigate to the API section and generate an API key
+3. Add `DATALAB_API_KEY` to your `.env` file
+4. Enables advanced OCR processing for scanned documents and images in PDFs
+5. When configured, an OCR checkbox will appear in the document upload interface
+
+#### UploadThing
+1. Create account at [UploadThing](https://uploadthing.com/)
+2. Create a new app
+3. Copy the secret and app ID to your `.env` file
+
+## 🚀 Running the Application
+
+### Development Mode
+
+```bash
+pnpm dev
+```
+
+The application will be available at `http://localhost:3000`
+
+### Production Build
+
+```bash
+# Build the application
+pnpm build
+
+# Start production server
+pnpm start
+```
+
+## 🚀 Deployment Guide
+
+### Prerequisites for Production
+
+Before deploying, ensure you have:
+- ✅ All environment variables configured
+- ✅ Production database set up (PostgreSQL with pgvector extension)
+- ✅ API keys for all external services
+- ✅ Domain name configured (if using custom domain)
+
+### Deployment Options
+
+#### 1. Vercel (Recommended for Next.js)
+
+Vercel is the recommended platform for Next.js applications:
+
+**Steps:**
+
+1. **Push your code to GitHub**
+   ```bash
+   git push origin main
+   ```
+
+2. **Import repository on Vercel**
+   - Go to [vercel.com](https://vercel.com) and sign in
+   - Click "Add New Project"
+   - Import your GitHub repository
+
+3. **Set up Database and Environment Variables**
+   
+   **Database Setup:**
+   
+   **Option A: Using Vercel Postgres (Recommended)**
+   - In Vercel dashboard, go to Storage → Create Database → Postgres
+   - Choose a region and create the database
+   - Vercel will automatically create the `DATABASE_URL` environment variable
+   - Enable pgvector extension: Connect to your database and run `CREATE EXTENSION IF NOT EXISTS vector;`
+   
+   **Option B: Using Neon Database (Recommended for pgvector support)**
+   - Create a Neon account at [neon.tech](https://neon.tech) if you don't have one
+   - Create a new project in Neon dashboard
+   - Choose PostgreSQL version 14 or higher
+   - In Vercel dashboard, go to your project → Storage tab
+   - Click "Create Database" or "Browse Marketplace"
+   - Select "Neon" from the integrations
+   - Click "Connect" or "Add Integration"
+   - Authenticate with your Neon account
+   - Select your Neon project and branch
+   - Vercel will automatically create the `DATABASE_URL` environment variable from Neon
+   - You may also see additional Neon-related variables like:
+     - `POSTGRES_URL`
+     - `POSTGRES_PRISMA_URL`
+     - `POSTGRES_URL_NON_POOLING`
+     - Your application uses `DATABASE_URL`, so ensure this is set correctly
+   - Enable pgvector extension in Neon:
+     - Go to Neon dashboard → SQL Editor
+     - Run: `CREATE EXTENSION IF NOT EXISTS vector;`
+     - Or use Neon's SQL editor to enable the extension
+   
+   **Option C: Using External Database (Manual Setup)**
+   - In Vercel dashboard, go to Settings → Environment Variables
+   - Click "Add New"
+   - Key: `DATABASE_URL`
+   - Value: Your PostgreSQL connection string (e.g., `postgresql://user:password@host:port/database`)
+   - Select environments: Production, Preview, Development (as needed)
+   - Click "Save"
+   
+   **Add Other Environment Variables:**
+   - In Vercel dashboard, go to Settings → Environment Variables
+   - Add all required environment variables:
+     - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
+     - `CLERK_SECRET_KEY`
+     - `OPENAI_API_KEY`
+     - `UPLOADTHING_SECRET`
+     - `UPLOADTHING_APP_ID`
+     - `NODE_ENV=production`
+     - `LANGCHAIN_TRACING_V2=true` (optional, for LangSmith tracing)
+     - `LANGCHAIN_API_KEY` (optional, required if `LANGCHAIN_TRACING_V2=true`)
+     - `TAVILY_API_KEY` (optional, for enhanced web search)
+     - `DATALAB_API_KEY` (optional, for OCR processing)
+
+4. **Configure build settings**
+   - Build Command: `pnpm build`
+   - Output Directory: `.next` (default)
+   - Install Command: `pnpm install`
+
+5. **Deploy**
+   - Click "Deploy"
+   - Vercel will automatically deploy on every push to your main branch
+
+**Post-Deployment:**
+
+1. **Enable pgvector Extension** (Required for vector search)
+   - **For Vercel Postgres**: Connect to your database using Vercel's database connection tool or SQL editor in the Storage dashboard
+   - **For Neon**: Go to Neon dashboard → SQL Editor and run the command
+   - **For External Database**: Connect using your preferred PostgreSQL client
+   - Run: `CREATE EXTENSION IF NOT EXISTS vector;`
+
+2. **Run Database Migrations**
+   - After deployment, run migrations using one of these methods:
+     ```bash
+     # Option 1: Using Vercel CLI locally
+     vercel env pull .env.local
+     pnpm db:migrate
+     
+     # Option 2: Using direct connection (set DATABASE_URL locally)
+     DATABASE_URL="your_production_db_url" pnpm db:migrate
+     
+     # Option 3: Using Drizzle Studio with production URL
+     DATABASE_URL="your_production_db_url" pnpm db:studio
+     ```
+
+3. **(Optional) Set up Inngest Integration** for reliable background processing
+   - Go to Vercel → Integrations → Browse Marketplace
+   - Search for "Inngest" and click Add Integration
+   - Connect your Inngest account (create one at [inngest.com](https://www.inngest.com))
+   - The integration automatically sets `INNGEST_EVENT_KEY` and `INNGEST_SIGNING_KEY`
+   - **Benefits**: Automatic retries, step-based execution, observability dashboard
+   - **Without Inngest**: Document processing runs synchronously (fire-and-forget)
+
+4. **Set up Clerk webhooks** (if needed)
+   - Configure webhook URL in Clerk dashboard
+   - URL format: `https://your-domain.com/api/webhooks/clerk`
+
+5. **Configure UploadThing**
+   - Add your production domain to UploadThing allowed origins
+   - Configure CORS settings in UploadThing dashboard
+
+#### 2. Self-Hosted VPS Deployment
+
+**Prerequisites:**
+- VPS with Node.js 18+ installed
+- PostgreSQL database (with pgvector extension)
+- Nginx (for reverse proxy)
+- PM2 or similar process manager
+
+**Steps:**
+
+1. **Clone and install dependencies**
+   ```bash
+   git clone <your-repo-url>
+   cd pdr_ai_v2-2
+   pnpm install
+   ```
+
+2. **Configure environment variables**
+   ```bash
+   # Create .env file
+   nano .env
+   # Add all production environment variables
+   ```
+
+3. **Build the application**
+   ```bash
+   pnpm build
+   ```
+
+4. **Set up PM2**
+   ```bash
+   # Install PM2 globally
+   npm install -g pm2
+   
+   # Start the application
+   pm2 start pnpm --name "pdr-ai" -- start
+   
+   # Save PM2 configuration
+   pm2 save
+   pm2 startup
+   ```
+
+5. **Configure Nginx**
+   ```nginx
+   server {
+       listen 80;
+       server_name your-domain.com;
+
+       location / {
+           proxy_pass http://localhost:3000;
+           proxy_http_version 1.1;
+           proxy_set_header Upgrade $http_upgrade;
+           proxy_set_header Connection 'upgrade';
+           proxy_set_header Host $host;
+           proxy_cache_bypass $http_upgrade;
+           proxy_set_header X-Real-IP $remote_addr;
+           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+           proxy_set_header X-Forwarded-Proto $scheme;
+       }
+   }
+   ```
+
+6. **Set up SSL with Let's Encrypt**
+   ```bash
+   sudo apt-get install certbot python3-certbot-nginx
+   sudo certbot --nginx -d your-domain.com
+   ```
+
+7. **Run database migrations**
+   ```bash
+   pnpm db:migrate
+   ```
+
+### Production Database Setup
+
+**Important:** Your production database must have the `pgvector` extension enabled:
+
+```sql
+-- Connect to your PostgreSQL database
+CREATE EXTENSION IF NOT EXISTS vector;
+```
+
+**Database Connection:**
+
+For production, use a managed PostgreSQL service (recommended):
+- **Neon**: Fully serverless PostgreSQL with pgvector support
+- **Supabase**: PostgreSQL with pgvector extension
+- **AWS RDS**: Managed PostgreSQL (requires manual pgvector installation)
+- **Railway**: Simple PostgreSQL hosting
+
+**Example Neon connection string:**
+```
+DATABASE_URL="postgresql://user:password@ep-xxx.us-east-2.aws.neon.tech/dbname?sslmode=require"
+```
+
+### Post-Deployment Checklist
+
+- [ ] Verify all environment variables are set correctly
+- [ ] Database migrations have been run
+- [ ] Database has pgvector extension enabled
+- [ ] Clerk authentication is working
+- [ ] File uploads are working (UploadThing)
+- [ ] AI features are functioning (OpenAI API)
+- [ ] Document processing is working (uploads and vectorization)
+- [ ] (Optional) Inngest integration connected for reliable background jobs
+- [ ] SSL certificate is configured (if using custom domain)
+- [ ] Monitoring and logging are set up
+- [ ] Backup strategy is in place
+
+### Monitoring and Maintenance
+
+**Health Checks:**
+- Monitor application uptime
+- Check database connection health
+- Monitor API usage (OpenAI, UploadThing)
+- Track error rates
+
+**Backup Strategy:**
+- Set up automated database backups
+- Configure backup retention policy
+- Test restore procedures regularly
+
+**Scaling Considerations:**
+- Database connection pooling (use PgBouncer or similar)
+- CDN for static assets (Vercel handles this automatically)
+- Rate limiting for API endpoints
+- Caching strategy for frequently accessed data
+
+### Other Useful Scripts
+
+```bash
+# Database management
+pnpm db:studio          # Open Drizzle Studio (database GUI)
+pnpm db:generate         # Generate new migrations
+pnpm db:migrate          # Apply migrations
+pnpm db:push             # Push schema changes directly
+
+# Code quality
+pnpm lint                # Run ESLint
+pnpm lint:fix            # Fix ESLint issues
+pnpm typecheck           # Run TypeScript type checking
+pnpm format:write        # Format code with Prettier
+pnpm format:check        # Check code formatting
+
+# Development
+pnpm check               # Run linting and type checking
+pnpm preview             # Build and start production preview
+```
+
+---
+
 ## 🧭 End-to-end workflow (how the features connect)
 
 PDR AI is designed as one connected loop: **capture documents → make them searchable → ask questions → spot gaps → act → learn**.
@@ -27,14 +511,14 @@ PDR AI is designed as one connected loop: **capture documents → make them sear
    - **AI Teacher mode**: a structured instructor with multiple teaching surfaces (view/edit/draw) for lessons
 
 7. **Close the loop**  
-   Use insights from chat + predictive analysis + StudyBuddy sessions to upload missing docs, update categories, and keep your organization’s knowledge base complete and actionable.
+   Use insights from chat + predictive analysis + StudyBuddy sessions to upload missing docs, update categories, and keep your organization's knowledge base complete and actionable.
 
 ## Web Search Agent Workflow
-<img width="1106" height="336" alt="Screenshot 2025-11-16 at 2 53 18 PM" src="https://github.com/user-attachments/assets/8c2d5ec2-a57e-4afa-97cf-1961dcb9049f" />
+<img width="1106" height="336" alt="Screenshot 2025-11-16 at 2 53 18 PM" src="https://github.com/user-attachments/assets/8c2d5ec2-a57e-4afa-97cf-1961dcb9049f" />
 
 ## 🎓 Study Agent (StudyBuddy + AI Teacher)
 
-The Study Agent is the “learn it” layer on top of the same document ingestion + RAG stack.
+The Study Agent is the "learn it" layer on top of the same document ingestion + RAG stack.
 
 ### How sessions work (shared foundation)
 
@@ -42,7 +526,7 @@ The Study Agent is the “learn it” layer on top of the same document ingestio
 2. **Start onboarding** at `/employer/studyAgent/onboarding`
 3. **Choose mode**: **StudyBuddy** or **AI Teacher**
 4. **Create a study session**:
-   - A new session is created and you’re redirected with `?sessionId=...`
+   - A new session is created and you're redirected with `?sessionId=...`
    - Your **profile** (name/grade/gender/field of study) and **preferences** (selected docs, AI personality) are stored
    - An initial **study plan** is generated from the documents you selected
 5. **Resume anytime**: session data is loaded using `sessionId` so conversations and study progress persist
@@ -53,13 +537,13 @@ StudyBuddy is optimized for momentum and daily studying while staying grounded i
 
 - **Document-grounded help (RAG)**: ask questions about your selected PDFs, and the agent retrieves relevant chunks to answer.
 - **Voice chat**:
-  - Speech-to-text via the browser’s Web Speech API
+  - Speech-to-text via the browser's Web Speech API
   - Optional text-to-speech via ElevenLabs (if configured)
   - Messages are persisted to your session so you can continue later
 - **Study Plan (Goals)**:
   - Create/edit/delete goals
   - Mark goals complete/incomplete and track progress
-  - Attach “materials” (documents) to each goal and one-click “pull up” the doc in the viewer
+  - Attach "materials" (documents) to each goal and one-click "pull up" the doc in the viewer
 - **Notes**:
   - Create/update/delete notes tied to your study session
   - Tag notes and keep them organized while you study
@@ -71,7 +555,7 @@ StudyBuddy is optimized for momentum and daily studying while staying grounded i
 
 ### AI Teacher (structured instructor)
 
-AI Teacher is optimized for guided instruction and “teaching by doing” across multiple views.
+AI Teacher is optimized for guided instruction and "teaching by doing" across multiple views.
 
 - **Voice-led teaching + study plan tracking**:
   - Voice chat for interactive lessons
@@ -83,7 +567,7 @@ AI Teacher is optimized for guided instruction and “teaching by doing” acros
 - **AI Query tab**:
   - Ask targeted questions without interrupting the lesson flow
 
-### Persistence & sync (what’s saved)
+### Persistence & sync (what's saved)
 
 Per `sessionId`, the Study Agent persists:
 - **messages** (StudyBuddy/Teacher conversations)
@@ -465,560 +949,14 @@ const response = await fetch('/api/LangChain', {
 - **Audit Preparation**: 90% faster audit preparation time
 - **Process Efficiency**: 70% improvement in document management workflows
 
-## 🛠 Tech Stack
-
-- **Framework**: [Next.js 15](https://nextjs.org/) with TypeScript
-- **Authentication**: [Clerk](https://clerk.com/)
-- **Database**: PostgreSQL with [Drizzle ORM](https://orm.drizzle.team/)
-- **AI Integration**: [OpenAI](https://openai.com/) + [LangChain](https://langchain.com/)
-- **OCR Processing**: [Datalab Marker API](https://www.datalab.to/) (optional)
-- **File Upload**: [UploadThing](https://uploadthing.com/)
-- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
-- **Package Manager**: [pnpm](https://pnpm.io/)
-
-## 📋 Prerequisites
-
-Before you begin, ensure you have the following installed:
-
-- **Node.js** (version 18.0 or higher)
-- **pnpm** (recommended) or npm
-- **Docker** (for local database)
-- **Git**
-
-## 🔧 Installation & Setup
-
-### 1. Clone the Repository
-
-```bash
-git clone <repository-url>
-cd pdr_ai_v2-2
-```
-
-### 2. Install Dependencies
-
-```bash
-pnpm install
-```
-
-### 3. Environment Configuration
-
-Create a `.env` file in the root directory with the following variables:
-
-```env
-# =============================================================================
-# DATABASE
-# =============================================================================
-# Format: postgresql://[user]:[password]@[host]:[port]/[database]
-# For local development using Docker: postgresql://postgres:password@localhost:5432/pdr_ai_v2
-# For production: Use your production PostgreSQL connection string
-DATABASE_URL="postgresql://postgres:password@localhost:5432/pdr_ai_v2"
-
-# =============================================================================
-# AUTHENTICATION (Clerk)
-# =============================================================================
-# Get from https://clerk.com/
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
-CLERK_SECRET_KEY=your_clerk_secret_key
-
-# Clerk Force Redirect URLs (Optional)
-NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL=https://your-domain.com/employer/home
-NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL=https://your-domain.com/signup
-NEXT_PUBLIC_CLERK_SIGN_OUT_FORCE_REDIRECT_URL=https://your-domain.com/
-
-# =============================================================================
-# AI & EMBEDDINGS
-# =============================================================================
-# OpenAI API (get from https://platform.openai.com/)
-# Required for AI features: document analysis, embeddings, chat functionality
-OPENAI_API_KEY=your_openai_api_key
-
-# Tavily Search API (get from https://tavily.com/)
-# Required for web search capabilities in document analysis
-TAVILY_API_KEY=your_tavily_api_key
-
-# =============================================================================
-# FILE UPLOADS
-# =============================================================================
-# UploadThing (get from https://uploadthing.com/)
-# Required for file uploads (PDF documents)
-UPLOADTHING_TOKEN=your_uploadthing_token
-
-# =============================================================================
-# BACKGROUND JOBS (Inngest)
-# =============================================================================
-# Get from https://www.inngest.com/ (required for production)
-# For local development, these are optional if using `npx inngest-cli dev`
-INNGEST_EVENT_KEY=your_inngest_event_key
-INNGEST_SIGNING_KEY=your_inngest_signing_key
-
-# =============================================================================
-# OCR PROVIDERS (Optional)
-# =============================================================================
-# Azure Document Intelligence (primary OCR provider)
-# Get from https://azure.microsoft.com/en-us/products/ai-services/ai-document-intelligence
-AZURE_DOC_INTELLIGENCE_ENDPOINT=https://your-resource.cognitiveservices.azure.com/
-AZURE_DOC_INTELLIGENCE_KEY=your_azure_key
-
-# Landing.AI (fallback for complex/handwritten documents)
-# Get from https://landing.ai/
-LANDING_AI_API_KEY=your_landing_ai_key
-
-# Datalab Marker API (legacy OCR option)
-# Get from https://www.datalab.to/
-DATALAB_API_KEY=your_datalab_api_key
-
-# =============================================================================
-# OBSERVABILITY (Optional)
-# =============================================================================
-# LangChain/LangSmith (get from https://smith.langchain.com/)
-LANGCHAIN_TRACING_V2=true
-LANGCHAIN_API_KEY=your_langchain_api_key
-LANGCHAIN_PROJECT=pdr-ai-production
-
-# =============================================================================
-# ENVIRONMENT
-# =============================================================================
-# Options: development, test, production
-NODE_ENV=development
-
-# Optional: Skip environment validation (useful for Docker builds)
-# SKIP_ENV_VALIDATION=false
-```
-
-### 4. Database Setup
-
-#### Start Local PostgreSQL Database
-
-```bash
-# Make the script executable
-chmod +x start-database.sh
-
-# Start the database container
-./start-database.sh
-```
-
-This will:
-- Create a Docker container with PostgreSQL
-- Set up the database with proper credentials
-- Generate a secure password if using default settings
-
-#### Run Database Migrations
-
-```bash
-# Generate migration files
-pnpm db:generate
-
-# Apply migrations to database
-pnpm db:migrate
-
-# Alternative: Push schema directly (for development)
-pnpm db:push
-```
-
-### 5. Set Up External Services
-
-#### Clerk Authentication
-1. Create account at [Clerk](https://clerk.com/)
-2. Create a new application
-3. Copy the publishable and secret keys to your `.env` file
-4. Configure sign-in/sign-up methods as needed
-
-#### OpenAI API
-1. Create account at [OpenAI](https://platform.openai.com/)
-2. Generate an API key
-3. Add the key to your `.env` file
-
-#### LangChain (LangSmith) - Optional
-1. Create account at [LangSmith](https://smith.langchain.com/)
-2. Generate an API key from your account settings
-3. Set `LANGCHAIN_TRACING_V2=true` and add `LANGCHAIN_API_KEY` to your `.env` file
-4. This enables tracing and monitoring of LangChain operations for debugging and observability
-
-#### Tavily Search API - Optional
-1. Create account at [Tavily](https://tavily.com/)
-2. Generate an API key from your dashboard
-3. Add `TAVILY_API_KEY` to your `.env` file
-4. Used for enhanced web search capabilities in document analysis features
-
-#### Datalab Marker API - Optional
-1. Create account at [Datalab](https://www.datalab.to/)
-2. Navigate to the API section and generate an API key
-3. Add `DATALAB_API_KEY` to your `.env` file
-4. Enables advanced OCR processing for scanned documents and images in PDFs
-5. When configured, an OCR checkbox will appear in the document upload interface
-
-#### UploadThing
-1. Create account at [UploadThing](https://uploadthing.com/)
-2. Create a new app
-3. Copy the secret and app ID to your `.env` file
-
-## 🚀 Running the Application
-
-### Development Mode
-
-```bash
-pnpm dev
-```
-
-The application will be available at `http://localhost:3000`
-
-### Running Inngest (Required for Background Jobs)
-
-PDR AI uses [Inngest](https://www.inngest.com/) for background job processing, including document OCR pipelines and async processing. **Inngest must be running for document processing to work.**
-
-#### Development Mode (Local)
-
-1. **Install the Inngest CLI** (one-time setup):
-   ```bash
-   # Using npm
-   npm install -g inngest-cli
-   
-   # Or using Homebrew (macOS)
-   brew install inngest/inngest/inngest
-   ```
-
-2. **Start the Inngest Dev Server** (in a separate terminal):
-   ```bash
-   npx inngest-cli@latest dev
-   ```
-   
-   This starts the Inngest Dev Server at `http://localhost:8288` which provides:
-   - A local dashboard to monitor jobs
-   - Event replay and debugging
-   - Function execution logs
-
-3. **Verify connection**: 
-   - Visit `http://localhost:8288` to see the Inngest dashboard
-   - Your functions should appear under the "Functions" tab
-
-#### Production Mode (Vercel)
-
-For Vercel deployments, Inngest runs as a serverless integration:
-
-1. **Add Inngest Integration on Vercel**:
-   - Go to your Vercel project dashboard
-   - Navigate to **Integrations** → **Browse Marketplace**
-   - Search for "Inngest" and click **Add Integration**
-   - Follow the prompts to connect your Inngest account
-
-2. **Configure Environment Variables** (auto-set by integration, or manual):
-   ```env
-   INNGEST_EVENT_KEY=your_inngest_event_key
-   INNGEST_SIGNING_KEY=your_inngest_signing_key
-   ```
-
-3. **Sync Functions**:
-   - Deploy your app to Vercel
-   - Inngest will automatically discover functions at `/api/inngest`
-   - Visit your [Inngest Dashboard](https://app.inngest.com) to verify
-
-4. **Production URL Configuration**:
-   - In Inngest Dashboard, ensure your production URL is registered
-   - The endpoint should be: `https://your-domain.com/api/inngest`
-
-#### Inngest Functions in This Project
-
-| Function | Event | Description |
-|----------|-------|-------------|
-| `process-document` | `document/process.requested` | OCR-to-Vector document pipeline (router → normalize → chunk → vectorize → store) |
-
-### Production Build
-
-```bash
-# Build the application
-pnpm build
-
-# Start production server
-pnpm start
-```
-
-## 🚀 Deployment Guide
-
-### Prerequisites for Production
-
-Before deploying, ensure you have:
-- ✅ All environment variables configured
-- ✅ Production database set up (PostgreSQL with pgvector extension)
-- ✅ API keys for all external services
-- ✅ Domain name configured (if using custom domain)
-
-### Deployment Options
-
-#### 1. Vercel (Recommended for Next.js)
-
-Vercel is the recommended platform for Next.js applications:
-
-**Steps:**
-
-1. **Push your code to GitHub**
-   ```bash
-   git push origin main
-   ```
-
-2. **Import repository on Vercel**
-   - Go to [vercel.com](https://vercel.com) and sign in
-   - Click "Add New Project"
-   - Import your GitHub repository
-
-3. **Set up Database and Environment Variables**
-   
-   **Database Setup:**
-   
-   **Option A: Using Vercel Postgres (Recommended)**
-   - In Vercel dashboard, go to Storage → Create Database → Postgres
-   - Choose a region and create the database
-   - Vercel will automatically create the `DATABASE_URL` environment variable
-   - Enable pgvector extension: Connect to your database and run `CREATE EXTENSION IF NOT EXISTS vector;`
-   
-   **Option B: Using Neon Database (Recommended for pgvector support)**
-   - Create a Neon account at [neon.tech](https://neon.tech) if you don't have one
-   - Create a new project in Neon dashboard
-   - Choose PostgreSQL version 14 or higher
-   - In Vercel dashboard, go to your project → Storage tab
-   - Click "Create Database" or "Browse Marketplace"
-   - Select "Neon" from the integrations
-   - Click "Connect" or "Add Integration"
-   - Authenticate with your Neon account
-   - Select your Neon project and branch
-   - Vercel will automatically create the `DATABASE_URL` environment variable from Neon
-   - You may also see additional Neon-related variables like:
-     - `POSTGRES_URL`
-     - `POSTGRES_PRISMA_URL`
-     - `POSTGRES_URL_NON_POOLING`
-     - Your application uses `DATABASE_URL`, so ensure this is set correctly
-   - Enable pgvector extension in Neon:
-     - Go to Neon dashboard → SQL Editor
-     - Run: `CREATE EXTENSION IF NOT EXISTS vector;`
-     - Or use Neon's SQL editor to enable the extension
-   
-   **Option C: Using External Database (Manual Setup)**
-   - In Vercel dashboard, go to Settings → Environment Variables
-   - Click "Add New"
-   - Key: `DATABASE_URL`
-   - Value: Your PostgreSQL connection string (e.g., `postgresql://user:password@host:port/database`)
-   - Select environments: Production, Preview, Development (as needed)
-   - Click "Save"
-   
-   **Add Other Environment Variables:**
-   - In Vercel dashboard, go to Settings → Environment Variables
-   - Add all required environment variables:
-     - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
-     - `CLERK_SECRET_KEY`
-     - `OPENAI_API_KEY`
-     - `UPLOADTHING_SECRET`
-     - `UPLOADTHING_APP_ID`
-     - `NODE_ENV=production`
-     - `LANGCHAIN_TRACING_V2=true` (optional, for LangSmith tracing)
-     - `LANGCHAIN_API_KEY` (optional, required if `LANGCHAIN_TRACING_V2=true`)
-     - `TAVILY_API_KEY` (optional, for enhanced web search)
-     - `DATALAB_API_KEY` (optional, for OCR processing)
-     - `NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL` (optional)
-     - `NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL` (optional)
-     - `NEXT_PUBLIC_CLERK_SIGN_OUT_FORCE_REDIRECT_URL` (optional)
-
-4. **Configure build settings**
-   - Build Command: `pnpm build`
-   - Output Directory: `.next` (default)
-   - Install Command: `pnpm install`
-
-5. **Deploy**
-   - Click "Deploy"
-   - Vercel will automatically deploy on every push to your main branch
-
-**Post-Deployment:**
-
-1. **Enable pgvector Extension** (Required)
-   - **For Vercel Postgres**: Connect to your database using Vercel's database connection tool or SQL editor in the Storage dashboard
-   - **For Neon**: Go to Neon dashboard → SQL Editor and run the command
-   - **For External Database**: Connect using your preferred PostgreSQL client
-   - Run: `CREATE EXTENSION IF NOT EXISTS vector;`
-
-2. **Run Database Migrations**
-   - After deployment, run migrations using one of these methods:
-     ```bash
-     # Option 1: Using Vercel CLI locally
-     vercel env pull .env.local
-     pnpm db:migrate
-     
-     # Option 2: Using direct connection (set DATABASE_URL locally)
-     DATABASE_URL="your_production_db_url" pnpm db:migrate
-     
-     # Option 3: Using Drizzle Studio with production URL
-     DATABASE_URL="your_production_db_url" pnpm db:studio
-     ```
-
-3. **Set up Inngest Integration** (Required for background jobs)
-   - Go to Vercel → Integrations → Browse Marketplace
-   - Search for "Inngest" and click Add Integration
-   - Connect your Inngest account (create one at [inngest.com](https://www.inngest.com))
-   - The integration automatically sets `INNGEST_EVENT_KEY` and `INNGEST_SIGNING_KEY`
-   - Visit your [Inngest Dashboard](https://app.inngest.com) to verify functions are synced
-   - Endpoint: `https://your-domain.com/api/inngest`
-
-4. **Set up Clerk webhooks** (if needed)
-   - Configure webhook URL in Clerk dashboard
-   - URL format: `https://your-domain.com/api/webhooks/clerk`
-
-5. **Configure UploadThing**
-   - Add your production domain to UploadThing allowed origins
-   - Configure CORS settings in UploadThing dashboard
-
-#### 2. Self-Hosted VPS Deployment
-
-**Prerequisites:**
-- VPS with Node.js 18+ installed
-- PostgreSQL database (with pgvector extension)
-- Nginx (for reverse proxy)
-- PM2 or similar process manager
-
-**Steps:**
-
-1. **Clone and install dependencies**
-   ```bash
-   git clone <your-repo-url>
-   cd pdr_ai_v2-2
-   pnpm install
-   ```
-
-2. **Configure environment variables**
-   ```bash
-   # Create .env file
-   nano .env
-   # Add all production environment variables
-   ```
-
-3. **Build the application**
-   ```bash
-   pnpm build
-   ```
-
-4. **Set up PM2**
-   ```bash
-   # Install PM2 globally
-   npm install -g pm2
-   
-   # Start the application
-   pm2 start pnpm --name "pdr-ai" -- start
-   
-   # Save PM2 configuration
-   pm2 save
-   pm2 startup
-   ```
-
-5. **Configure Nginx**
-   ```nginx
-   server {
-       listen 80;
-       server_name your-domain.com;
-
-       location / {
-           proxy_pass http://localhost:3000;
-           proxy_http_version 1.1;
-           proxy_set_header Upgrade $http_upgrade;
-           proxy_set_header Connection 'upgrade';
-           proxy_set_header Host $host;
-           proxy_cache_bypass $http_upgrade;
-           proxy_set_header X-Real-IP $remote_addr;
-           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-           proxy_set_header X-Forwarded-Proto $scheme;
-       }
-   }
-   ```
-
-6. **Set up SSL with Let's Encrypt**
-   ```bash
-   sudo apt-get install certbot python3-certbot-nginx
-   sudo certbot --nginx -d your-domain.com
-   ```
-
-7. **Run database migrations**
-   ```bash
-   pnpm db:migrate
-   ```
-
-### Production Database Setup
-
-**Important:** Your production database must have the `pgvector` extension enabled:
-
-```sql
--- Connect to your PostgreSQL database
-CREATE EXTENSION IF NOT EXISTS vector;
-```
-
-**Database Connection:**
-
-For production, use a managed PostgreSQL service (recommended):
-- **Neon**: Fully serverless PostgreSQL with pgvector support
-- **Supabase**: PostgreSQL with pgvector extension
-- **AWS RDS**: Managed PostgreSQL (requires manual pgvector installation)
-- **Railway**: Simple PostgreSQL hosting
-
-**Example Neon connection string:**
-```
-DATABASE_URL="postgresql://user:password@ep-xxx.us-east-2.aws.neon.tech/dbname?sslmode=require"
-```
-
-### Post-Deployment Checklist
-
-- [ ] Verify all environment variables are set correctly
-- [ ] Database migrations have been run
-- [ ] Database has pgvector extension enabled
-- [ ] Clerk authentication is working
-- [ ] File uploads are working (UploadThing)
-- [ ] AI features are functioning (OpenAI API)
-- [ ] **Inngest integration is connected and functions are synced**
-- [ ] Background document processing is working
-- [ ] SSL certificate is configured (if using custom domain)
-- [ ] Monitoring and logging are set up
-- [ ] Backup strategy is in place
-
-### Monitoring and Maintenance
-
-**Health Checks:**
-- Monitor application uptime
-- Check database connection health
-- Monitor API usage (OpenAI, UploadThing)
-- Track error rates
-
-**Backup Strategy:**
-- Set up automated database backups
-- Configure backup retention policy
-- Test restore procedures regularly
-
-**Scaling Considerations:**
-- Database connection pooling (use PgBouncer or similar)
-- CDN for static assets (Vercel handles this automatically)
-- Rate limiting for API endpoints
-- Caching strategy for frequently accessed data
-
-### Other Useful Scripts
-
-```bash
-# Database management
-pnpm db:studio          # Open Drizzle Studio (database GUI)
-pnpm db:generate         # Generate new migrations
-pnpm db:migrate          # Apply migrations
-pnpm db:push             # Push schema changes directly
-
-# Code quality
-pnpm lint                # Run ESLint
-pnpm lint:fix            # Fix ESLint issues
-pnpm typecheck           # Run TypeScript type checking
-pnpm format:write        # Format code with Prettier
-pnpm format:check        # Check code formatting
-
-# Development
-pnpm check               # Run linting and type checking
-pnpm preview             # Build and start production preview
-```
-
 ## 📁 Project Structure
 
 ```
 src/
 ├── app/                    # Next.js App Router
 │   ├── api/               # API routes
-│   │   ├── predictive-document-analysis/  # Predictive analysis endpoints
+│   │   ├── agents/
+│   │   │   ├── predictive-document-analysis/  # Predictive analysis endpoints
 │   │   │   ├── route.ts   # Main analysis API
 │   │   │   └── agent.ts   # AI analysis agent
 │   │   ├── services/      # Backend services
@@ -1040,7 +978,7 @@ src/
 Key directories:
 - `/employee` - Employee interface for document viewing and chat
 - `/employer` - Employer interface for management and uploads
-- `/api/predictive-document-analysis` - Core predictive analysis functionality
+- `/api/agents/predictive-document-analysis` - Core predictive analysis functionality
 - `/api/services` - Reusable backend services (OCR, etc.)
 - `/api/uploadDocument` - Document upload with OCR support
 - `/api` - Backend API endpoints for all functionality
@@ -1050,7 +988,7 @@ Key directories:
 ## 🔌 API Endpoints
 
 ### Predictive Document Analysis
-- `POST /api/predictive-document-analysis` - Analyze documents for missing content and recommendations
+- `POST /api/agents/predictive-document-analysis` - Analyze documents for missing content and recommendations
 - `GET /api/fetchDocument` - Retrieve document content for analysis
 
 ### Document Upload & Processing
@@ -1097,8 +1035,8 @@ Key directories:
 | `OPENAI_API_KEY` | OpenAI API key for AI features (embeddings, chat, analysis) | ✅ | `sk-...` |
 | `TAVILY_API_KEY` | Tavily Search API for web search in document analysis | ✅ | `tvly-...` |
 | `UPLOADTHING_TOKEN` | UploadThing token for file uploads | ✅ | `your_uploadthing_token` |
-| `INNGEST_EVENT_KEY` | Inngest event key for background jobs (required for production) | ✅* | `your_inngest_event_key` |
-| `INNGEST_SIGNING_KEY` | Inngest signing key for webhook verification | ✅* | `signkey-...` |
+| `INNGEST_EVENT_KEY` | Inngest event key for reliable background jobs | ❌ | `your_inngest_event_key` |
+| `INNGEST_SIGNING_KEY` | Inngest signing key for webhook verification | ❌ | `signkey-...` |
 | `AZURE_DOC_INTELLIGENCE_ENDPOINT` | Azure Document Intelligence endpoint for OCR | ❌ | `https://your-resource.cognitiveservices.azure.com/` |
 | `AZURE_DOC_INTELLIGENCE_KEY` | Azure Document Intelligence API key | ❌ | `your_azure_key` |
 | `LANDING_AI_API_KEY` | Landing.AI API key for complex/handwritten document OCR | ❌ | `your_landing_ai_key` |
@@ -1111,15 +1049,12 @@ Key directories:
 | `NODE_ENV` | Environment mode (`development`, `test`, `production`) | ✅ | `development` |
 | `SKIP_ENV_VALIDATION` | Skip environment validation during build | ❌ | `true` |
 
-*Required for production; optional in development when using `npx inngest-cli dev`
-
 ### Environment Variables by Feature
 
-- **Authentication**: `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`
-- **Authentication Redirects** (optional): `NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL`, `NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL`, `NEXT_PUBLIC_CLERK_SIGN_OUT_FORCE_REDIRECT_URL`
+- **Authentication**: `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` (redirects handled by middleware)
 - **Database**: `DATABASE_URL` (PostgreSQL with pgvector)
 - **AI & Embeddings**: `OPENAI_API_KEY`, `TAVILY_API_KEY`
-- **Background Jobs**: `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`
+- **Background Jobs (Optional)**: `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY` — enables automatic retries, step isolation, and observability. Without these, document processing runs synchronously.
 - **File Uploads**: `UPLOADTHING_TOKEN`
 - **OCR Processing**: `AZURE_DOC_INTELLIGENCE_ENDPOINT`, `AZURE_DOC_INTELLIGENCE_KEY`, `LANDING_AI_API_KEY`, `DATALAB_API_KEY`
 - **Observability**: `LANGCHAIN_TRACING_V2`, `LANGCHAIN_API_KEY`, `LANGCHAIN_PROJECT`

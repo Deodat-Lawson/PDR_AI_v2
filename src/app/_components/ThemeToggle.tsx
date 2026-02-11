@@ -2,34 +2,15 @@
 
 import React, { useEffect, useState } from 'react';
 import { Moon, Sun } from 'lucide-react';
-
-type Theme = 'light' | 'dark';
+import { useTheme } from 'next-themes';
 
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>('dark');
+  const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    const savedTheme = localStorage.getItem('theme') as Theme | null;
-    if (savedTheme) {
-      setTheme(savedTheme);
-    } else {
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setTheme(prefersDark ? 'dark' : 'light');
-    }
   }, []);
-
-  useEffect(() => {
-    if (mounted) {
-      localStorage.setItem('theme', theme);
-      document.documentElement.setAttribute('data-theme', theme);
-    }
-  }, [theme, mounted]);
-
-  const toggleTheme = () => {
-    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
-  };
 
   if (!mounted) {
     return (
@@ -42,6 +23,10 @@ export function ThemeToggle() {
       </button>
     );
   }
+
+  const toggleTheme = () => {
+    setTheme(theme === 'dark' ? 'light' : 'dark');
+  };
 
   return (
     <button
@@ -57,4 +42,3 @@ export function ThemeToggle() {
     </button>
   );
 }
-

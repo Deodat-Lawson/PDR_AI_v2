@@ -2,12 +2,13 @@
 
 import { db } from "~/server/db/index";
 import { eq, inArray } from "drizzle-orm";
-import { documentSections, document } from "~/server/db/schema";
+import { documentSections, document, pdfChunks } from "~/server/db/schema";
 import { BM25Retriever } from "@langchain/community/retrievers/bm25";
 import { Document } from "@langchain/core/documents";
 import type { ChunkRow, SearchScope } from "../types";
 
 export async function getDocumentChunks(documentId: number): Promise<ChunkRow[]> {
+  // Try primary table first
   const rows = await db
     .select({
       id: documentSections.id,
@@ -18,8 +19,30 @@ export async function getDocumentChunks(documentId: number): Promise<ChunkRow[]>
     .from(documentSections)
     .where(eq(documentSections.documentId, BigInt(documentId)));
 
+  // Fallback to legacy table if no results
+  if (rows.length === 0) {
+    const legacyRows = await db
+      .select({
+        id: pdfChunks.id,
+        content: pdfChunks.content,
+        page: pdfChunks.page,
+        documentId: pdfChunks.documentId,
+      })
+      .from(pdfChunks)
+      .where(eq(pdfChunks.documentId, BigInt(documentId)));
+    
+    return legacyRows.map(r => ({
+      id: r.id,
+      content: r.content,
+      page: r.page ?? 1,
+      documentId: Number(r.documentId),
+      documentTitle: undefined,
+    }));
+  }
+
   return rows.map((r) => ({
-    ...r,
+    id: r.id,
+    content: r.content,
     page: r.page ?? 1,
     documentId: Number(r.documentId),
     documentTitle: undefined,
@@ -27,6 +50,7 @@ export async function getDocumentChunks(documentId: number): Promise<ChunkRow[]>
 }
 
 export async function getCompanyChunks(companyId: number): Promise<ChunkRow[]> {
+  // Try primary table first
   const rows = await db
     .select({
       id: documentSections.id,
@@ -39,10 +63,35 @@ export async function getCompanyChunks(companyId: number): Promise<ChunkRow[]> {
     .innerJoin(document, eq(documentSections.documentId, document.id))
     .where(eq(document.companyId, BigInt(companyId)));
 
+  // Fallback to legacy table
+  if (rows.length === 0) {
+    const legacyRows = await db
+      .select({
+        id: pdfChunks.id,
+        content: pdfChunks.content,
+        page: pdfChunks.page,
+        documentId: pdfChunks.documentId,
+        documentTitle: document.title,
+      })
+      .from(pdfChunks)
+      .innerJoin(document, eq(pdfChunks.documentId, document.id))
+      .where(eq(document.companyId, BigInt(companyId)));
+    
+    return legacyRows.map(r => ({
+      id: r.id,
+      content: r.content,
+      page: r.page ?? 1,
+      documentId: Number(r.documentId),
+      documentTitle: r.documentTitle ?? undefined,
+    }));
+  }
+
   return rows.map((r) => ({
-    ...r,
+    id: r.id,
+    content: r.content,
     page: r.page ?? 1,
     documentId: Number(r.documentId),
+    documentTitle: r.documentTitle ?? undefined,
   }));
 }
 
@@ -51,6 +100,9 @@ export async function getMultiDocChunks(documentIds: number[]): Promise<ChunkRow
     return [];
   }
 
+  const bigIntDocIds = documentIds.map(id => BigInt(id));
+
+  // Try primary table first
   const rows = await db
     .select({
       id: documentSections.id,
@@ -61,12 +113,37 @@ export async function getMultiDocChunks(documentIds: number[]): Promise<ChunkRow
     })
     .from(documentSections)
     .innerJoin(document, eq(documentSections.documentId, document.id))
-    .where(inArray(documentSections.documentId, documentIds.map(id => BigInt(id))));
+    .where(inArray(documentSections.documentId, bigIntDocIds));
+
+  // Fallback to legacy table
+  if (rows.length === 0) {
+    const legacyRows = await db
+      .select({
+        id: pdfChunks.id,
+        content: pdfChunks.content,
+        page: pdfChunks.page,
+        documentId: pdfChunks.documentId,
+        documentTitle: document.title,
+      })
+      .from(pdfChunks)
+      .innerJoin(document, eq(pdfChunks.documentId, document.id))
+      .where(inArray(pdfChunks.documentId, bigIntDocIds));
+    
+    return legacyRows.map(r => ({
+      id: r.id,
+      content: r.content,
+      page: r.page ?? 1,
+      documentId: Number(r.documentId),
+      documentTitle: r.documentTitle ?? undefined,
+    }));
+  }
 
   return rows.map((r) => ({
-    ...r,
+    id: r.id,
+    content: r.content,
     page: r.page ?? 1,
     documentId: Number(r.documentId),
+    documentTitle: r.documentTitle ?? undefined,
   }));
 }
 

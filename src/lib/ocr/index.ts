@@ -30,6 +30,23 @@ export {
 export {
   triggerDocumentProcessing,
   parseProvider,
+  isInngestEnabled,
   type TriggerOptions,
 } from "./trigger";
+
+// Processor (shared logic for sync/async processing)
+export {
+  processDocumentSync,
+  routeDocument,
+  normalizeDocument,
+  chunkPages,
+  vectorizeChunks,
+  storeDocument,
+  markJobFailed,
+  processNativePDF,
+  processWithAzure,
+  processWithLandingAI,
+  type RouterDecisionResult,
+  type NormalizationResult,
+} from "./processor";
 

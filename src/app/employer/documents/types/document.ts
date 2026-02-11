@@ -8,3 +8,9 @@ export interface DocumentType {
   url: string;
 }
 
+export interface CategoryGroup {
+  name: string;
+  isOpen: boolean;
+  documents: DocumentType[];
+}
+

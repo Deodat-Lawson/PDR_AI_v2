@@ -104,11 +104,11 @@ export const ChatSelector: React.FC<ChatSelectorProps> = ({
       {/* Chat List */}
       <div className="flex-1 overflow-y-auto space-y-2">
         {loading ? (
-          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+          <div className="text-center py-8 text-muted-foreground">
             Loading chats...
           </div>
         ) : chats.length === 0 ? (
-          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+          <div className="text-center py-8 text-muted-foreground">
             <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
             <p className="text-sm">No chats yet</p>
             <p className="text-xs mt-1">Create your first chat to get started</p>
@@ -122,8 +122,8 @@ export const ChatSelector: React.FC<ChatSelectorProps> = ({
                 flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all
                 ${
                   currentChatId === chat.id
-                    ? 'bg-purple-100 dark:bg-purple-900/30 border-2 border-purple-600'
-                    : 'bg-gray-50 dark:bg-slate-700/50 hover:bg-gray-100 dark:hover:bg-slate-700 border-2 border-transparent'
+                    ? 'bg-purple-100 dark:bg-purple-900/30 border-2 border-purple-600 shadow-sm'
+                    : 'bg-muted/50 hover:bg-muted border-2 border-transparent'
                 }
               `}
             >
@@ -142,7 +142,7 @@ export const ChatSelector: React.FC<ChatSelectorProps> = ({
                         }
                       }}
                       onClick={(e) => e.stopPropagation()}
-                      className="flex-1 px-2 py-1 text-sm font-medium text-gray-900 dark:text-white bg-white dark:bg-slate-800 border border-purple-500 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      className="flex-1 px-2 py-1 text-sm font-medium text-foreground bg-background border border-purple-500 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
                     />
                     <button
                       onClick={(e) => handleSaveEdit(chat.id, e)}
@@ -153,7 +153,7 @@ export const ChatSelector: React.FC<ChatSelectorProps> = ({
                     </button>
                     <button
                       onClick={(e) => handleCancelEdit(e)}
-                      className="p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700 rounded transition-colors"
+                      className="p-1 text-muted-foreground hover:bg-muted rounded transition-colors"
                       title="Cancel"
                     >
                       <X className="w-4 h-4" />
@@ -161,10 +161,10 @@ export const ChatSelector: React.FC<ChatSelectorProps> = ({
                   </div>
                 ) : (
                   <>
-                    <p className="font-medium text-sm text-gray-900 dark:text-white truncate">
+                    <p className="font-medium text-sm text-foreground truncate">
                       {chat.title}
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       {new Date(chat.createdAt).toLocaleDateString()}
                     </p>
                   </>
@@ -174,14 +174,14 @@ export const ChatSelector: React.FC<ChatSelectorProps> = ({
                 <div className="flex items-center gap-1 ml-2 flex-shrink-0">
                   <button
                     onClick={(e) => handleStartEdit(chat, e)}
-                    className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors"
+                    className="p-1.5 text-muted-foreground hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors"
                     title="Edit title"
                   >
                     <Edit2 className="w-4 h-4" />
                   </button>
                   <button
                     onClick={(e) => handleDelete(chat.id, e)}
-                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                    className="p-1.5 text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                     title="Delete chat"
                   >
                     <Trash2 className="w-4 h-4" />

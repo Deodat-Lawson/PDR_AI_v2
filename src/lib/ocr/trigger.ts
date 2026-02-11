@@ -3,7 +3,7 @@
  * Helper functions to invoke the OCR-to-Vector pipeline
  */
 
-import { inngest } from "~/server/inngest/client";
+import { env } from "~/env";
 import type { ProcessDocumentEventData, OCRProvider } from "./types";
 
 /**
@@ -17,7 +17,16 @@ export interface TriggerOptions {
 }
 
 /**
+ * Check if Inngest is enabled
+ * Returns true if INNGEST_EVENT_KEY is set
+ */
+export function isInngestEnabled(): boolean {
+  return !!env.server.INNGEST_EVENT_KEY;
+}
+
+/**
  * Trigger the OCR-to-Vector pipeline for a document
+ * Routes to Inngest or synchronous processing based on configuration
  * Returns the job ID for tracking
  */
 export async function triggerDocumentProcessing(
@@ -45,14 +54,50 @@ export async function triggerDocumentProcessing(
     },
   };
 
-  const result = await inngest.send({
-    name: "document/process.requested",
-    data: eventData,
-  });
+  // Try Inngest first if configured
+  if (isInngestEnabled()) {
+    try {
+      const { inngest } = await import("~/server/inngest/client");
+      
+      if (inngest) {
+        const result = await inngest.send({
+          name: "document/process.requested",
+          data: eventData,
+        });
+
+        console.log(`[Trigger] Successfully queued job ${jobId} via Inngest`);
+        return {
+          jobId,
+          eventIds: result.ids,
+        };
+      }
+    } catch (error) {
+      // Inngest failed - log and fall through to sync processing
+      console.warn(
+        `[Trigger] Inngest failed for job ${jobId}, falling back to sync processing:`,
+        error instanceof Error ? error.message : error
+      );
+    }
+  }
+
+  // Fallback: synchronous processing
+  // This runs when Inngest is not configured OR when Inngest fails
+  const { processDocumentSync } = await import("./processor");
+  
+  console.log(`[Trigger] Using synchronous processing for job ${jobId}`);
+  
+  // Await processing to ensure it completes in serverless environments
+  // setImmediate doesn't work on Vercel/serverless as the function terminates after response
+  try {
+    await processDocumentSync(eventData);
+  } catch (error) {
+    console.error(`[Trigger] Sync processing failed for job ${jobId}:`, error);
+    // Don't throw - the document record was already created, job will show as failed
+  }
 
   return {
     jobId,
-    eventIds: result.ids,
+    eventIds: [], // No Inngest events in sync mode
   };
 }
 
@@ -80,4 +125,3 @@ export function parseProvider(provider?: string): OCRProvider | undefined {
 
   return undefined;
 }
-

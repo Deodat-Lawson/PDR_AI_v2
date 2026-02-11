@@ -1,4 +1,4 @@
-import type { PdfChunk } from "../types";
+import type { PdfChunk } from "~/app/api/agents/predictive-document-analysis/types";
 
 export function groupContentFromChunks(chunks: PdfChunk[]): string {
     return chunks

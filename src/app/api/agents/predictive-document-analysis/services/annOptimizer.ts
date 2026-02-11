@@ -1,4 +1,4 @@
-import { db } from "../../../../../server/db/index";
+import { db } from "~/server/db/index";
 import { eq, sql } from "drizzle-orm";
 import { documentSections } from "~/server/db/schema";
 
@@ -42,6 +42,9 @@ export class ANNOptimizer {
         limit = 10,
         distanceThreshold = 0.7
     ): Promise<ANNResult[]> {
+        if (!documentIds || documentIds.length === 0) {
+            return [];
+        }
         
         switch (this.config.strategy) {
             case 'hnsw':
@@ -78,12 +81,31 @@ export class ANNOptimizer {
                 document_id as "documentId",
                 embedding <=> ${embeddingStr}::vector as distance
             FROM pdr_ai_v2_document_sections
-            WHERE document_id = ANY(${documentIds})
+            WHERE document_id IN (${sql.join(documentIds, sql`, `)})
             ORDER BY embedding <=> ${embeddingStr}::vector
             LIMIT ${approximateLimit}
         `);
 
-        const refinedResults = results.rows
+        let rows = results.rows;
+
+        // Fallback to legacy table
+        if (rows.length === 0 && documentIds.length === 1) {
+            const legacyResults = await db.execute(sql`
+                SELECT
+                    id,
+                    content,
+                    page,
+                    document_id as "documentId",
+                    embedding <=> ${embeddingStr}::vector as distance
+                FROM pdr_ai_v2_pdf_chunks
+                WHERE document_id = ${documentIds[0]}
+                ORDER BY embedding <=> ${embeddingStr}::vector
+                LIMIT ${approximateLimit}
+            `);
+            rows = legacyResults.rows;
+        }
+
+        const refinedResults = rows
             .map(row => ({
                 ...row,
                 distance: Number(row.distance ?? 1),
@@ -114,6 +136,10 @@ export class ANNOptimizer {
 
         const clusterChunkIds = relevantClusters.flatMap(c => c.chunkIds);
         
+        if (clusterChunkIds.length === 0) {
+            return [];
+        }
+        
         const embeddingStr = `[${queryEmbedding.join(',')}]`;
         
         const results = await db.execute(sql`
@@ -124,7 +150,7 @@ export class ANNOptimizer {
                 document_id as "documentId",
                 embedding <=> ${embeddingStr}::vector as distance
             FROM pdr_ai_v2_document_sections
-            WHERE id = ANY(${clusterChunkIds})
+            WHERE id IN (${sql.join(clusterChunkIds, sql`, `)})
             AND embedding <=> ${embeddingStr}::vector <= ${threshold}
             ORDER BY embedding <=> ${embeddingStr}::vector
             LIMIT ${limit}

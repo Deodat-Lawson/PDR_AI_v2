@@ -16,9 +16,9 @@ const serverSchema = z.object({
     .default("development"),
   OPENAI_API_KEY: requiredString(),
   CLERK_SECRET_KEY: requiredString(),
-  UPLOADTHING_TOKEN: requiredString(),
+  UPLOADTHING_TOKEN: optionalString(),
   DATALAB_API_KEY: optionalString(),
-  TAVILY_API_KEY: requiredString(),
+  TAVILY_API_KEY: optionalString(),
   // Azure Document Intelligence (for OCR pipeline)
   AZURE_DOC_INTELLIGENCE_ENDPOINT: optionalString(),
   AZURE_DOC_INTELLIGENCE_KEY: optionalString(),
@@ -31,12 +31,19 @@ const serverSchema = z.object({
   ),
   LANGCHAIN_API_KEY: optionalString(),
   LANGCHAIN_PROJECT: optionalString(), // Optional project name for LangSmith
+  // Inngest configuration (optional, for background job processing)
+  // When false or INNGEST_EVENT_KEY not set, document processing runs synchronously
+  INNGEST_EVENT_KEY: optionalString(),
   // Encryption key for encrypting per-company service API keys at rest
   ENCRYPTION_KEY: optionalString(),
 });
 
 const clientSchema = z.object({
   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: requiredString(),
+  NEXT_PUBLIC_UPLOADTHING_ENABLED: z.preprocess(
+    (val) => val === "true" || val === "1",
+    z.boolean().optional()
+  ),
 });
 
 const skipValidation =
@@ -74,11 +81,14 @@ export const env = {
     LANGCHAIN_TRACING_V2: process.env.LANGCHAIN_TRACING_V2,
     LANGCHAIN_API_KEY: process.env.LANGCHAIN_API_KEY,
     LANGCHAIN_PROJECT: process.env.LANGCHAIN_PROJECT,
+    INNGEST_EVENT_KEY: process.env.INNGEST_EVENT_KEY,
     ENCRYPTION_KEY: process.env.ENCRYPTION_KEY,
   }),
   client: parseEnv(clientSchema, {
     NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:
       process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
+    NEXT_PUBLIC_UPLOADTHING_ENABLED:
+      process.env.NEXT_PUBLIC_UPLOADTHING_ENABLED,
   }),
 };
 

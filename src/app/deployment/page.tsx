@@ -1,676 +1,153 @@
-import Link from "next/link";
-import React from 'react';
-import { Check, Terminal, Database, Shield, Zap, Github, ExternalLink } from 'lucide-react';
-import styles from '../../styles/deployment.module.css';
-import { Navbar } from '../_components/Navbar';
-import { ClerkProvider } from '@clerk/nextjs'
+'use client';
 
-export default function DeploymentPage() {
-    return (
-        <ClerkProvider>
-            <div className={styles.container}>
-                <Navbar />
+import React, { useEffect, useState } from 'react';
+import { useTheme } from 'next-themes';
+import { DeploymentNavbar } from './components/DeploymentNavbar';
+import { DeploymentSidebar } from './components/DeploymentSidebar';
+import {
+  MainDeployment,
+  InngestPage,
+  LangChainPage,
+  TavilyPage,
+  UploadThingPage,
+  OCRAzurePage,
+  OCRLandingPage,
+  OCRDatalabPage,
+  VoicePage,
+} from './components/sections';
+import type { DeploymentSection } from './types';
+import { SECTIONS } from './types';
 
-                <div className={styles.heroSection}>
-                    <div className={styles.heroContent}>
-                        <h1 className={styles.heroTitle}>
-                            Self-Deployment Guide
-                        </h1>
-                        <p className={styles.heroDescription}>
-                            Deploy PDR AI on your own infrastructure with complete control and customization
-                        </p>
-                        <div className={styles.heroButtons}>
-                            <a 
-                                href="https://github.com/Deodat-Lawson/pdr_ai_v2" 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className={`${styles.btn} ${styles.btnPrimary} ${styles.btnLg}`}
-                            >
-                                <Github className={styles.btnIcon} />
-                                View on GitHub
-                            </a>
-                            <Link href="/contact">
-                                <button className={`${styles.btn} ${styles.btnOutline} ${styles.btnLg}`}>
-                                    Get Support
-                                </button>
-                            </Link>
-                        </div>
-                    </div>
-                </div>
+const DeploymentPage = () => {
+  const [mounted, setMounted] = useState(false);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState<DeploymentSection>('main');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [expandedSections, setExpandedSections] = useState<string[]>(['ocr']);
+  
+  // Use standard next-themes hook
+  const { theme, resolvedTheme } = useTheme();
+  const darkMode = mounted && (resolvedTheme === 'dark' || theme === 'dark');
 
-                <div className={styles.contentSection}>
-                    <div className={styles.contentContainer}>
-                        
-                        {/* Prerequisites Section */}
-                        <section className={styles.section}>
-                            <h2 className={styles.sectionTitle}>Prerequisites</h2>
-                            <div className={styles.prerequisitesGrid}>
-                                <div className={styles.prerequisiteCard}>
-                                    <Terminal className={styles.prerequisiteIcon} />
-                                    <h3>Node.js & Package Manager</h3>
-                                    <ul className={styles.list}>
-                                        <li>Node.js v18.0 or higher</li>
-                                        <li>pnpm (recommended) or npm</li>
-                                        <li>Git for version control</li>
-                                    </ul>
-                                </div>
-                                <div className={styles.prerequisiteCard}>
-                                    <Database className={styles.prerequisiteIcon} />
-                                    <h3>Database</h3>
-                                    <ul className={styles.list}>
-                                        <li>Docker (for local PostgreSQL)</li>
-                                        <li>Or existing PostgreSQL instance</li>
-                                        <li>PostgreSQL 14+ recommended</li>
-                                    </ul>
-                                </div>
-                                <div className={styles.prerequisiteCard}>
-                                    <Shield className={styles.prerequisiteIcon} />
-                                    <h3>API Keys Required</h3>
-                                    <ul className={styles.list}>
-                                        <li>OpenAI API key</li>
-                                        <li>Clerk authentication</li>
-                                        <li>UploadThing for file storage</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </section>
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
-                        {/* Quick Start Section */}
-                        <section className={styles.section}>
-                            <h2 className={styles.sectionTitle}>
-                                <Zap className={styles.sectionIcon} />
-                                Quick Start
-                            </h2>
-                            <div className={styles.codeSection}>
-                                <h3 className={styles.stepTitle}>1. Clone the Repository</h3>
-                                <div className={styles.codeBlock}>
-                                    <code>
-                                        git clone https://github.com/Deodat-Lawson/pdr_ai_v2.git<br />
-                                        cd pdr_ai_v2
-                                    </code>
-                                </div>
-                            </div>
+  if (!mounted) {
+    return <div className="min-h-screen bg-white dark:bg-gray-900" />;
+  }
 
-                            <div className={styles.codeSection}>
-                                <h3 className={styles.stepTitle}>2. Install Dependencies</h3>
-                                <div className={styles.codeBlock}>
-                                    <code>pnpm install</code>
-                                </div>
-                            </div>
+  const copyToClipboard = (code: string, id: string) => {
+    void navigator.clipboard.writeText(code);
+    setCopiedCode(id);
+    setTimeout(() => setCopiedCode(null), 2000);
+  };
 
-                            <div className={styles.codeSection}>
-                                <h3 className={styles.stepTitle}>3. Configure Environment Variables</h3>
-                                <p className={styles.stepDescription}>
-                                    Create a <code>.env</code> file in the root directory with all required variables:
-                                </p>
-                                <div className={styles.codeBlock}>
-                                    <code>
-                                        # ============ DATABASE ============<br />
-                                        DATABASE_URL=&quot;postgresql://postgres:password@localhost:5432/pdr_ai_v2&quot;<br />
-                                        <br />
-                                        # ============ AUTHENTICATION ============<br />
-                                        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key<br />
-                                        CLERK_SECRET_KEY=your_clerk_secret_key<br />
-                                        # Optional redirect URLs<br />
-                                        NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL=https://your-domain.com/employer/home<br />
-                                        NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL=https://your-domain.com/signup<br />
-                                        <br />
-                                        # ============ AI & EMBEDDINGS ============<br />
-                                        OPENAI_API_KEY=your_openai_api_key<br />
-                                        TAVILY_API_KEY=your_tavily_api_key<br />
-                                        <br />
-                                        # ============ FILE UPLOADS ============<br />
-                                        UPLOADTHING_TOKEN=your_uploadthing_token<br />
-                                        <br />
-                                        # ============ BACKGROUND JOBS (Inngest) ============<br />
-                                        # Required for production; optional in dev with `npx inngest-cli dev`<br />
-                                        INNGEST_EVENT_KEY=your_inngest_event_key<br />
-                                        INNGEST_SIGNING_KEY=your_inngest_signing_key<br />
-                                        <br />
-                                        # ============ OCR PROVIDERS (Optional) ============<br />
-                                        # Azure Document Intelligence (primary OCR)<br />
-                                        AZURE_DOC_INTELLIGENCE_ENDPOINT=https://your-resource.cognitiveservices.azure.com/<br />
-                                        AZURE_DOC_INTELLIGENCE_KEY=your_azure_key<br />
-                                        # Landing.AI (complex/handwritten docs)<br />
-                                        LANDING_AI_API_KEY=your_landing_ai_key<br />
-                                        # Datalab (legacy OCR)<br />
-                                        DATALAB_API_KEY=your_datalab_api_key<br />
-                                        <br />
-                                        # ============ OBSERVABILITY (Optional) ============<br />
-                                        LANGCHAIN_TRACING_V2=true<br />
-                                        LANGCHAIN_API_KEY=your_langchain_api_key<br />
-                                        LANGCHAIN_PROJECT=pdr-ai<br />
-                                        <br />
-                                        # ============ ENVIRONMENT ============<br />
-                                        NODE_ENV=development
-                                    </code>
-                                </div>
-                            </div>
-
-                            <div className={styles.codeSection}>
-                                <h3 className={styles.stepTitle}>4. Set Up Database</h3>
-                                <div className={styles.codeBlock}>
-                                    <code>
-                                        # Start PostgreSQL with Docker<br />
-                                        chmod +x start-database.sh<br />
-                                        ./start-database.sh<br />
-                                        <br />
-                                        # Run migrations<br />
-                                        pnpm db:push
-                                    </code>
-                                </div>
-                            </div>
-
-                            <div className={styles.codeSection}>
-                                <h3 className={styles.stepTitle}>5. Start Inngest Dev Server (Required)</h3>
-                                <p className={styles.stepDescription}>
-                                    PDR AI uses Inngest for background job processing (document OCR, vectorization). 
-                                    Start the Inngest dev server in a separate terminal:
-                                </p>
-                                <div className={styles.codeBlock}>
-                                    <code>
-                                        # Install Inngest CLI (one-time)<br />
-                                        npm install -g inngest-cli<br />
-                                        <br />
-                                        # Start Inngest Dev Server<br />
-                                        npx inngest-cli@latest dev
-                                    </code>
-                                </div>
-                                <p className={styles.stepDescription}>
-                                    The Inngest dashboard will be available at <code>http://localhost:8288</code>
-                                </p>
-                            </div>
-
-                            <div className={styles.codeSection}>
-                                <h3 className={styles.stepTitle}>6. Start Development Server</h3>
-                                <div className={styles.codeBlock}>
-                                    <code>pnpm dev</code>
-                                </div>
-                                <p className={styles.stepDescription}>
-                                    Your application will be available at <code>http://localhost:3000</code>
-                                </p>
-                            </div>
-                        </section>
-
-                        {/* API Keys Section */}
-                        <section className={styles.section}>
-                            <h2 className={styles.sectionTitle}>
-                                <Shield className={styles.sectionIcon} />
-                                Setting Up API Keys
-                            </h2>
-
-                            <div className={styles.apiKeySection}>
-                                <h3 className={styles.apiKeyTitle}>Clerk Authentication</h3>
-                                <ol className={styles.orderedList}>
-                                    <li>Create an account at <a href="https://clerk.com/" target="_blank" rel="noopener noreferrer" className={styles.link}>Clerk.com <ExternalLink className={styles.linkIcon} /></a></li>
-                                    <li>Create a new application</li>
-                                    <li>Copy the publishable and secret keys</li>
-                                    <li>Add them to your <code>.env</code> file</li>
-                                    <li>Configure sign-in/sign-up methods as needed</li>
-                                    <li><strong>Optional:</strong> Set up force redirect URLs:
-                                        <ul className={styles.list}>
-                                            <li><code>NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL</code> - Redirect after sign in</li>
-                                            <li><code>NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL</code> - Redirect after sign up</li>
-                                            <li><code>NEXT_PUBLIC_CLERK_SIGN_OUT_FORCE_REDIRECT_URL</code> - Redirect after sign out</li>
-                                        </ul>
-                                    </li>
-                                </ol>
-                            </div>
-
-                            <div className={styles.apiKeySection}>
-                                <h3 className={styles.apiKeyTitle}>OpenAI API</h3>
-                                <ol className={styles.orderedList}>
-                                    <li>Create an account at <a href="https://platform.openai.com/" target="_blank" rel="noopener noreferrer" className={styles.link}>OpenAI Platform <ExternalLink className={styles.linkIcon} /></a></li>
-                                    <li>Navigate to API keys section</li>
-                                    <li>Generate a new API key</li>
-                                    <li>Add the key to your <code>.env</code> file</li>
-                                    <li>Set up billing for API usage</li>
-                                </ol>
-                            </div>
-
-                            <div className={styles.apiKeySection}>
-                                <h3 className={styles.apiKeyTitle}>LangChain (LangSmith) - Optional</h3>
-                                <ol className={styles.orderedList}>
-                                    <li>Create an account at <a href="https://smith.langchain.com/" target="_blank" rel="noopener noreferrer" className={styles.link}>LangSmith <ExternalLink className={styles.linkIcon} /></a></li>
-                                    <li>Generate an API key from your account settings</li>
-                                    <li>Set <code>LANGCHAIN_TRACING_V2=true</code> in your <code>.env</code> file</li>
-                                    <li>Add <code>LANGCHAIN_API_KEY</code> to your <code>.env</code> file</li>
-                                    <li>This enables tracing and monitoring of LangChain operations for debugging</li>
-                                </ol>
-                            </div>
-
-                            <div className={styles.apiKeySection}>
-                                <h3 className={styles.apiKeyTitle}>Tavily Search API - Optional</h3>
-                                <ol className={styles.orderedList}>
-                                    <li>Create an account at <a href="https://tavily.com/" target="_blank" rel="noopener noreferrer" className={styles.link}>Tavily <ExternalLink className={styles.linkIcon} /></a></li>
-                                    <li>Generate an API key from your dashboard</li>
-                                    <li>Add <code>TAVILY_API_KEY</code> to your <code>.env</code> file</li>
-                                    <li>Used for enhanced web search capabilities in document analysis</li>
-                                </ol>
-                            </div>
-
-                            <div className={styles.apiKeySection}>
-                                <h3 className={styles.apiKeyTitle}>UploadThing</h3>
-                                <ol className={styles.orderedList}>
-                                    <li>Create an account at <a href="https://uploadthing.com/" target="_blank" rel="noopener noreferrer" className={styles.link}>UploadThing.com <ExternalLink className={styles.linkIcon} /></a></li>
-                                    <li>Create a new app</li>
-                                    <li>Copy the token from Settings → API Keys</li>
-                                    <li>Add <code>UPLOADTHING_TOKEN</code> to your <code>.env</code> file</li>
-                                </ol>
-                            </div>
-
-                            <div className={styles.apiKeySection}>
-                                <h3 className={styles.apiKeyTitle}>Inngest (Background Jobs)</h3>
-                                <ol className={styles.orderedList}>
-                                    <li>Create an account at <a href="https://www.inngest.com/" target="_blank" rel="noopener noreferrer" className={styles.link}>Inngest.com <ExternalLink className={styles.linkIcon} /></a></li>
-                                    <li>For <strong>development</strong>: Run <code>npx inngest-cli@latest dev</code> (no keys needed)</li>
-                                    <li>For <strong>production</strong>: 
-                                        <ul className={styles.list}>
-                                            <li>Create an app in your Inngest dashboard</li>
-                                            <li>Copy <code>INNGEST_EVENT_KEY</code> and <code>INNGEST_SIGNING_KEY</code></li>
-                                            <li>Or use the Vercel integration (auto-configures keys)</li>
-                                        </ul>
-                                    </li>
-                                </ol>
-                            </div>
-
-                            <div className={styles.apiKeySection}>
-                                <h3 className={styles.apiKeyTitle}>Azure Document Intelligence - Optional (OCR)</h3>
-                                <ol className={styles.orderedList}>
-                                    <li>Create an Azure account and go to <a href="https://portal.azure.com/" target="_blank" rel="noopener noreferrer" className={styles.link}>Azure Portal <ExternalLink className={styles.linkIcon} /></a></li>
-                                    <li>Create a Document Intelligence resource</li>
-                                    <li>Copy the endpoint and key from Keys and Endpoint</li>
-                                    <li>Add <code>AZURE_DOC_INTELLIGENCE_ENDPOINT</code> and <code>AZURE_DOC_INTELLIGENCE_KEY</code> to your <code>.env</code> file</li>
-                                </ol>
-                            </div>
-                        </section>
-
-                        {/* Production Deployment Section */}
-                        <section className={styles.section}>
-                            <h2 className={styles.sectionTitle}>Production Deployment</h2>
-                            
-                            <div className={styles.infoBox}>
-                                <h3>Prerequisites for Production</h3>
-                                <ul className={styles.list}>
-                                    <li>✅ All environment variables configured</li>
-                                    <li>✅ Production database set up (PostgreSQL with pgvector extension)</li>
-                                    <li>✅ API keys for all external services</li>
-                                    <li>✅ Domain name configured (if using custom domain)</li>
-                                </ul>
-                            </div>
-                            
-                            <div className={styles.deploymentOption}>
-                                <h3 className={styles.deploymentTitle}>1. Vercel (Recommended for Next.js)</h3>
-                                <p className={styles.stepDescription}>
-                                    Vercel is the recommended platform for Next.js applications with automatic deployments and scaling.
-                                </p>
-                                <ol className={styles.orderedList}>
-                                    <li><strong>Push your code to GitHub</strong>
-                                        <div className={styles.codeBlock}>
-                                            <code>git push origin main</code>
-                                        </div>
-                                    </li>
-                                    <li><strong>Import repository on <a href="https://vercel.com" target="_blank" rel="noopener noreferrer" className={styles.link}>Vercel <ExternalLink className={styles.linkIcon} /></a></strong>
-                                        <ul className={styles.list}>
-                                            <li>Go to vercel.com and sign in</li>
-                                            <li>Click &quot;Add New Project&quot;</li>
-                                            <li>Import your GitHub repository</li>
-                                        </ul>
-                                    </li>
-                                    <li><strong>Set up Database and Environment Variables</strong>
-                                        <div className={styles.infoBox}>
-                                            <h4>Database Setup:</h4>
-                                            <p><strong>Option A: Using Vercel Postgres (Recommended)</strong></p>
-                                            <ol className={styles.orderedList}>
-                                                <li>In Vercel dashboard, go to Storage → Create Database → Postgres</li>
-                                                <li>Choose a region and create the database</li>
-                                                <li>Vercel will automatically create the <code>DATABASE_URL</code> environment variable</li>
-                                                <li>Enable pgvector extension: Connect to your database and run <code>CREATE EXTENSION IF NOT EXISTS vector;</code></li>
-                                            </ol>
-                                            <p><strong>Option B: Using Neon Database (Recommended for pgvector support)</strong></p>
-                                            <ol className={styles.orderedList}>
-                                                <li>Create a Neon account at <a href="https://neon.tech" target="_blank" rel="noopener noreferrer" className={styles.link}>neon.tech <ExternalLink className={styles.linkIcon} /></a> if you don&apos;t have one</li>
-                                                <li>Create a new project in Neon dashboard</li>
-                                                <li>Choose PostgreSQL version 14 or higher</li>
-                                                <li>In Vercel dashboard, go to your project → Storage tab</li>
-                                                <li>Click &quot;Create Database&quot; or &quot;Browse Marketplace&quot;</li>
-                                                <li>Select &quot;Neon&quot; from the integrations</li>
-                                                <li>Click &quot;Connect&quot; or &quot;Add Integration&quot;</li>
-                                                <li>Authenticate with your Neon account</li>
-                                                <li>Select your Neon project and branch</li>
-                                                <li>Vercel will automatically create the <code>DATABASE_URL</code> environment variable from Neon</li>
-                                                <li>You may also see additional Neon-related variables like <code>POSTGRES_URL</code>, <code>POSTGRES_PRISMA_URL</code>, etc.</li>
-                                                <li>Enable pgvector extension in Neon:
-                                                    <ul className={styles.list}>
-                                                        <li>Go to Neon dashboard → SQL Editor</li>
-                                                        <li>Run: <code>CREATE EXTENSION IF NOT EXISTS vector;</code></li>
-                                                    </ul>
-                                                </li>
-                                            </ol>
-                                            <p><strong>Option C: Using External Database (Manual Setup)</strong></p>
-                                            <ol className={styles.orderedList}>
-                                                <li>In Vercel dashboard, go to Settings → Environment Variables</li>
-                                                <li>Click &quot;Add New&quot;</li>
-                                                <li>Key: <code>DATABASE_URL</code></li>
-                                                <li>Value: Your PostgreSQL connection string</li>
-                                                <li>Select environments: Production, Preview, Development (as needed)</li>
-                                                <li>Click &quot;Save&quot;</li>
-                                            </ol>
-                                        </div>
-                                        <div className={styles.infoBox}>
-                                            <h4>Add Other Environment Variables:</h4>
-                                            <ul className={styles.list}>
-                                                <li>In Vercel dashboard, go to Settings → Environment Variables</li>
-                                                <li>Add all required environment variables:
-                                                    <ul className={styles.list}>
-                                                        <li><code>NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY</code> (required)</li>
-                                                        <li><code>CLERK_SECRET_KEY</code> (required)</li>
-                                                        <li><code>OPENAI_API_KEY</code> (required)</li>
-                                                        <li><code>TAVILY_API_KEY</code> (required)</li>
-                                                        <li><code>UPLOADTHING_TOKEN</code> (required)</li>
-                                                        <li><code>INNGEST_EVENT_KEY</code> (auto-set by Inngest integration)</li>
-                                                        <li><code>INNGEST_SIGNING_KEY</code> (auto-set by Inngest integration)</li>
-                                                        <li><code>NODE_ENV=production</code></li>
-                                                        <li><code>AZURE_DOC_INTELLIGENCE_ENDPOINT</code> (optional, for OCR)</li>
-                                                        <li><code>AZURE_DOC_INTELLIGENCE_KEY</code> (optional, for OCR)</li>
-                                                        <li><code>LANDING_AI_API_KEY</code> (optional, for complex OCR)</li>
-                                                        <li><code>LANGCHAIN_TRACING_V2=true</code> (optional)</li>
-                                                        <li><code>LANGCHAIN_API_KEY</code> (optional)</li>
-                                                        <li><code>LANGCHAIN_PROJECT</code> (optional)</li>
-                                                    </ul>
-                                                </li>
-                                            </ul>
-                                        </div>
-                                    </li>
-                                    <li><strong>Configure build settings</strong>
-                                        <ul className={styles.list}>
-                                            <li>Build Command: <code>pnpm build</code></li>
-                                            <li>Output Directory: <code>.next</code> (default)</li>
-                                            <li>Install Command: <code>pnpm install</code></li>
-                                        </ul>
-                                    </li>
-                                    <li><strong>Deploy</strong>
-                                        <ul className={styles.list}>
-                                            <li>Click &quot;Deploy&quot;</li>
-                                            <li>Vercel will automatically deploy on every push to your main branch</li>
-                                        </ul>
-                                    </li>
-                                </ol>
-                                <div className={styles.infoBox}>
-                                    <h4>Post-Deployment Steps:</h4>
-                                    <ol className={styles.orderedList}>
-                                        <li><strong>Enable pgvector Extension:</strong>
-                                            <ul className={styles.list}>
-                                                <li>For Vercel Postgres: Use Vercel&apos;s SQL editor in Storage dashboard</li>
-                                                <li>For Neon: Go to Neon dashboard → SQL Editor</li>
-                                                <li>For External Database: Connect using your PostgreSQL client</li>
-                                                <li>Run: <code>CREATE EXTENSION IF NOT EXISTS vector;</code></li>
-                                            </ul>
-                                        </li>
-                                        <li><strong>Run database migrations:</strong>
-                                <div className={styles.codeBlock}>
-                                    <code>
-                                                    # Option 1: Using Vercel CLI locally<br />
-                                                    vercel env pull .env.local<br />
-                                                    pnpm db:migrate<br />
-                                        <br />
-                                                    # Option 2: Using direct connection<br />
-                                                    DATABASE_URL=&quot;your_production_db_url&quot; pnpm db:migrate
-                                    </code>
-                                            </div>
-                                        </li>
-                                        <li><strong>Set up Inngest Integration (Required for background jobs):</strong>
-                                            <ul className={styles.list}>
-                                                <li>Go to Vercel → Integrations → Browse Marketplace</li>
-                                                <li>Search for &quot;Inngest&quot; and click Add Integration</li>
-                                                <li>Connect your Inngest account (create one at <a href="https://www.inngest.com" target="_blank" rel="noopener noreferrer" className={styles.link}>inngest.com</a>)</li>
-                                                <li>The integration will auto-set <code>INNGEST_EVENT_KEY</code> and <code>INNGEST_SIGNING_KEY</code></li>
-                                                <li>Visit <a href="https://app.inngest.com" target="_blank" rel="noopener noreferrer" className={styles.link}>Inngest Dashboard</a> to verify functions are synced</li>
-                                            </ul>
-                                        </li>
-                                        <li>Set up Clerk webhooks (if needed): Configure webhook URL in Clerk dashboard</li>
-                                        <li>Configure UploadThing: Add your production domain to allowed origins</li>
-                                    </ol>
-                                </div>
-                            </div>
-
-                            <div className={styles.deploymentOption}>
-                                <h3 className={styles.deploymentTitle}>2. Self-Hosted VPS</h3>
-                                <p className={styles.stepDescription}>
-                                    Deploy on your own VPS with full control over the infrastructure.
-                                </p>
-                                <ol className={styles.orderedList}>
-                                    <li><strong>Prerequisites</strong>
-                                        <ul className={styles.list}>
-                                            <li>VPS with Node.js 18+ installed</li>
-                                            <li>PostgreSQL database (with pgvector extension)</li>
-                                            <li>Nginx (for reverse proxy)</li>
-                                            <li>PM2 or similar process manager</li>
-                                        </ul>
-                                    </li>
-                                    <li><strong>Clone and install</strong>
-                                        <div className={styles.codeBlock}>
-                                            <code>
-                                                git clone &lt;your-repo-url&gt;<br />
-                                                cd pdr_ai_v2-2<br />
-                                                pnpm install
-                                            </code>
-                                        </div>
-                                    </li>
-                                    <li><strong>Configure environment variables</strong>
-                                        <div className={styles.codeBlock}>
-                                            <code>nano .env  # Add all production environment variables</code>
-                                        </div>
-                                    </li>
-                                    <li><strong>Build the application</strong>
-                                        <div className={styles.codeBlock}>
-                                            <code>pnpm build</code>
-                                        </div>
-                                    </li>
-                                    <li><strong>Set up PM2</strong>
-                                        <div className={styles.codeBlock}>
-                                            <code>
-                                                npm install -g pm2<br />
-                                                pm2 start pnpm --name &quot;pdr-ai&quot; -- start<br />
-                                                pm2 save<br />
-                                                pm2 startup
-                                            </code>
-                                        </div>
-                                    </li>
-                                    <li><strong>Configure Nginx</strong>
-                                        <div className={styles.codeBlock}>
-                                            <code>
-                                                server &#123;<br />
-                                                &nbsp;&nbsp;listen 80;<br />
-                                                &nbsp;&nbsp;server_name your-domain.com;<br />
-                                                &nbsp;&nbsp;location / &#123;<br />
-                                                &nbsp;&nbsp;&nbsp;&nbsp;proxy_pass http://localhost:3000;<br />
-                                                &nbsp;&nbsp;&nbsp;&nbsp;proxy_set_header Host $host;<br />
-                                                &nbsp;&nbsp;&nbsp;&nbsp;proxy_set_header X-Real-IP $remote_addr;<br />
-                                                &nbsp;&nbsp;&nbsp;&nbsp;proxy_set_header X-Forwarded-Proto $scheme;<br />
-                                                &nbsp;&nbsp;&#125;<br />
-                                                &#125;
-                                            </code>
-                                        </div>
-                                    </li>
-                                    <li><strong>Set up SSL with Let&apos;s Encrypt</strong>
-                                        <div className={styles.codeBlock}>
-                                            <code>
-                                                sudo apt-get install certbot python3-certbot-nginx<br />
-                                                sudo certbot --nginx -d your-domain.com
-                                            </code>
-                                        </div>
-                                    </li>
-                                    <li><strong>Run database migrations</strong>
-                                        <div className={styles.codeBlock}>
-                                            <code>pnpm db:migrate</code>
-                                        </div>
-                                    </li>
-                                </ol>
-                            </div>
-
-                            <div className={styles.infoBox}>
-                                <h3>Production Database Setup</h3>
-                                <p><strong>Important:</strong> Your production database must have the <code>pgvector</code> extension enabled:</p>
-                                <div className={styles.codeBlock}>
-                                    <code>
-                                        CREATE EXTENSION IF NOT EXISTS vector;
-                                    </code>
-                                </div>
-                                <p><strong>Recommended Database Providers:</strong></p>
-                                <ul className={styles.list}>
-                                    <li><strong>Neon</strong>: Fully serverless PostgreSQL with pgvector support</li>
-                                    <li><strong>Supabase</strong>: PostgreSQL with pgvector extension</li>
-                                    <li><strong>AWS RDS</strong>: Managed PostgreSQL (requires manual pgvector installation)</li>
-                                    <li><strong>Railway</strong>: Simple PostgreSQL hosting</li>
-                                </ul>
-                            </div>
-
-                            <div className={styles.infoBox}>
-                                <h3>Post-Deployment Checklist</h3>
-                                <ul className={styles.list}>
-                                    <li>✅ Verify all environment variables are set correctly</li>
-                                    <li>✅ Database migrations have been run</li>
-                                    <li>✅ Database has pgvector extension enabled</li>
-                                    <li>✅ Clerk authentication is working</li>
-                                    <li>✅ File uploads are working (UploadThing)</li>
-                                    <li>✅ AI features are functioning (OpenAI API)</li>
-                                    <li>✅ <strong>Inngest is connected and functions are synced</strong></li>
-                                    <li>✅ Background document processing is working</li>
-                                    <li>✅ SSL certificate is configured (if using custom domain)</li>
-                                    <li>✅ Monitoring and logging are set up</li>
-                                    <li>✅ Backup strategy is in place</li>
-                                </ul>
-                            </div>
-                        </section>
-
-                        {/* Database Management Section */}
-                        <section className={styles.section}>
-                            <h2 className={styles.sectionTitle}>
-                                <Database className={styles.sectionIcon} />
-                                Database Management
-                            </h2>
-                            
-                            <div className={styles.infoBox}>
-                                <h3>Useful Database Commands</h3>
-                                <div className={styles.codeBlock}>
-                                    <code>
-                                        # Open Drizzle Studio (Database GUI)<br />
-                                        pnpm db:studio<br />
-                                        <br />
-                                        # Generate new migrations<br />
-                                        pnpm db:generate<br />
-                                        <br />
-                                        # Apply migrations<br />
-                                        pnpm db:migrate<br />
-                                        <br />
-                                        # Push schema changes directly (dev)<br />
-                                        pnpm db:push
-                                    </code>
-                                </div>
-                            </div>
-                        </section>
-
-                        {/* Troubleshooting Section */}
-                        <section className={styles.section}>
-                            <h2 className={styles.sectionTitle}>Troubleshooting</h2>
-                            
-                            <div className={styles.troubleshootSection}>
-                                <h3 className={styles.troubleshootTitle}>Database Connection Issues</h3>
-                                <ul className={styles.list}>
-                                    <li>Ensure Docker is running: <code>docker ps</code></li>
-                                    <li>Check database container status: <code>docker restart pdr_ai_v2-postgres</code></li>
-                                    <li>Verify DATABASE_URL in <code>.env</code> file</li>
-                                </ul>
-                            </div>
-
-                            <div className={styles.troubleshootSection}>
-                                <h3 className={styles.troubleshootTitle}>Build Errors</h3>
-                                <ul className={styles.list}>
-                                    <li>Clear Next.js cache: <code>rm -rf .next</code></li>
-                                    <li>Reinstall dependencies: <code>rm -rf node_modules && pnpm install</code></li>
-                                    <li>Check TypeScript errors: <code>pnpm typecheck</code></li>
-                                </ul>
-                            </div>
-
-                            <div className={styles.troubleshootSection}>
-                                <h3 className={styles.troubleshootTitle}>API Key Issues</h3>
-                                <ul className={styles.list}>
-                                    <li>Verify all required environment variables are set</li>
-                                    <li>Check for spaces around <code>=</code> in <code>.env</code> file</li>
-                                    <li>Ensure API keys are valid and have proper permissions</li>
-                                    <li>Restart the development server after changing <code>.env</code></li>
-                                </ul>
-                            </div>
-                        </section>
-
-                        {/* Features Section */}
-                        <section className={styles.section}>
-                            <h2 className={styles.sectionTitle}>What You Get</h2>
-                            <div className={styles.featuresGrid}>
-                                <div className={styles.featureCard}>
-                                    <Check className={styles.featureIcon} />
-                                    <h3>Full Source Code</h3>
-                                    <p>Complete access to all application code with no restrictions</p>
-                                </div>
-                                <div className={styles.featureCard}>
-                                    <Check className={styles.featureIcon} />
-                                    <h3>Predictive Document Analysis</h3>
-                                    <p>AI-powered missing document detection and recommendations</p>
-                                </div>
-                                <div className={styles.featureCard}>
-                                    <Check className={styles.featureIcon} />
-                                    <h3>AI Chat Engine</h3>
-                                    <p>Interactive Q&A system for document analysis</p>
-                                </div>
-                                <div className={styles.featureCard}>
-                                    <Check className={styles.featureIcon} />
-                                    <h3>Employee Management</h3>
-                                    <p>Complete employee and employer authentication system</p>
-                                </div>
-                                <div className={styles.featureCard}>
-                                    <Check className={styles.featureIcon} />
-                                    <h3>Document Management</h3>
-                                    <p>Upload, categorize, and manage documents</p>
-                                </div>
-                                <div className={styles.featureCard}>
-                                    <Check className={styles.featureIcon} />
-                                    <h3>Analytics Dashboard</h3>
-                                    <p>Insights and statistics for document usage</p>
-                                </div>
-                            </div>
-                        </section>
-
-                        {/* Support Section */}
-                        <section className={styles.section}>
-                            <div className={styles.supportBox}>
-                                <h2>Need Help?</h2>
-                                <p>
-                                    Having trouble with deployment? Our support team is here to help!
-                                </p>
-                                <div className={styles.supportButtons}>
-                                    <a 
-                                        href="https://github.com/Deodat-Lawson/pdr_ai_v2/issues" 
-                                        target="_blank" 
-                                        rel="noopener noreferrer"
-                                        className={`${styles.btn} ${styles.btnOutline}`}
-                                    >
-                                        <Github className={styles.btnIcon} />
-                                        GitHub Issues
-                                    </a>
-                                    <Link href="/contact">
-                                        <button className={`${styles.btn} ${styles.btnPrimary}`}>
-                                            Contact Support
-                                        </button>
-                                    </Link>
-                                </div>
-                            </div>
-                        </section>
-
-                    </div>
-                </div>
-            </div>
-        </ClerkProvider>
+  const toggleSection = (sectionId: string) => {
+    setExpandedSections(prev =>
+      prev.includes(sectionId)
+        ? prev.filter(id => id !== sectionId)
+        : [...prev, sectionId]
     );
-}
+  };
 
+  // Filter sections based on search query
+  const filteredSections = SECTIONS.filter(section => {
+    const titleMatch = section.title.toLowerCase().includes(searchQuery.toLowerCase());
+    const childrenMatch = section.children?.some(child =>
+      child.title.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    return titleMatch || childrenMatch;
+  });
+
+  // Helper to handle navigation from search results
+  const handleSelection = (id: DeploymentSection) => {
+    setActiveSection(id);
+    setSearchQuery(''); // Clear search
+    setMobileMenuOpen(false); // Close mobile menu
+    
+    // Auto-expand OCR parent if a child is selected
+    if (id.startsWith('ocr-') && !expandedSections.includes('ocr')) {
+      setExpandedSections(prev => [...prev, 'ocr']);
+    }
+  };
+
+  // Render the active section content
+  const renderActiveSection = () => {
+    const props = { darkMode, copyToClipboard, copiedCode };
+
+    switch (activeSection) {
+      case 'main':
+        return <MainDeployment {...props} />;
+      case 'inngest':
+        return <InngestPage {...props} />;
+      case 'langchain':
+        return <LangChainPage {...props} />;
+      case 'tavily':
+        return <TavilyPage {...props} />;
+      case 'uploadthing':
+        return <UploadThingPage {...props} />;
+      case 'ocr':
+      case 'ocr-azure':
+        return <OCRAzurePage {...props} />;
+      case 'ocr-landing':
+        return <OCRLandingPage {...props} />;
+      case 'ocr-datalab':
+        return <OCRDatalabPage {...props} />;
+      case 'voice':
+        return <VoicePage {...props} />;
+      default:
+        return <MainDeployment {...props} />;
+    }
+  };
+
+  return (
+    <div className={`min-h-screen ${darkMode ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900' : 'bg-gradient-to-br from-slate-50 via-white to-purple-50'}`}>
+      {/* Top Navigation */}
+      <DeploymentNavbar
+        darkMode={darkMode}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        filteredSections={filteredSections}
+        handleSelection={handleSelection}
+        mobileMenuOpen={mobileMenuOpen}
+        setMobileMenuOpen={setMobileMenuOpen}
+      />
+
+      <div className="pt-16 flex">
+        {/* Desktop Sidebar - always visible */}
+        <DeploymentSidebar
+          darkMode={darkMode}
+          activeSection={activeSection}
+          setActiveSection={handleSelection}
+          expandedSections={expandedSections}
+          toggleSection={toggleSection}
+        />
+
+        {/* Mobile Sidebar - shown when menu is open */}
+        <DeploymentSidebar
+          darkMode={darkMode}
+          activeSection={activeSection}
+          setActiveSection={handleSelection}
+          expandedSections={expandedSections}
+          toggleSection={toggleSection}
+          isMobile={true}
+          mobileMenuOpen={mobileMenuOpen}
+          searchQuery={searchQuery}
+          filteredSections={filteredSections}
+          handleSelection={handleSelection}
+        />
+
+        {/* Main Content */}
+        <main className="flex-1 ml-72">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+            {renderActiveSection()}
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+};
+
+export default DeploymentPage;

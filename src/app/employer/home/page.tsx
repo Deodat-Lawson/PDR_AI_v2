@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { Upload, FileText, BarChart, Brain, Settings, Users, HelpCircle, GraduationCap, Plug } from "lucide-react";
+import { Upload, FileText, BarChart, Brain, Settings, Users, HelpCircle, GraduationCap, Clock, MousePointerClick, Plug } from "lucide-react";
 import styles from "~/styles/Employer/Home.module.css";
 import { useRouter } from "next/navigation";
 import ProfileDropdown from "~/app/employer/_components/ProfileDropdown";
@@ -8,50 +8,97 @@ import { useAuth } from "@clerk/nextjs";
 import LoadingPage from "~/app/_components/loading";
 import { ThemeToggle } from "~/app/_components/ThemeToggle";
 
+interface DashboardStats {
+    totalEmployees: number;
+    totalDocuments: number;
+    activeUsers: number;
+    thirtyDayViews: number;
+}
+
+import type { TrendDataPoint, EmployeeInfo, DocumentStat } from "../../employer/statistics/types";
+
+interface AnalysisDashboardData {
+    totalEmployees: number;
+    totalDocuments: number;
+    employees: EmployeeInfo[];
+    employeeTrend: TrendDataPoint[];
+    documentViewsTrend: TrendDataPoint[];
+    documentStats: DocumentStat[];
+}
+
+interface AnalysisDashboardResponse {
+    success: boolean;
+    data?: AnalysisDashboardData;
+    error?: string;
+}
+
 const HomeScreen = () => {
     const router = useRouter();
 
     // check if authorized. If not authorized as employer, return home
-    const { isLoaded, userId } = useAuth();
+    const { isLoaded, isSignedIn, userId } = useAuth();
     const [loading, setLoading] = useState(true);
+    const [stats, setStats] = useState<DashboardStats | null>(null);
 
     useEffect(() => {
         if (!isLoaded) return;
-        // If there is no user at all, send them home
-        if (!userId) {
-            window.alert("Authentication failed! No user found.");
+        // Use isSignedIn for reliable auth check
+        if (!isSignedIn || !userId) {
+            console.error("[Auth Debug] isLoaded:", isLoaded, "isSignedIn:", isSignedIn, "userId:", userId);
             router.push("/");
             return;
         }
 
-        // Check if the user’s role is employer
-        const checkEmployerRole = async () => {
+        // Check if the user's role is employer and fetch stats
+        const initDashboard = async () => {
             try {
-                const response = await fetch("/api/employerAuth", {
+                // Auth check
+                const authResponse = await fetch("/api/employerAuth", {
                     method: "GET",
                 });
-                if(response.status === 300){
+                
+                if(authResponse.status === 300){
                     router.push("/employee/pending-approval");
                     return;
                 }
-                else if (!response.ok) {
-                    // If the endpoint returns an error, also redirect
+                else if (!authResponse.ok) {
                     window.alert("Authentication failed! You are not an employer.");
                     router.push("/");
                     return;
                 }
+
+                // Fetch stats
+                const statsResponse = await fetch("/api/company/analysis-dashboard");
+                const statsResult = (await statsResponse.json()) as AnalysisDashboardResponse;
+                
+                if (statsResult.success && statsResult.data) {
+                    const data = statsResult.data;
+                    
+                    // Calculate active users based on lastActiveAt within 30 days
+                    const thirtyDaysAgo = new Date();
+                    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                    
+                    const activeUsersCount = data.employees.filter((e) => {
+                        if (!e.lastActiveAt) return false;
+                        return new Date(e.lastActiveAt) >= thirtyDaysAgo;
+                    }).length;
+
+                    setStats({
+                        totalEmployees: data.totalEmployees,
+                        totalDocuments: data.totalDocuments,
+                        activeUsers: activeUsersCount,
+                        thirtyDayViews: data.documentViewsTrend.reduce((sum, d) => sum + d.count, 0)
+                    });
+                }
             } catch (error) {
-                console.error("Error checking employer role:", error);
-                // If there is any error, also redirect or handle appropriately
-                window.alert("Authentication failed! You are not an employer.");
-                router.push("/");
+                console.error("Error initializing dashboard:", error);
             } finally {
                 setLoading(false);
             }
         };
 
-        checkEmployerRole().catch(console.error);
-    }, [userId, router, isLoaded]);
+        initDashboard().catch(console.error);
+    }, [userId, router, isLoaded, isSignedIn]);
 
     // Updated menu options with Manage Employees
     const menuOptions = [
@@ -65,7 +112,7 @@ const HomeScreen = () => {
         {
             icon: <FileText className={styles.menuIcon} />,
             title: "View Documents",
-            description: "Browse and manage your uploaded documents",
+            description: `Browse and manage your ${stats ? stats.totalDocuments : 'uploaded'} documents`,
             path: "/employer/documents",
             isBeta: false,
         },
@@ -73,7 +120,7 @@ const HomeScreen = () => {
             icon: <BarChart className={styles.menuIcon} />,
             title: "Document Statistics",
             description: "View analytics and insights about document usage",
-            path: "/unavailable",
+            path: "/employer/statistics",
             isBeta: false,
         },
         {
@@ -86,7 +133,7 @@ const HomeScreen = () => {
         {
             icon: <Users className={styles.menuIcon} />,
             title: "Manage Employees",
-            description: "View and manage employees in your organization",
+            description: `View and manage ${stats ? stats.totalEmployees : ''} employees in your organization`,
             path: "/employer/employees",
             isBeta: false,
         },
@@ -143,6 +190,40 @@ const HomeScreen = () => {
                         to get started.
                     </p>
                 </div>
+
+                {/* Stats Cards */}
+                {stats && (
+                    <div className={styles.statsGrid}>
+                        <div className={styles.statsCard} style={{ borderLeftColor: '#9333ea' }}>
+                            <div className={styles.statsHeader}>
+                                <span className={styles.statsLabel}>Total Employees</span>
+                                <Users className={styles.statsIcon} style={{ color: '#9333ea' }} />
+                            </div>
+                            <div className={styles.statsValue}>{stats.totalEmployees}</div>
+                        </div>
+                        <div className={styles.statsCard} style={{ borderLeftColor: '#3b82f6' }}>
+                            <div className={styles.statsHeader}>
+                                <span className={styles.statsLabel}>Total Documents</span>
+                                <FileText className={styles.statsIcon} style={{ color: '#3b82f6' }} />
+                            </div>
+                            <div className={styles.statsValue}>{stats.totalDocuments}</div>
+                        </div>
+                        <div className={styles.statsCard} style={{ borderLeftColor: '#22c55e' }}>
+                            <div className={styles.statsHeader}>
+                                <span className={styles.statsLabel}>Active Users</span>
+                                <Clock className={styles.statsIcon} style={{ color: '#22c55e' }} />
+                            </div>
+                            <div className={styles.statsValue}>{stats.activeUsers}</div>
+                        </div>
+                        <div className={styles.statsCard} style={{ borderLeftColor: '#f59e0b' }}>
+                            <div className={styles.statsHeader}>
+                                <span className={styles.statsLabel}>30 Days Views</span>
+                                <MousePointerClick className={styles.statsIcon} style={{ color: '#f59e0b' }} />
+                            </div>
+                            <div className={styles.statsValue}>{stats.thirtyDayViews}</div>
+                        </div>
+                    </div>
+                )}
 
                 <div className={styles.menuGrid}>
                     {menuOptions.map((option, index) => (

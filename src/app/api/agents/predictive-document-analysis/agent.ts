@@ -1,6 +1,6 @@
 
-export { analyzeDocumentChunks } from "./services/analysisEngine";
-export { groupContentFromChunks } from "./utils/content";
+export { analyzeDocumentChunks } from "~/app/api/agents/predictive-document-analysis/services/analysisEngine";
+export { groupContentFromChunks } from "~/app/api/agents/predictive-document-analysis/utils/content";
 
 // Re-export types for compatibility
 export type {
@@ -10,4 +10,4 @@ export type {
     MissingDocumentPrediction,
     ResolvedReference,
     SearchResult
-} from "./types";
+} from "~/app/api/agents/predictive-document-analysis/types";

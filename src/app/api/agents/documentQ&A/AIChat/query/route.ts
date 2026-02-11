@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { SystemMessage, HumanMessage } from "@langchain/core/messages";
 import { db } from "~/server/db/index";
 import { eq, sql } from "drizzle-orm";
-import ANNOptimizer from "../../../predictive-document-analysis/services/annOptimizer";
+import ANNOptimizer from "~/app/api/agents/predictive-document-analysis/services/annOptimizer";
 import {
     companyEnsembleSearch,
     documentEnsembleSearch,
@@ -13,7 +13,7 @@ import {
 import { validateRequestBody, QuestionSchema } from "~/lib/validation";
 import { auth } from "@clerk/nextjs/server";
 import { qaRequestCounter, qaRequestDuration } from "~/server/metrics/registry";
-import { users, document } from "~/server/db/schema";
+import { users, document, ChatHistory } from "~/server/db/schema";
 import { withRateLimit } from "~/lib/rate-limit-middleware";
 import { RateLimitPresets } from "~/lib/rate-limiter";
 import {
@@ -357,6 +357,31 @@ export async function POST(request: Request) {
 
             const summarizedAnswer = normalizeModelContent(response.content);
             const totalTime = Date.now() - startTime;
+
+            // Log query to ChatHistory for analytics
+            try {
+                if (documentId) {
+                    const [doc] = await db
+                        .select({ title: document.title })
+                        .from(document)
+                        .where(eq(document.id, documentId));
+
+                    if (doc) {
+                        await db.insert(ChatHistory).values({
+                            UserId: userId,
+                            documentId: BigInt(documentId),
+                            documentTitle: doc.title,
+                            question: question,
+                            response: summarizedAnswer,
+                            pages: documents.map(doc => doc.metadata?.page).filter((page): page is number => page !== undefined),
+                            queryType: "simple"
+                        });
+                    }
+                }
+            } catch (logError) {
+                console.error("Failed to log chat history:", logError);
+                // Don't fail the request if logging fails
+            }
 
             recordResult("success");
 

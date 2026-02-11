@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     if (!validation.success) {
       return validation.response;
     }
-    const { name, employerPasskey, employeePasskey, numberOfEmployees } = validation.data;
+    const { name, employerPasskey, employeePasskey, numberOfEmployees, useUploadThing } = validation.data;
 
     const [userRecord] = await db
       .select({
@@ -57,14 +57,33 @@ export async function POST(request: Request) {
       );
     }
 
+    const updateData: Partial<{
+      name: string;
+      employerpasskey: string;
+      employeepasskey: string;
+      numberOfEmployees: string;
+      useUploadThing: boolean;
+    }> = {
+      name,
+      numberOfEmployees,
+    };
+
+    // Only include passkeys if they were explicitly provided
+    if (employerPasskey !== undefined) {
+      updateData.employerpasskey = employerPasskey;
+    }
+    if (employeePasskey !== undefined) {
+      updateData.employeepasskey = employeePasskey;
+    }
+
+    // Only include useUploadThing if it was explicitly provided
+    if (useUploadThing !== undefined) {
+      updateData.useUploadThing = useUploadThing;
+    }
+
     const updateResult = await db
       .update(company)
-      .set({
-        name,
-        employerpasskey: employerPasskey,
-        employeepasskey: employeePasskey,
-        numberOfEmployees,
-      })
+      .set(updateData)
       .where(eq(company.id, Number(userRecord.companyId)))
       .returning({ id: company.id });
 
