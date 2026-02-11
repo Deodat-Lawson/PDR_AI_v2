@@ -19,6 +19,7 @@ const isPublicRoute = createRouteMatcher([
     '/contact',
     '/about',
     '/signup',
+    '/signin',
     '/api/webhooks(.*)',
 ]);
 
@@ -26,6 +27,7 @@ const isPublicRoute = createRouteMatcher([
 const isAuthRedirectRoute = createRouteMatcher([
     '/',
     '/signup',
+    '/signin',
 ]);
 
 // Create a lazy database connection for middleware
