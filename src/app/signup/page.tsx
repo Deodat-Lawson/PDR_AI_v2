@@ -494,7 +494,8 @@ const SignupPage: React.FC = () => {
                     <div className={styles.formPanel}>
                         <SignUp
                             routing="hash"
-                            forceRedirectUrl={clerkRedirectUrl}
+                            forceRedirectUrl="/"
+                            signInUrl="/signin"
                         />
                     </div>
                     {renderBrandPanel()}
