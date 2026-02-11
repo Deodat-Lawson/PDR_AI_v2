@@ -512,6 +512,7 @@ export const companyRelations = relations(company, ({ many }) => ({
     documents: many(document),
     categories: many(category),
     inviteCodes: many(inviteCodes),
+    serviceKeys: many(companyServiceKeys),
 }));
 
 export const inviteCodesRelations = relations(inviteCodes, ({ one }) => ({
@@ -519,7 +520,6 @@ export const inviteCodesRelations = relations(inviteCodes, ({ one }) => ({
         fields: [inviteCodes.companyId],
         references: [company.id],
     }),
-    serviceKeys: many(companyServiceKeys),
 }));
 
 export const usersRelations = relations(users, ({ one }) => ({

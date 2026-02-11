@@ -14,6 +14,13 @@ const config: NextConfig = {
   // Webpack config to completely ignore onnxruntime-node
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   webpack: (webpackConfig: any, { isServer }: { isServer: boolean }) => {
+    // Suppress noisy webpack filesystem-cache warning for large serialized strings.
+    // This warning is non-fatal and can be emitted by third-party bundled modules.
+    webpackConfig.ignoreWarnings = webpackConfig.ignoreWarnings ?? [];
+    webpackConfig.ignoreWarnings.push(
+      /webpack\.cache\.PackFileCacheStrategy.*Serializing big strings/,
+    );
+
     if (isServer) {
       // Mark onnxruntime-node as external - never bundle it
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access

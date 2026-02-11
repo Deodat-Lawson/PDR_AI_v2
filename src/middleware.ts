@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { Pool } from '@neondatabase/serverless';
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { eq } from "drizzle-orm";
-import { users } from "~/server/db/schema";
+import { users } from "~/server/db/schema/base";
 
 // Routes that require authentication
 const isProtectedRoute = createRouteMatcher([
@@ -28,11 +28,9 @@ const isAuthRedirectRoute = createRouteMatcher([
     '/signup',
 ]);
 
-// Create a lazy database connection for middleware
-const getDb = () => {
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL! });
-    return drizzle(pool, { schema: { users } });
-};
+// Keep middleware DB setup minimal to reduce bundle/cache overhead.
+const pool = new Pool({ connectionString: process.env.DATABASE_URL! });
+const db = drizzle(pool);
 
 export default clerkMiddleware(async (auth, req) => {
     const { userId } = await auth();
@@ -56,7 +54,6 @@ export default clerkMiddleware(async (auth, req) => {
         const hasCodeParam = pathname === '/signup' && req.nextUrl.searchParams.has('code');
 
         try {
-            const db = getDb();
             const [existingUser] = await db
                 .select({ role: users.role, status: users.status })
                 .from(users)

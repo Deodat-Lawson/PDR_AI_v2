@@ -1,0 +1,454 @@
+/* Employer Integration Detail Page – connection / setup view */
+
+.container {
+  @apply min-h-screen bg-gradient-to-br from-slate-50 via-white to-purple-50;
+}
+
+/* ------------------------------------------------------------------ */
+/* Navigation (shared look)                                           */
+/* ------------------------------------------------------------------ */
+.navbar {
+  @apply bg-white/80 backdrop-blur-md border-b border-gray-200/50 sticky top-0 z-50;
+}
+
+.navContent {
+  @apply max-w-7xl mx-auto px-6 py-4 flex justify-between items-center;
+}
+
+.logoWrapper {
+  @apply flex items-center space-x-3 cursor-pointer;
+}
+
+.logoIcon {
+  @apply w-8 h-8 text-purple-600 transition-colors duration-300;
+}
+
+.logoText {
+  @apply text-2xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600
+         bg-clip-text text-transparent transition-all duration-300;
+}
+
+.navActions {
+  @apply flex items-center gap-4;
+}
+
+.iconButton {
+  @apply p-3 rounded-lg bg-transparent border-0 cursor-pointer
+         text-gray-600 hover:bg-purple-100 hover:text-purple-600
+         transition-all duration-200
+         focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2;
+}
+
+.iconButtonIcon {
+  @apply w-5 h-5;
+}
+
+/* ------------------------------------------------------------------ */
+/* Main                                                               */
+/* ------------------------------------------------------------------ */
+.main {
+  @apply max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10;
+}
+
+/* Back button */
+.backButton {
+  @apply inline-flex items-center gap-1.5 text-sm font-medium
+         text-gray-500 hover:text-purple-600
+         mb-6 bg-transparent border-0 cursor-pointer
+         transition-colors duration-200;
+}
+
+.backIcon {
+  @apply w-4 h-4;
+}
+
+/* ------------------------------------------------------------------ */
+/* Service card (detail)                                              */
+/* ------------------------------------------------------------------ */
+.serviceCard {
+  @apply bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl
+         border border-gray-100 overflow-hidden
+         transition-all duration-500;
+}
+
+.cardTop {
+  @apply p-8 pb-4;
+}
+
+.cardHeaderRow {
+  @apply flex items-center justify-between mb-4;
+}
+
+.cardTitleGroup {
+  @apply flex items-center gap-4;
+}
+
+.serviceIconWrapper {
+  @apply w-14 h-14 bg-gradient-to-br from-purple-100 to-indigo-100
+         rounded-2xl flex items-center justify-center flex-shrink-0
+         transition-transform duration-300;
+}
+
+.serviceIcon {
+  @apply w-7 h-7 text-purple-600;
+}
+
+.serviceNameBlock {
+  @apply flex flex-col;
+}
+
+.serviceName {
+  @apply text-2xl font-bold text-gray-900;
+}
+
+.serviceTagline {
+  @apply text-sm text-gray-500 mt-0.5;
+}
+
+/* Status Badge */
+.statusBadge {
+  @apply px-3 py-1 text-xs font-bold rounded-full whitespace-nowrap;
+}
+
+.statusConnected {
+  @apply bg-emerald-100 text-emerald-700;
+}
+
+.statusDisconnected {
+  @apply bg-gray-100 text-gray-500;
+}
+
+/* What it powers */
+.powersSection {
+  @apply mt-4 mb-2 px-8 pb-4;
+}
+
+.powersSectionTitle {
+  @apply text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2;
+}
+
+.powersList {
+  @apply list-disc list-inside space-y-1;
+}
+
+.powersItem {
+  @apply text-gray-600 text-sm leading-relaxed;
+}
+
+/* Accordion / Setup Guide */
+.accordionToggle {
+  @apply w-full flex items-center justify-between px-8 py-4
+         bg-gradient-to-r from-purple-50/60 to-indigo-50/60
+         border-t border-b border-gray-100
+         cursor-pointer select-none
+         hover:from-purple-100/60 hover:to-indigo-100/60
+         transition-all duration-200;
+}
+
+.accordionLabel {
+  @apply text-sm font-semibold text-purple-700;
+}
+
+.accordionChevron {
+  @apply w-5 h-5 text-purple-500 transition-transform duration-300;
+}
+
+.accordionChevronOpen {
+  @apply rotate-180;
+}
+
+.accordionContent {
+  @apply px-8 py-6 bg-gradient-to-b from-purple-50/30 to-transparent;
+}
+
+.stepsList {
+  @apply space-y-5;
+}
+
+.step {
+  @apply flex gap-4;
+}
+
+.stepNumber {
+  @apply flex-shrink-0 w-7 h-7 rounded-full
+         bg-gradient-to-br from-purple-500 to-indigo-500
+         text-white text-xs font-bold
+         flex items-center justify-center mt-0.5;
+}
+
+.stepBody {
+  @apply flex-1;
+}
+
+.stepTitle {
+  @apply font-semibold text-gray-900 mb-1;
+}
+
+.stepDescription {
+  @apply text-gray-600 text-sm leading-relaxed;
+}
+
+.stepDescription a {
+  @apply text-purple-600 underline hover:text-purple-800 transition-colors;
+}
+
+.stepDescription code {
+  @apply bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-xs font-mono;
+}
+
+/* Key Input Section */
+.inputSection {
+  @apply px-8 py-6 border-t border-gray-100;
+}
+
+.fieldGroup {
+  @apply mb-4 last:mb-0;
+}
+
+.fieldLabel {
+  @apply block mb-2 text-gray-700 font-semibold text-sm;
+}
+
+.currentKey {
+  @apply font-normal ml-2 text-gray-400;
+}
+
+.inputWrapper {
+  @apply relative flex items-center;
+}
+
+.fieldInput {
+  @apply w-full px-4 py-3 pr-12 border-2 border-gray-200 rounded-xl
+         focus:border-purple-500 focus:ring-2 focus:ring-purple-200
+         transition-all duration-300 hover:border-purple-300
+         bg-white/50 backdrop-blur-sm text-sm font-mono;
+}
+
+.fieldInput:focus {
+  @apply outline-none shadow-lg;
+}
+
+.eyeButton {
+  @apply absolute right-3 p-1 text-gray-400 hover:text-purple-600
+         transition-colors duration-200 cursor-pointer bg-transparent border-0;
+}
+
+.eyeIcon {
+  @apply w-5 h-5;
+}
+
+/* Action Row */
+.actionRow {
+  @apply flex items-center gap-3 px-8 py-5 bg-gray-50/50 border-t border-gray-100;
+}
+
+.saveButton {
+  @apply px-6 py-2.5 rounded-xl font-semibold text-sm
+         bg-gradient-to-r from-purple-600 to-indigo-600 text-white
+         hover:from-purple-700 hover:to-indigo-700
+         shadow-lg hover:shadow-xl transition-all duration-300
+         transform hover:-translate-y-0.5 disabled:opacity-50
+         focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2;
+}
+
+.docsLink {
+  @apply ml-auto text-sm text-purple-600 hover:text-purple-800
+         font-medium transition-colors duration-200 flex items-center gap-1;
+}
+
+.docsLinkIcon {
+  @apply w-4 h-4;
+}
+
+.successText {
+  @apply text-sm text-emerald-600 font-medium;
+}
+
+.errorText {
+  @apply text-sm text-red-600 font-medium;
+}
+
+/* ------------------------------------------------------------------ */
+/* Responsive                                                         */
+/* ------------------------------------------------------------------ */
+@media (max-width: 768px) {
+  .main {
+    @apply py-8;
+  }
+
+  .cardTop {
+    @apply p-5 pb-3;
+  }
+
+  .cardHeaderRow {
+    @apply flex-col items-start gap-3;
+  }
+
+  .powersSection {
+    @apply px-5;
+  }
+
+  .accordionToggle {
+    @apply px-5;
+  }
+
+  .accordionContent {
+    @apply px-5 py-4;
+  }
+
+  .inputSection {
+    @apply px-5 py-4;
+  }
+
+  .actionRow {
+    @apply px-5 py-4 flex-wrap;
+  }
+
+  .docsLink {
+    @apply ml-0;
+  }
+}
+
+@media (max-width: 640px) {
+  .serviceName {
+    @apply text-xl;
+  }
+
+  .serviceIconWrapper {
+    @apply w-11 h-11;
+  }
+
+  .serviceIcon {
+    @apply w-5 h-5;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Dark Theme                                                         */
+/* ------------------------------------------------------------------ */
+[data-theme="dark"] .container {
+  @apply bg-gradient-to-br from-slate-950 via-purple-950 to-indigo-950;
+}
+
+[data-theme="dark"] .navbar {
+  @apply bg-slate-950/80 border-b border-purple-500/20;
+}
+
+[data-theme="dark"] .logoIcon {
+  @apply text-purple-400;
+}
+
+[data-theme="dark"] .logoText {
+  @apply bg-gradient-to-r from-purple-400 to-indigo-400 bg-clip-text text-transparent;
+}
+
+[data-theme="dark"] .iconButton {
+  @apply text-gray-400 hover:bg-purple-900/30 hover:text-purple-300;
+}
+
+[data-theme="dark"] .backButton {
+  @apply text-gray-400 hover:text-purple-400;
+}
+
+[data-theme="dark"] .serviceCard {
+  @apply bg-slate-900/50 border-purple-500/20;
+}
+
+[data-theme="dark"] .serviceIconWrapper {
+  @apply bg-gradient-to-br from-purple-900/50 to-indigo-900/50;
+}
+
+[data-theme="dark"] .serviceIcon {
+  @apply text-purple-400;
+}
+
+[data-theme="dark"] .serviceName {
+  @apply text-white;
+}
+
+[data-theme="dark"] .serviceTagline {
+  @apply text-gray-400;
+}
+
+[data-theme="dark"] .statusConnected {
+  @apply bg-emerald-900/40 text-emerald-400;
+}
+
+[data-theme="dark"] .statusDisconnected {
+  @apply bg-gray-800 text-gray-400;
+}
+
+[data-theme="dark"] .powersSectionTitle {
+  @apply text-gray-400;
+}
+
+[data-theme="dark"] .powersItem {
+  @apply text-gray-300;
+}
+
+[data-theme="dark"] .accordionToggle {
+  @apply bg-gradient-to-r from-purple-900/30 to-indigo-900/30
+         border-purple-500/20 hover:from-purple-900/50 hover:to-indigo-900/50;
+}
+
+[data-theme="dark"] .accordionLabel {
+  @apply text-purple-400;
+}
+
+[data-theme="dark"] .accordionChevron {
+  @apply text-purple-400;
+}
+
+[data-theme="dark"] .accordionContent {
+  @apply bg-gradient-to-b from-purple-950/30 to-transparent;
+}
+
+[data-theme="dark"] .stepNumber {
+  @apply bg-gradient-to-br from-purple-600 to-indigo-600;
+}
+
+[data-theme="dark"] .stepTitle {
+  @apply text-white;
+}
+
+[data-theme="dark"] .stepDescription {
+  @apply text-gray-300;
+}
+
+[data-theme="dark"] .stepDescription a {
+  @apply text-purple-400 hover:text-purple-300;
+}
+
+[data-theme="dark"] .stepDescription code {
+  @apply bg-purple-900/50 text-purple-300;
+}
+
+[data-theme="dark"] .inputSection {
+  @apply border-purple-500/20;
+}
+
+[data-theme="dark"] .fieldLabel {
+  @apply text-gray-300;
+}
+
+[data-theme="dark"] .currentKey {
+  @apply text-gray-500;
+}
+
+[data-theme="dark"] .fieldInput {
+  @apply bg-slate-800/80 border-purple-500/20 text-white placeholder-gray-500
+         hover:border-purple-400 focus:border-purple-400;
+}
+
+[data-theme="dark"] .eyeButton {
+  @apply text-gray-500 hover:text-purple-400;
+}
+
+[data-theme="dark"] .actionRow {
+  @apply bg-slate-900/50 border-purple-500/20;
+}
+
+[data-theme="dark"] .docsLink {
+  @apply text-purple-400 hover:text-purple-300;
+}
+
