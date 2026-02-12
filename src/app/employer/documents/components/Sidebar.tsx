@@ -46,6 +46,8 @@ interface SidebarProps {
   currentChatId?: string | null;
   onSelectChat?: (chatId: string | null) => void;
   onNewChat?: () => void;
+  userRole?: 'employer' | 'employee';
+  homeUrl?: string;
 }
 
 export function Sidebar({
@@ -63,8 +65,13 @@ export function Sidebar({
   userId,
   currentChatId,
   onSelectChat,
-  onNewChat
+  onNewChat,
+  userRole = 'employer',
+  homeUrl,
 }: SidebarProps) {
+  const resolvedHomeUrl = homeUrl ?? (userRole === 'employee' ? '/employee/home' : '/employer/home');
+  const showGenerator = userRole === 'employer';
+  const showDelete = userRole === 'employer' && !!deleteDocument;
   const [isSearchFocused, setIsSearchFocused] = useState(false);
 
   if (isCollapsed) {
@@ -111,27 +118,29 @@ export function Sidebar({
           >
             <BarChart3 className="w-4 h-4" />
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setViewMode('generator')}
-            className={cn(
-              "w-full h-10 rounded-xl transition-all duration-200 relative",
-              viewMode === 'generator' 
-                ? "bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400" 
-                : "text-muted-foreground hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
-            )}
-            title="Document Generator"
-          >
-            <PenTool className="w-4 h-4" />
-            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-500 rounded-full" />
-          </Button>
+          {showGenerator && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setViewMode('generator')}
+              className={cn(
+                "w-full h-10 rounded-xl transition-all duration-200 relative",
+                viewMode === 'generator' 
+                  ? "bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400" 
+                  : "text-muted-foreground hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+              )}
+              title="Document Generator"
+            >
+              <PenTool className="w-4 h-4" />
+              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-500 rounded-full" />
+            </Button>
+          )}
         </div>
 
         {/* Bottom Actions */}
         <div className="flex flex-col items-center gap-1.5 px-2 w-full">
           <ThemeToggle />
-          <Link href="/employer/home" className="w-full">
+          <Link href={resolvedHomeUrl} className="w-full">
             <Button variant="ghost" size="icon" className="w-full h-10 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all">
               <Home className="w-4 h-4" />
             </Button>
@@ -153,7 +162,7 @@ export function Sidebar({
               <span className="font-bold text-lg tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-indigo-600 dark:from-purple-400 dark:to-indigo-400">PDR AI</span>
           </div>
           <div className="flex items-center gap-1">
-            <Link href="/employer/home">
+            <Link href={resolvedHomeUrl}>
               <Button
                 variant="ghost"
                 size="icon"
@@ -223,22 +232,24 @@ export function Sidebar({
             <BarChart3 className="w-4 h-4" />
             <span className="font-medium text-sm">Predictive Analysis</span>
           </Button>
-          <Button
-            variant={viewMode === 'generator' ? 'default' : 'ghost'}
-            className={cn(
-              "justify-start gap-3 h-11 rounded-lg px-3 transition-all duration-200 relative overflow-hidden group",
-              viewMode === 'generator' 
-                ? "bg-purple-600 hover:bg-purple-700 text-white shadow-md shadow-purple-500/20" 
-                : "hover:bg-purple-50 dark:hover:bg-purple-900/10 hover:text-purple-600 dark:hover:text-purple-400 text-muted-foreground"
-            )}
-            onClick={() => setViewMode('generator')}
-          >
-            <PenTool className="w-4 h-4" />
-            <span className="font-medium text-sm">Document Generator</span>
-            <div className="absolute top-1 right-1 px-1 py-0.5 bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400 text-[8px] font-black uppercase tracking-tighter rounded-sm scale-75 origin-top-right border border-amber-200 dark:border-amber-800">
-              Dev
-            </div>
-          </Button>
+          {showGenerator && (
+            <Button
+              variant={viewMode === 'generator' ? 'default' : 'ghost'}
+              className={cn(
+                "justify-start gap-3 h-11 rounded-lg px-3 transition-all duration-200 relative overflow-hidden group",
+                viewMode === 'generator' 
+                  ? "bg-purple-600 hover:bg-purple-700 text-white shadow-md shadow-purple-500/20" 
+                  : "hover:bg-purple-50 dark:hover:bg-purple-900/10 hover:text-purple-600 dark:hover:text-purple-400 text-muted-foreground"
+              )}
+              onClick={() => setViewMode('generator')}
+            >
+              <PenTool className="w-4 h-4" />
+              <span className="font-medium text-sm">Document Generator</span>
+              <div className="absolute top-1 right-1 px-1 py-0.5 bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400 text-[8px] font-black uppercase tracking-tighter rounded-sm scale-75 origin-top-right border border-amber-200 dark:border-amber-800">
+                Dev
+              </div>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -315,7 +326,7 @@ export function Sidebar({
                           <span className="flex-1 text-left truncate">{doc.title}</span>
                         </button>
                         
-                        {deleteDocument && (
+                        {showDelete && deleteDocument && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button
