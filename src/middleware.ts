@@ -43,14 +43,14 @@ export default clerkMiddleware(async (auth, req) => {
     // Skip API routes and static files for redirect logic
     if (pathname.startsWith('/api/') || pathname.startsWith('/_next/')) {
         if (isProtectedRoute(req) && !isPublicRoute(req)) {
-            await auth.protect();
+            await auth.protect({ unauthenticatedUrl: new URL('/signin', req.url).toString() });
         }
         return;
     }
 
     // Protect routes that require authentication
     if (isProtectedRoute(req) && !isPublicRoute(req)) {
-        await auth.protect();
+        await auth.protect({ unauthenticatedUrl: new URL('/signin', req.url).toString() });
     }
 
     // Route authenticated users based on their DB role + status

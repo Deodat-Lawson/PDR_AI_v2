@@ -37,6 +37,7 @@ interface ChatPanelProps {
   onCreateChat: () => Promise<string | null>;
   isPreviewCollapsed?: boolean;
   onTogglePreview?: () => void;
+  userRole?: 'employer' | 'employee';
 }
 
 const styleConfig = [
@@ -70,8 +71,10 @@ export function ChatPanel({
   styleOptions: _styleOptions,
   onCreateChat,
   isPreviewCollapsed,
-  onTogglePreview
+  onTogglePreview,
+  userRole = 'employer',
 }: ChatPanelProps) {
+  const showCompanyScope = userRole === 'employer';
   return (
     <div className="flex flex-col h-full relative overflow-hidden bg-gradient-to-b from-slate-50/30 to-white dark:from-slate-950/30 dark:to-slate-900 transition-all duration-300">
       {/* Chat Header */}
@@ -85,35 +88,42 @@ export function ChatPanel({
               <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Online</span>
             </div>
 
-            {/* Scope Toggle */}
-            <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5">
-              <button
-                onClick={() => setSearchScope('document')}
-                className={cn(
-                  "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all",
-                  searchScope === 'document'
-                    ? "bg-white dark:bg-slate-700 text-violet-600 dark:text-violet-400 shadow-sm"
-                    : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-                )}
-              >
-                <FileText className="w-3 h-3" />
-                Doc
-              </button>
-              <button
-                onClick={() => companyId && setSearchScope('company')}
-                disabled={!companyId}
-                className={cn(
-                  "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all",
-                  searchScope === 'company'
-                    ? "bg-white dark:bg-slate-700 text-violet-600 dark:text-violet-400 shadow-sm"
-                    : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300",
-                  !companyId && "opacity-40 cursor-not-allowed"
-                )}
-              >
-                <Building2 className="w-3 h-3" />
-                All
-              </button>
-            </div>
+            {/* Scope Toggle - only show company scope for employers */}
+            {showCompanyScope ? (
+              <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5">
+                <button
+                  onClick={() => setSearchScope('document')}
+                  className={cn(
+                    "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all",
+                    searchScope === 'document'
+                      ? "bg-white dark:bg-slate-700 text-violet-600 dark:text-violet-400 shadow-sm"
+                      : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                  )}
+                >
+                  <FileText className="w-3 h-3" />
+                  Doc
+                </button>
+                <button
+                  onClick={() => companyId && setSearchScope('company')}
+                  disabled={!companyId}
+                  className={cn(
+                    "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all",
+                    searchScope === 'company'
+                      ? "bg-white dark:bg-slate-700 text-violet-600 dark:text-violet-400 shadow-sm"
+                      : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300",
+                    !companyId && "opacity-40 cursor-not-allowed"
+                  )}
+                >
+                  <Building2 className="w-3 h-3" />
+                  All
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg">
+                <FileText className="w-3 h-3 text-violet-600 dark:text-violet-400" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400">Document</span>
+              </div>
+            )}
           </div>
 
           {/* Center: Style & Persona Pills */}

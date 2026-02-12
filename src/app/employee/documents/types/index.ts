@@ -1,1 +1,0 @@
-export type ViewMode = "document-only" | "with-summary" | "with-ai-qa" | "with-ai-qa-history" | "predictive-analysis";
