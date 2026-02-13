@@ -16,6 +16,7 @@ import {
   Plug,
   Search as SearchIcon,
   X,
+  Database,
 } from "lucide-react";
 
 import { ThemeToggle } from "~/app/_components/ThemeToggle";
@@ -30,7 +31,7 @@ import styles from "~/styles/Employer/Integrations.module.css";
 // ---------------------------------------------------------------------------
 // Icon resolver
 // ---------------------------------------------------------------------------
-const iconMap = { Zap, Search, HardDrive, ScanLine, Eye, FileSearch, Mic } as const;
+const iconMap = { Zap, Search, HardDrive, ScanLine, Eye, FileSearch, Mic, Database } as const;
 
 function ServiceIcon({
   name,

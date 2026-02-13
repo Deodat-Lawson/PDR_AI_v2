@@ -9,6 +9,7 @@ import { createAzureAdapter, createLandingAIAdapter } from "~/lib/ocr/adapters";
 import { chunkDocument, mergeWithEmbeddings, prepareForEmbedding, getTotalChunkSize } from "~/lib/ocr/chunker";
 import { generateEmbeddings } from "~/lib/ai/embeddings";
 import { db } from "~/server/db";
+import { CompanyKeyService } from "~/server/services/company-keys";
 import {
   documentSections,
   documentStructure,
@@ -105,7 +106,8 @@ export async function routeDocument(
  */
 export async function normalizeDocument(
   documentUrl: string,
-  routerDecision: RouterDecisionResult
+  routerDecision: RouterDecisionResult,
+  companyId?: string
 ): Promise<NormalizationResult> {
   console.log(`[Normalize] Processing with provider: ${routerDecision.selectedProvider}`);
 
@@ -116,13 +118,18 @@ export async function normalizeDocument(
   } else {
     switch (routerDecision.selectedProvider) {
       case "AZURE":
-        normalizedDoc = await processWithAzure(documentUrl);
+        const azureEndpoint = companyId ? await CompanyKeyService.getEffectiveKey(companyId, "AZURE_DOC_INTELLIGENCE_ENDPOINT", "AZURE_DOC_INTELLIGENCE_ENDPOINT") : undefined;
+        const azureKey = companyId ? await CompanyKeyService.getEffectiveKey(companyId, "AZURE_DOC_INTELLIGENCE_KEY", "AZURE_DOC_INTELLIGENCE_KEY") : undefined;
+        normalizedDoc = await processWithAzure(documentUrl, { endpoint: azureEndpoint, apiKey: azureKey });
         break;
       case "LANDING_AI":
-        normalizedDoc = await processWithLandingAI(documentUrl);
+        const landingKey = companyId ? await CompanyKeyService.getEffectiveKey(companyId, "LANDING_AI_API_KEY", "LANDING_AI_API_KEY") : undefined;
+        normalizedDoc = await processWithLandingAI(documentUrl, { apiKey: landingKey });
         break;
       default:
-        normalizedDoc = await processWithAzure(documentUrl);
+        const defaultEndpoint = companyId ? await CompanyKeyService.getEffectiveKey(companyId, "AZURE_DOC_INTELLIGENCE_ENDPOINT", "AZURE_DOC_INTELLIGENCE_ENDPOINT") : undefined;
+        const defaultKey = companyId ? await CompanyKeyService.getEffectiveKey(companyId, "AZURE_DOC_INTELLIGENCE_KEY", "AZURE_DOC_INTELLIGENCE_KEY") : undefined;
+        normalizedDoc = await processWithAzure(documentUrl, { endpoint: defaultEndpoint, apiKey: defaultKey });
     }
   }
 

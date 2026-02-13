@@ -18,13 +18,6 @@ export type { AIModelType };
 export function getChatModel(modelType: AIModelType): BaseChatModel {
     switch (modelType) {
         // OpenAI Models
-        case "gpt-4o":
-            return new ChatOpenAI({
-                openAIApiKey: process.env.OPENAI_API_KEY,
-                modelName: "gpt-4o",
-                temperature: 0.7,
-                timeout: 600000,
-            });
 
         case "gpt-5.2":
             return new ChatOpenAI({

@@ -23,6 +23,7 @@ import { auth } from "@clerk/nextjs/server";
 import { users, document } from "~/server/db/schema";
 import { withRateLimit } from "~/lib/rate-limit-middleware";
 import { RateLimitPresets } from "~/lib/rate-limiter";
+import { CompanyKeyService } from "~/server/services/company-keys";
 import {
     normalizeModelContent,
     performWebSearch,
@@ -203,7 +204,8 @@ export async function POST(request: Request) {
                 );
             }
 
-            // Perform RLM search
+
+
             const searchOptions: RLMSearchOptions = {
                 maxTokens: maxTokens ?? 4000,
                 includeOverview: includeOverview ?? true,
@@ -233,7 +235,7 @@ export async function POST(request: Request) {
             );
 
             // Get AI model and generate response
-            const selectedAiModel = (aiModel ?? "gpt4") as AIModelType;
+            const selectedAiModel = (aiModel ?? "gpt-5.2") as AIModelType;
             const chat = getChatModel(selectedAiModel);
             const selectedStyle = (style ?? "concise") satisfies keyof typeof SYSTEM_PROMPTS;
 
@@ -290,7 +292,6 @@ Provide a comprehensive answer based on the provided content. When referencing s
             return NextResponse.json({
                 success: true,
                 summarizedAnswer,
-                // RLM-specific metadata
                 documentOverview: searchResult.overview
                     ? {
                           title: searchResult.overview.title,
@@ -305,7 +306,6 @@ Provide a comprehensive answer based on the provided content. When referencing s
                 tokensUsed: searchResult.totalTokensUsed,
                 tokenBudget: searchResult.tokenBudget,
                 usedSemanticSearch: searchResult.usedSemanticSearch,
-                // Standard fields
                 retrievalMethod: "rlm_hierarchical",
                 recommendedPages,
                 processingTimeMs: totalTime,

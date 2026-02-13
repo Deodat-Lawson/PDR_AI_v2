@@ -18,7 +18,7 @@ export interface ServiceGuide {
   /** Category label shown on the card (e.g. "Background Jobs") */
   category: string;
   /** lucide-react icon name used to pick the icon in the page component */
-  iconName: "Zap" | "Search" | "HardDrive" | "ScanLine" | "Eye" | "FileSearch" | "Mic";
+  iconName: "Zap" | "Search" | "HardDrive" | "ScanLine" | "Eye" | "FileSearch" | "Mic" | "Database";
   docsUrl: string;
   fields: ServiceGuideField[];
   steps: SetupStep[];
@@ -33,6 +33,7 @@ export const SERVICE_CATEGORIES = [
   "Storage",
   "OCR",
   "Voice",
+  "Cache",
 ] as const;
 
 export const serviceGuides: ServiceGuide[] = [
@@ -417,6 +418,52 @@ export const serviceGuides: ServiceGuide[] = [
       "Voice-enabled AI responses in the study agent",
       "Accessibility features for visually impaired users",
       "Multiple voice options and languages",
+    ],
+  },
+
+  // -----------------------------------------------------------------------
+  // Upstash Redis
+  // -----------------------------------------------------------------------
+  {
+    id: "redis",
+    name: "Upstash Redis",
+    tagline: "Serverless Redis for caching & rate limiting",
+    category: "Cache",
+    iconName: "Database",
+    docsUrl: "https://upstash.com/docs/redis/overall/getstarted",
+    fields: [
+      {
+        key: "redisUrl",
+        label: "Redis URL",
+        placeholder: "redis://default:password@endpoint:port",
+      },
+    ],
+    steps: [
+      {
+        title: "Create an Upstash account",
+        description:
+          'Go to <a href="https://upstash.com" target="_blank" rel="noopener noreferrer">upstash.com</a> and sign up for an account.',
+      },
+      {
+        title: "Create a database",
+        description:
+          "In the console, click <b>Create Database</b>. Give it a name and select a region close to your users.",
+      },
+      {
+        title: "Get your connection URL",
+        description:
+          "On the database details page, scroll to the <b>Connect</b> section. Select <b>Redis</b> (or ioredis) and copy the connection string (starts with <code>redis://</code> or <code>rediss://</code>).",
+      },
+      {
+        title: "Paste and save",
+        description:
+          "Paste the connection string into the field below and click <b>Save</b>.",
+      },
+    ],
+    whatItPowers: [
+      "High-performance caching for API keys and database queries",
+      "Rate limiting to protect AI endpoints",
+      "Session storage and ephemeral data",
     ],
   },
 ];

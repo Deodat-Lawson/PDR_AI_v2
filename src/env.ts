@@ -34,6 +34,8 @@ const serverSchema = z.object({
   // Inngest configuration (optional, for background job processing)
   // When false or INNGEST_EVENT_KEY not set, document processing runs synchronously
   INNGEST_EVENT_KEY: optionalString(),
+  // Redis configuration
+  REDIS_URL: z.string().url().optional(),
   // Encryption key for encrypting per-company service API keys at rest
   ENCRYPTION_KEY: optionalString(),
 });
@@ -82,6 +84,7 @@ export const env = {
     LANGCHAIN_API_KEY: process.env.LANGCHAIN_API_KEY,
     LANGCHAIN_PROJECT: process.env.LANGCHAIN_PROJECT,
     INNGEST_EVENT_KEY: process.env.INNGEST_EVENT_KEY,
+    REDIS_URL: process.env.REDIS_URL,
     ENCRYPTION_KEY: process.env.ENCRYPTION_KEY,
   }),
   client: parseEnv(clientSchema, {

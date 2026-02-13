@@ -45,6 +45,8 @@ export interface RLMSearchOptions {
     pageRange?: { start: number; end: number };
     /** Preview types to include if includePreviews is true */
     previewTypes?: PreviewType[];
+    /** OpenAI API Key for embeddings */
+    apiKey?: string;
 }
 
 /**
@@ -98,6 +100,7 @@ export async function performRLMSearch(
         prioritize = "relevance",
         pageRange,
         previewTypes = ["summary", "keywords"],
+        apiKey,
     } = options;
 
     console.log(`🔍 [RLM Search] Starting search for document ${documentId}`);
@@ -105,7 +108,7 @@ export async function performRLMSearch(
 
     // Create retriever with embeddings if we need semantic search
     const needsEmbeddings = prioritize === "relevance";
-    const embeddings = needsEmbeddings ? getEmbeddings() : undefined;
+    const embeddings = needsEmbeddings ? getEmbeddings(apiKey) : undefined;
     const retriever = createRLMRetriever(embeddings);
 
     // Fetch overview and previews in parallel if needed

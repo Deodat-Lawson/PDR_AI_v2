@@ -6,6 +6,7 @@ import { db } from "~/server/db/index";
 import { users, companyServiceKeys } from "~/server/db/schema";
 import { encryptValue, decryptValue, maskValue } from "~/lib/encryption";
 import { validateRequestBody, ServiceConnectionsSchema } from "~/lib/validation";
+import { CompanyKeyService } from "~/server/services/company-keys";
 
 const AUTHORIZED_ROLES = new Set(["employer", "owner"]);
 
@@ -123,6 +124,9 @@ export async function POST(request: Request) {
               eq(companyServiceKeys.keyType, entry.keyType)
             )
           );
+        
+        // Invalidate cache
+        await CompanyKeyService.invalidateKey(companyId, entry.keyType);
       } else {
         const encrypted = encryptValue(trimmed);
 
@@ -140,6 +144,9 @@ export async function POST(request: Request) {
               updatedAt: sql`now()`,
             },
           });
+          
+        // Invalidate cache
+        await CompanyKeyService.invalidateKey(companyId, entry.keyType);
       }
     }
 

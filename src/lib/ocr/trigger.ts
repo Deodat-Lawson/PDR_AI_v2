@@ -5,6 +5,7 @@
 
 import { env } from "~/env";
 import type { ProcessDocumentEventData, OCRProvider } from "./types";
+import { inngest } from "~/server/inngest/client";
 
 /**
  * Options for triggering the document processing pipeline
@@ -21,7 +22,7 @@ export interface TriggerOptions {
  * Returns true if INNGEST_EVENT_KEY is set
  */
 export function isInngestEnabled(): boolean {
-  return !!env.server.INNGEST_EVENT_KEY;
+  return env.server.INNGEST_EVENT_KEY !== undefined;
 }
 
 /**
@@ -57,8 +58,6 @@ export async function triggerDocumentProcessing(
   // Try Inngest first if configured
   if (isInngestEnabled()) {
     try {
-      const { inngest } = await import("~/server/inngest/client");
-      
       if (inngest) {
         const result = await inngest.send({
           name: "document/process.requested",

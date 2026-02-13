@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "../../../server/db/index";
 import { company, users } from "../../../server/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import * as console from "console";
 import { auth } from '@clerk/nextjs/server'
 
@@ -12,21 +12,20 @@ export async function POST() {
             return NextResponse.json({ error: "Invalid user." }, { status: 400 });
         }
 
-        const [userInfo] = await db
-            .select()
+        const [result] = await db
+            .select({
+                user: users,
+                company: company,
+            })
             .from(users)
+            .leftJoin(company, eq(users.companyId, sql`cast(${company.id} as bigint)`))
             .where(eq(users.userId, userId));
 
-        if (!userInfo) {
+        if (!result || !result.user) {
             return NextResponse.json({ error: "Invalid user." }, { status: 400 });
         }
 
-        const companyId = userInfo.companyId;
-
-        const [companyRecord] = await db
-            .select()
-            .from(company)
-            .where(and(eq(company.id, Number(companyId))));
+        const { user: userInfo, company: companyRecord } = result;
 
         if (!companyRecord) {
             return NextResponse.json(

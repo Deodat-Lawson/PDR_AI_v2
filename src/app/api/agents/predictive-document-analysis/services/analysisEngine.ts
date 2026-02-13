@@ -20,6 +20,7 @@ import { document } from "~/server/db/schema";
 import { and, eq, ne } from "drizzle-orm";
 import stringSimilarity from 'string-similarity-js';
 import { ANALYSIS_BATCH_CONFIG } from "~/lib/constants";
+import { CompanyKeyService } from "~/server/services/company-keys";
 
 async function withRetry<T>(
     operation: () => Promise<T>,

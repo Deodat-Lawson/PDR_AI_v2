@@ -2,15 +2,15 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import OpenAI from "openai";
 import { File } from "formdata-node";
+import { db } from "~/server/db";
+import { users } from "~/server/db/schema";
+import { eq } from "drizzle-orm";
+import { CompanyKeyService } from "~/server/services/company-keys";
 
 /**
  * Speech-to-Text API using OpenAI Whisper
  * Converts audio to text
  */
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
 
 export async function POST(request: Request) {
   try {
@@ -23,13 +23,37 @@ export async function POST(request: Request) {
       );
     }
 
+    // Get user's company ID
+    const [user] = await db
+      .select({ companyId: users.companyId })
+      .from(users)
+      .where(eq(users.userId, userId))
+      .limit(1);
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "User not found" },
+        { status: 404 }
+      );
+    }
+
+    const openaiKey = await CompanyKeyService.getEffectiveKey(
+      user.companyId,
+      "OPENAI_API_KEY",
+      "OPENAI_API_KEY"
+    );
+
     // Check OpenAI API key
-    if (!process.env.OPENAI_API_KEY) {
+    if (!openaiKey) {
       return NextResponse.json(
         { error: "OpenAI API key not configured" },
         { status: 500 }
       );
     }
+
+    const openai = new OpenAI({
+      apiKey: openaiKey,
+    });
 
     // Get audio file from request
     const formData = await request.formData();

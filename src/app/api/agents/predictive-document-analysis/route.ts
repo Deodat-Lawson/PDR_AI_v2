@@ -3,7 +3,7 @@ import { db } from "~/server/db/index";
 import { eq, sql, and, gt, desc, ne } from "drizzle-orm";
 import { analyzeDocumentChunks } from "~/app/api/agents/predictive-document-analysis/agent";
 import type { PredictiveAnalysisResult } from "~/app/api/agents/predictive-document-analysis/agent";
-import { predictiveDocumentAnalysisResults, document, pdfChunks } from "~/server/db/schema";
+import { predictiveDocumentAnalysisResults, document, documentSections } from "~/server/db/schema";
 import {
     ANALYSIS_BATCH_CONFIG,
     ANALYSIS_TYPES,
@@ -182,13 +182,13 @@ export async function POST(request: Request) {
 
         const chunksResults = await db
             .select({
-                id: pdfChunks.id,
-                content: pdfChunks.content,
-                page: pdfChunks.page
+                id: documentSections.id,
+                content: documentSections.content,
+                page: sql<number>`COALESCE(${documentSections.pageNumber}, 1)`
             })
-            .from(pdfChunks)
-            .where(eq(pdfChunks.documentId, BigInt(documentId)))
-            .orderBy(pdfChunks.id);
+            .from(documentSections)
+            .where(eq(documentSections.documentId, BigInt(documentId)))
+            .orderBy(documentSections.id);
 
         if (chunksResults.length === 0) {
             recordResult("error");

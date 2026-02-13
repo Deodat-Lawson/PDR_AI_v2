@@ -8,6 +8,11 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { ChatOpenAI } from "@langchain/openai";
 import { SystemMessage, HumanMessage, AIMessage } from "@langchain/core/messages";
+import { db } from "~/server/db";
+import { users } from "~/server/db/schema";
+import { eq } from "drizzle-orm";
+import { CompanyKeyService } from "~/server/services/company-keys";
+import { getEmbeddings } from "~/app/api/agents/documentQ&A/services/models";
 
 import type { EmotionTag } from "./types";
 import {
@@ -108,6 +113,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Get user's company ID
+    const [user] = await db
+      .select({ companyId: users.companyId })
+      .from(users)
+      .where(eq(users.userId, userId))
+      .limit(1);
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    const openaiKey = await CompanyKeyService.getEffectiveKey(
+      user.companyId,
+      "OPENAI_API_KEY",
+      "OPENAI_API_KEY"
+    );
+
     const parsedBody = parseChatRequest(await request.json());
     const {
       message,
@@ -128,7 +150,7 @@ export async function POST(request: Request) {
     console.log("   Study Plan Items:", studyPlan?.length ?? 0);
     console.log("   Conversation History:", conversationHistory?.length ?? 0, "messages");
 
-    if (!process.env.OPENAI_API_KEY) {
+    if (!openaiKey) {
       return NextResponse.json(
         { error: "OpenAI API key not configured" },
         { status: 500 }
@@ -204,11 +226,12 @@ export async function POST(request: Request) {
 
       if (validDocIds.length > 0) {
         // Use RAG search to find relevant chunks based on the user's message
+        const embeddings = getEmbeddings(openaiKey);
         const ragResults = await multiDocEnsembleSearch(message, {
           documentIds: validDocIds,
           topK: 8,
           weights: [0.4, 0.6], // BM25 weight, Vector weight
-        });
+        }, embeddings);
 
         // Format RAG results for the prompt
         documentContent = formatResultsForPrompt(ragResults, titleMap);
@@ -257,7 +280,7 @@ export async function POST(request: Request) {
 
     // Initialize OpenAI and generate response
     const chat = new ChatOpenAI({
-      openAIApiKey: process.env.OPENAI_API_KEY,
+      openAIApiKey: openaiKey,
       modelName: "gpt-4o-mini",
       temperature: 0.7,
       timeout: 30000,

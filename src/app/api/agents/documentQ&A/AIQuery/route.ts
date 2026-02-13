@@ -135,8 +135,7 @@ export async function POST(request: Request) {
                     message: "You do not have access to this document."
                 }, { status: 403 });
             }
-
-            // Perform document search
+            
             const embeddings = getEmbeddings();
             let documents: SearchResult[] = [];
             retrievalMethod = 'document_ensemble_rrf';
@@ -246,7 +245,7 @@ export async function POST(request: Request) {
             );
 
             // Get AI model and generate response
-            const selectedAiModel = (aiModel ?? 'gpt4') as AIModelType;
+            const selectedAiModel = (aiModel ?? 'gpt-5.2') as AIModelType;
             const chat = getChatModel(selectedAiModel);
             const selectedStyle = (style ?? 'concise') satisfies keyof typeof SYSTEM_PROMPTS;
             
