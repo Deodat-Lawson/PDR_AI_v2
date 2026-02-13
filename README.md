@@ -207,6 +207,41 @@ pnpm build
 pnpm start
 ```
 
+### Docker Deployment
+
+Deploy the entire stack (PostgreSQL + pgvector + Next.js app) with a single command:
+
+**Prerequisites:**
+- [Docker](https://docs.docker.com/get-docker/)
+- [Docker Compose](https://docs.docker.com/compose/install/)
+
+**Steps:**
+
+1. Copy `.env.example` to `.env` and fill in required variables:
+   - `POSTGRES_PASSWORD` (default: `password` — change for production)
+   - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
+   - `CLERK_SECRET_KEY`
+   - `OPENAI_API_KEY`
+   - Optional: `UPLOADTHING_TOKEN`, `NEXT_PUBLIC_UPLOADTHING_ENABLED`, `INNGEST_EVENT_KEY`, OCR keys, etc.
+
+2. Start all services:
+   ```bash
+   docker compose up
+   ```
+   Or run in detached mode:
+   ```bash
+   docker compose up -d
+   ```
+
+3. The app will be available at `http://localhost:3000`
+
+4. To rebuild after code changes:
+   ```bash
+   docker compose up --build
+   ```
+
+The compose stack runs PostgreSQL with pgvector, runs database migrations automatically, then starts the Next.js app.
+
 ## 🚀 Deployment Guide
 
 ### Prerequisites for Production

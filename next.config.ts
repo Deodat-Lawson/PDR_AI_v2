@@ -3,6 +3,9 @@ import type { NextConfig } from "next";
 import "./src/env";
 
 const config: NextConfig = {
+  // Standalone output for Docker deployment (smaller production image)
+  output: "standalone",
+
   // Force HuggingFace Transformers to use web backend (WASM) instead of Node.js (onnxruntime-node)
   // This prevents the 404MB onnxruntime-node package from being required
   env: {

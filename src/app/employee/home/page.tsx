@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { FileText, Brain, HelpCircle, GraduationCap, BookOpen } from "lucide-react";
+import { FileText, Brain, HelpCircle, BookOpen } from "lucide-react";
 import styles from "~/styles/Employer/Home.module.css";
 import { useRouter } from "next/navigation";
 import ProfileDropdown from "~/app/employer/_components/ProfileDropdown";
@@ -56,13 +56,6 @@ const EmployeeHomeScreen = () => {
       description: "Browse your company documents with AI-powered Q&A and analysis",
       path: "/employee/documents",
       isBeta: false,
-    },
-    {
-      icon: <GraduationCap className={styles.menuIcon} />,
-      title: "Study Agent",
-      description: "AI-powered study companion with teacher and study buddy modes",
-      path: "/employee/studyAgent",
-      isBeta: true,
     },
     {
       icon: <BookOpen className={styles.menuIcon} />,
