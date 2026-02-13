@@ -1,7 +1,7 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { Pool } from '@neondatabase/serverless';
-import { drizzle } from "drizzle-orm/neon-serverless";
+import postgres from "postgres";
+import { drizzle } from "drizzle-orm/postgres-js";
 import { eq } from "drizzle-orm";
 import { users } from "~/server/db/schema";
 
@@ -30,10 +30,14 @@ const isAuthRedirectRoute = createRouteMatcher([
     '/signin',
 ]);
 
-// Create a lazy database connection for middleware
+// Lazy singleton for middleware (postgres.js works with standard PostgreSQL)
+let _middlewareDb: ReturnType<typeof drizzle<{ users: typeof users }>> | null = null;
 const getDb = () => {
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL! });
-    return drizzle(pool, { schema: { users } });
+    if (!_middlewareDb) {
+        const client = postgres(process.env.DATABASE_URL!, { max: 1 });
+        _middlewareDb = drizzle(client, { schema: { users } });
+    }
+    return _middlewareDb;
 };
 
 export default clerkMiddleware(async (auth, req) => {

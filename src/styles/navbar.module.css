@@ -27,6 +27,18 @@
     @apply flex items-center space-x-4;
 }
 
+.userSection {
+    @apply flex items-center gap-2;
+}
+
+.userName {
+    @apply text-sm text-gray-300 truncate max-w-[140px] sm:max-w-[180px];
+}
+
+:global([data-theme="light"]) .userName {
+    @apply text-gray-600;
+}
+
 /* Buttons */
 .btn {
     @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 cursor-pointer border-0 text-sm flex items-center gap-2;
@@ -88,6 +100,11 @@
     
     /* Hide text on smaller buttons, keep icons */
     .btn:not(.btnPrimary) {
+        @apply hidden;
+    }
+    
+    /* Hide user name on mobile, keep avatar */
+    .userName {
         @apply hidden;
     }
     

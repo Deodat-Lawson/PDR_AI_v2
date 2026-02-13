@@ -1,4 +1,4 @@
-import { db } from "~/server/db/index";
+import { db, toRows } from "~/server/db/index";
 import { eq, sql } from "drizzle-orm";
 import { documentSections } from "~/server/db/schema";
 
@@ -18,6 +18,8 @@ interface ANNResult {
     distance: number;
     confidence: number;
 }
+
+type ANNRow = { id: number; content: string; page: number; documentId: number; distance: number };
 
 const documentClustersCache = new Map<number, DocumentCluster>();
 
@@ -86,7 +88,7 @@ export class ANNOptimizer {
             LIMIT ${approximateLimit}
         `);
 
-        let rows = results.rows;
+        let rows = toRows<ANNRow>(results);
 
         // Fallback to legacy table
         if (rows.length === 0 && documentIds.length === 1) {
@@ -102,7 +104,7 @@ export class ANNOptimizer {
                 ORDER BY embedding <=> ${embeddingStr}::vector
                 LIMIT ${approximateLimit}
             `);
-            rows = legacyResults.rows;
+            rows = toRows<ANNRow>(legacyResults);
         }
 
         const refinedResults = rows
@@ -156,7 +158,7 @@ export class ANNOptimizer {
             LIMIT ${limit}
         `);
 
-        return results.rows.map(row => ({
+        return toRows<ANNRow>(results).map(row => ({
             ...row,
             distance: Number(row.distance ?? 1),
             confidence: Math.max(0, 1 - Number(row.distance ?? 1))
@@ -203,7 +205,7 @@ export class ANNOptimizer {
                 LIMIT ${remaining * 2}
             `);
 
-            const mappedResults = docResults.rows.map(row => ({
+            const mappedResults = toRows<ANNRow>(docResults).map(row => ({
                 ...row,                distance: Number(row.distance ?? 1),
                 confidence: Math.max(0, 1 - Number(row.distance ?? 1))
             })) as ANNResult[];

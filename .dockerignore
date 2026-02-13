@@ -25,7 +25,6 @@ __tests__
 jest.config.js
 jest.babel.config.cjs
 
-# Environment (secrets - use docker compose env instead)
 .env
 .env*.local
 

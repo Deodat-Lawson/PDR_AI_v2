@@ -1,5 +1,5 @@
 
-import { db } from "~/server/db/index";
+import { db, toRows } from "~/server/db/index";
 import { sql } from "drizzle-orm";
 import {
   BaseRetriever,
@@ -118,16 +118,17 @@ export class VectorRetriever extends BaseRetriever {
         return [];
       }
 
-      const result = await db.execute<{
+      type VectorRow = {
         id: number;
         content: string;
         page: number;
         document_id: number;
         document_title: string;
         distance: number;
-      }>(sqlQuery);
+      };
+      const result = await db.execute<VectorRow>(sqlQuery);
 
-      let rows = result.rows;
+      let rows = toRows<VectorRow>(result);
 
       // Fallback to legacy table if no results and search scope is document
       if (rows.length === 0 && this.searchScope === "document" && this.documentId !== undefined) {
@@ -153,7 +154,7 @@ export class VectorRetriever extends BaseRetriever {
           document_title: string;
           distance: number;
         }>(legacyQuery);
-        rows = legacyResult.rows.map(r => ({
+        rows = toRows<VectorRow>(legacyResult).map(r => ({
           ...r,
           document_id: Number(r.document_id),
         }));
@@ -180,13 +181,13 @@ export class VectorRetriever extends BaseRetriever {
           document_title: string;
           distance: number;
         }>(legacyQuery);
-        rows = legacyResult.rows.map(r => ({
+        rows = toRows<VectorRow>(legacyResult).map(r => ({
           ...r,
           document_id: Number(r.document_id),
         }));
       }
 
-      const documents = rows.map((row) => {
+      const documents = rows.map((row: VectorRow) => {
         return new Document({
           pageContent: row.content,
           metadata: {

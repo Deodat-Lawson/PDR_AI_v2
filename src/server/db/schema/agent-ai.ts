@@ -13,7 +13,7 @@ import {
     varchar,
 } from "drizzle-orm/pg-core";
 
-import { pgVector } from "~/server/db/pgVector";
+import { pgVector } from "../pgVector";
 import { users } from "./base";
 import { pgTable } from "./helpers";
 

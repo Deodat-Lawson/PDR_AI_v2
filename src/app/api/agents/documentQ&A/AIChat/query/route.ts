@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { SystemMessage, HumanMessage } from "@langchain/core/messages";
-import { db } from "~/server/db/index";
+import { db, toRows } from "~/server/db/index";
 import { eq, sql } from "drizzle-orm";
 import ANNOptimizer from "~/app/api/agents/predictive-document-analysis/services/annOptimizer";
 import {
@@ -273,7 +273,8 @@ export async function POST(request: Request) {
                         `;
 
                         const result = await db.execute<PdfChunkRow>(query);
-                        documents = result.rows.map(row => ({
+                        const rows = toRows<PdfChunkRow>(result);
+                        documents = rows.map((row) => ({
                             pageContent: row.content,
                             metadata: {
                                 chunkId: row.id,

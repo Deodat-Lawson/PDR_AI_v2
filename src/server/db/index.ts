@@ -1,9 +1,12 @@
-import { Pool } from '@neondatabase/serverless';
-import { drizzle } from "drizzle-orm/neon-serverless";
+import postgres from "postgres";
+import { drizzle } from "drizzle-orm/postgres-js";
 import * as schema from "./schema";
 
-// Create the neon connection pool (supports transactions)
-const pool = new Pool({ connectionString: process.env.DATABASE_URL! });
+// Use postgres.js for compatibility with standard PostgreSQL (Docker, local, etc.)
+const client = postgres(process.env.DATABASE_URL!, { max: 10 });
+export const db = drizzle(client, { schema });
 
-// Create the drizzle instance with the neon client and schema
-export const db = drizzle(pool, { schema });
+/** Extract rows from db.execute() result (postgres.js returns array directly) */
+export function toRows<T>(result: unknown): T[] {
+  return Array.isArray(result) ? result : [];
+}
