@@ -14,6 +14,7 @@ interface UploadFormData {
     uploadDate: string;
     fileUrl: string | null;
     fileName: string;
+    fileMimeType?: string;
     enableOCR: boolean;
 }
 
@@ -75,7 +76,7 @@ const UploadForm: React.FC<UploadFormProps> = ({
             newErrors.category = "Category is required";
         }
         if (!formData.fileUrl) {
-            newErrors.fileUrl = "Please upload a PDF file";
+            newErrors.fileUrl = "Please upload a file";
         }
 
         setErrors(newErrors);
@@ -84,11 +85,6 @@ const UploadForm: React.FC<UploadFormProps> = ({
 
     // Handle local file upload (when UploadThing is disabled)
     const handleLocalFileUpload = useCallback(async (file: File) => {
-        if (file.type !== "application/pdf") {
-            setErrors((prev) => ({ ...prev, fileUrl: "Only PDF files are allowed" }));
-            return;
-        }
-
         if (file.size > 16 * 1024 * 1024) {
             setErrors((prev) => ({ ...prev, fileUrl: "File size must be less than 16MB" }));
             return;
@@ -117,6 +113,7 @@ const UploadForm: React.FC<UploadFormProps> = ({
                 ...prev,
                 fileUrl: data.url,
                 fileName: data.name,
+                fileMimeType: file.type || undefined,
             }));
         } catch (error) {
             console.error("Upload error:", error);
@@ -186,6 +183,7 @@ const UploadForm: React.FC<UploadFormProps> = ({
                     category: formData.category,
                     documentUrl: formData.fileUrl,
                     storageType,
+                    mimeType: formData.fileMimeType,
                 }),
             });
 
@@ -204,7 +202,7 @@ const UploadForm: React.FC<UploadFormProps> = ({
     // Handle toggle change
     const handleToggleChange = useCallback(() => {
         // Clear any uploaded file when switching methods
-        setFormData((prev) => ({ ...prev, fileUrl: null, fileName: "" }));
+        setFormData((prev) => ({ ...prev, fileUrl: null, fileName: "", fileMimeType: undefined }));
         void onToggleUploadMethod(!useUploadThing);
     }, [useUploadThing, onToggleUploadMethod]);
 
@@ -218,7 +216,7 @@ const UploadForm: React.FC<UploadFormProps> = ({
                     <button
                         type="button"
                         onClick={() =>
-                            setFormData((prev) => ({ ...prev, fileUrl: null, fileName: "" }))
+                            setFormData((prev) => ({ ...prev, fileUrl: null, fileName: "", fileMimeType: undefined }))
                         }
                         className={styles.removeFile}
                     >
@@ -232,15 +230,15 @@ const UploadForm: React.FC<UploadFormProps> = ({
         if (useUploadThing) {
             return (
                 <UploadDropzone
-                    endpoint="pdfUploader"
+                    endpoint="anyUploader"
                     onClientUploadComplete={(res) => {
                         if (!res?.length) return;
-                        const fileUrl = res[0]!.url;
-                        const fileName = res[0]!.name;
+                        const file = res[0]!;
                         setFormData((prev) => ({
                             ...prev,
-                            fileUrl: fileUrl,
-                            fileName: fileName,
+                            fileUrl: file.url,
+                            fileName: file.name,
+                            fileMimeType: "type" in file && typeof file.type === "string" ? file.type : undefined,
                         }));
                     }}
                     onUploadError={(error) => {
@@ -271,7 +269,7 @@ const UploadForm: React.FC<UploadFormProps> = ({
                 <input
                     ref={fileInputRef}
                     type="file"
-                    accept="application/pdf"
+                    accept="*/*"
                     onChange={handleFileInputChange}
                     className={styles.fileInput}
                 />
@@ -281,10 +279,10 @@ const UploadForm: React.FC<UploadFormProps> = ({
                 ) : (
                     <>
                         <p className={styles.uploadText}>
-                            Drag & drop your PDF here, or{" "}
+                            Drag & drop your file here, or{" "}
                             <span className={styles.browseButton}>browse</span>
                         </p>
-                        <p className={styles.uploadHint}>PDF files up to 16MB</p>
+                        <p className={styles.uploadHint}>Any file up to 16MB</p>
                     </>
                 )}
             </div>

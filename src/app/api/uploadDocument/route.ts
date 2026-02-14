@@ -1,7 +1,8 @@
 /**
  * Process Document API Route
- * Triggers the OCR-to-Vector pipeline via Inngest
- * Supports both cloud storage (UploadThing) and database storage
+ * Triggers the OCR-to-Vector pipeline via Inngest.
+ * Supports both cloud storage (UploadThing) and database storage.
+ * Accepts any file type: known types use dedicated adapters; unknown types use best-effort text extraction.
  */
 
 import { NextResponse } from "next/server";
@@ -31,6 +32,8 @@ const UploadDocumentSchema = z.object({
   category: z.string().optional(),
   preferredProvider: z.string().optional(),
   storageType: z.enum(["cloud", "database"]).optional(),
+  /** MIME type of the uploaded file — used to route non-PDF files to the correct adapter */
+  mimeType: z.string().optional(),
 });
 
 /**
@@ -81,15 +84,23 @@ export async function POST(request: Request) {
         category,
         preferredProvider,
         storageType: explicitStorageType,
+        mimeType,
       } = validation.data;
+
+      console.log(
+        `[UploadDocument] Incoming: name="${documentName}", url="${rawDocumentUrl.substring(0, 80)}", ` +
+        `mime=${mimeType ?? "not provided"}, user=${userId}, provider=${preferredProvider ?? "auto"}`
+      );
 
       // Determine storage type (explicit or auto-detect)
       const storageType = explicitStorageType ?? detectStorageType(rawDocumentUrl);
+      console.log(`[UploadDocument] Storage type: ${storageType} (explicit=${!!explicitStorageType})`);
       
       // Convert relative URLs to absolute for processing pipeline
       const documentUrl = storageType === "database" 
         ? toAbsoluteUrl(rawDocumentUrl, request.url)
         : rawDocumentUrl;
+      console.log(`[UploadDocument] Resolved URL: ${documentUrl.substring(0, 120)}`);
 
       const [userInfo] = await db
         .select()
@@ -97,6 +108,7 @@ export async function POST(request: Request) {
         .where(eq(users.userId, userId));
 
       if (!userInfo) {
+        console.warn(`[UploadDocument] Rejected: user not found userId=${userId}`);
         return NextResponse.json(
           { error: "Invalid user" },
           { status: 400 }
@@ -108,6 +120,7 @@ export async function POST(request: Request) {
 
       // Store the original URL (relative for database, full for cloud)
       // This preserves the reference for later retrieval
+      console.log(`[UploadDocument] Creating document record: company=${companyId}, category=${documentCategory}`);
       const [newDocument] = await db.insert(document).values({
         url: rawDocumentUrl,
         title: documentName,
@@ -123,11 +136,14 @@ export async function POST(request: Request) {
       });
 
       if (!newDocument) {
+        console.error("[UploadDocument] Database insert returned no document record");
         return NextResponse.json(
           { error: "Failed to create document record" },
           { status: 500 }
         );
       }
+
+      console.log(`[UploadDocument] Document created: id=${newDocument.id}, triggering pipeline...`);
 
       // Use absolute URL for processing pipeline (it needs to fetch the file)
       const { jobId, eventIds } = await triggerDocumentProcessing(
@@ -139,6 +155,7 @@ export async function POST(request: Request) {
         documentCategory,
         {
           preferredProvider: parseProvider(preferredProvider),
+          mimeType,
         }
       );
 
@@ -150,6 +167,11 @@ export async function POST(request: Request) {
         documentUrl,
         documentName,
       });
+
+      console.log(
+        `[UploadDocument] Pipeline triggered: jobId=${jobId}, docId=${newDocument.id}, ` +
+        `mime=${mimeType ?? "none"}, eventIds=${eventIds.length}`
+      );
 
       return NextResponse.json(
         {
@@ -168,7 +190,7 @@ export async function POST(request: Request) {
         { status: 202 }
       );
     } catch (error) {
-      console.error("Error triggering document processing:", error);
+      console.error("[UploadDocument] Error triggering document processing:", error);
       return NextResponse.json(
         {
           error: "Failed to start document processing",

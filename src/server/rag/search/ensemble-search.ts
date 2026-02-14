@@ -27,11 +27,13 @@ import type {
 
 const DEFAULT_WEIGHTS: [number, number] = [0.4, 0.6];
 const DEFAULT_TOP_K = 8;
+const SIDECAR_URL = process.env.SIDECAR_URL;
 
 export function createOpenAIEmbeddings(): OpenAIEmbeddings {
   return new OpenAIEmbeddings({
     openAIApiKey: process.env.OPENAI_API_KEY,
-    modelName: "text-embedding-3-small",
+    modelName: "text-embedding-3-large",
+    dimensions: 1536,
   });
 }
 
@@ -100,7 +102,7 @@ export async function documentEnsembleSearch(
 
     console.log(`✅ [EnsembleSearch] Found ${results.length} results for document ${documentId}`);
 
-    return results.map((doc) => ({
+    const mapped: SearchResult[] = results.map((doc) => ({
       pageContent: doc.pageContent,
       metadata: {
         ...doc.metadata,
@@ -109,6 +111,8 @@ export async function documentEnsembleSearch(
         searchScope: "document" as const,
       },
     }));
+
+    return rerankResults(query, mapped);
   } catch (error) {
     console.error("[EnsembleSearch] Document search error:", error);
     return fallbackBM25Search(query, "document", { documentId }, topK);
@@ -132,7 +136,7 @@ export async function companyEnsembleSearch(
 
     console.log(`✅ [EnsembleSearch] Found ${results.length} results for company ${companyId}`);
 
-    return results.map((doc) => ({
+    const mapped: SearchResult[] = results.map((doc) => ({
       pageContent: doc.pageContent,
       metadata: {
         ...doc.metadata,
@@ -141,6 +145,8 @@ export async function companyEnsembleSearch(
         searchScope: "company" as const,
       },
     }));
+
+    return rerankResults(query, mapped);
   } catch (error) {
     console.error("[EnsembleSearch] Company search error:", error);
     return fallbackBM25Search(query, "company", { companyId }, topK);
@@ -171,7 +177,7 @@ export async function multiDocEnsembleSearch(
       `✅ [EnsembleSearch] Found ${results.length} results from ${documentIds.length} documents`
     );
 
-    return results.map((doc) => ({
+    const mapped: SearchResult[] = results.map((doc) => ({
       pageContent: doc.pageContent,
       metadata: {
         ...doc.metadata,
@@ -180,9 +186,89 @@ export async function multiDocEnsembleSearch(
         searchScope: "multi-document" as const,
       },
     }));
+
+    return rerankResults(query, mapped);
   } catch (error) {
     console.error("[EnsembleSearch] Multi-doc search error:", error);
     return fallbackBM25Search(query, "multi-document", { documentIds }, topK);
+  }
+}
+
+// ============================================================================
+// Reranking via Sidecar (graceful fallback: skip if no sidecar)
+// ============================================================================
+
+/**
+ * Rerank search results using the sidecar's cross-encoder model.
+ * If the sidecar is not configured, results pass through unchanged.
+ */
+async function rerankResults(
+  query: string,
+  results: SearchResult[],
+): Promise<SearchResult[]> {
+  if (!SIDECAR_URL || results.length === 0) {
+    console.log(
+      `[Rerank] Skipping: sidecar=${SIDECAR_URL ? "configured" : "not configured"}, results=${results.length}`,
+    );
+    return results;
+  }
+
+  const rerankStart = Date.now();
+  console.log(
+    `[Rerank] Calling sidecar at ${SIDECAR_URL}/rerank with ${results.length} results, ` +
+    `query="${query.substring(0, 60)}..."`,
+  );
+
+  try {
+    const resp = await fetch(`${SIDECAR_URL}/rerank`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query,
+        documents: results.map((r) => r.pageContent),
+      }),
+    });
+
+    if (!resp.ok) {
+      console.warn(
+        `[Rerank] Sidecar returned ${resp.status}, skipping rerank (${Date.now() - rerankStart}ms)`,
+      );
+      return results;
+    }
+
+    const data = (await resp.json()) as { scores: number[] };
+
+    const reranked: SearchResult[] = results
+      .map((result, idx) => ({
+        result,
+        score: data.scores[idx] ?? 0,
+      }))
+      .sort((a, b) => b.score - a.score)
+      .map(({ result, score }) => ({
+        ...result,
+        metadata: {
+          ...result.metadata,
+          rerankScore: score,
+          retrievalMethod: "ensemble_rrf_reranked" as const,
+        },
+      }));
+
+    const scores = data.scores.sort((a, b) => b - a);
+    const elapsed = Date.now() - rerankStart;
+    console.log(
+      `[Rerank] Reranked ${reranked.length} results (${elapsed}ms): ` +
+      `top=${scores[0]?.toFixed(3) ?? "N/A"}, median=${scores[Math.floor(scores.length / 2)]?.toFixed(3) ?? "N/A"}, ` +
+      `bottom=${scores[scores.length - 1]?.toFixed(3) ?? "N/A"}`,
+    );
+
+    return reranked;
+  } catch (error) {
+    const elapsed = Date.now() - rerankStart;
+    console.warn(
+      `[Rerank] Sidecar reranking failed (${elapsed}ms), returning original order:`,
+      error instanceof Error ? error.message : error,
+    );
+    return results;
   }
 }
 

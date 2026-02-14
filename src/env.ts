@@ -31,9 +31,13 @@ const serverSchema = z.object({
   ),
   LANGCHAIN_API_KEY: optionalString(),
   LANGCHAIN_PROJECT: optionalString(), // Optional project name for LangSmith
-  // Inngest configuration (optional, for background job processing)
-  // When false or INNGEST_EVENT_KEY not set, document processing runs synchronously
+  // Job runner backend: "inngest" (default) or "trigger-dev"
+  JOB_RUNNER: z.enum(["inngest", "trigger-dev"]).default("inngest"),
+  // Inngest event key — required in production; optional in development
   INNGEST_EVENT_KEY: optionalString(),
+  // Sidecar configuration (optional, for local ML compute)
+  // When set, Graph RAG entity extraction is automatically enabled
+  SIDECAR_URL: optionalString(),
 });
 
 const clientSchema = z.object({
@@ -64,8 +68,8 @@ const parseEnv = <T extends z.AnyZodObject>(
   return schema.parse(values);
 };
 
-export const env = {
-  server: parseEnv(serverSchema, {
+function parseServerEnv() {
+  const server = parseEnv(serverSchema, {
     DATABASE_URL: process.env.DATABASE_URL,
     NODE_ENV: process.env.NODE_ENV,
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
@@ -79,8 +83,21 @@ export const env = {
     LANGCHAIN_TRACING_V2: process.env.LANGCHAIN_TRACING_V2,
     LANGCHAIN_API_KEY: process.env.LANGCHAIN_API_KEY,
     LANGCHAIN_PROJECT: process.env.LANGCHAIN_PROJECT,
+    JOB_RUNNER: process.env.JOB_RUNNER as "inngest" | "trigger-dev" | undefined,
     INNGEST_EVENT_KEY: process.env.INNGEST_EVENT_KEY,
-  }),
+    SIDECAR_URL: process.env.SIDECAR_URL,
+  });
+  if (
+    server.NODE_ENV === "production" &&
+    (server.INNGEST_EVENT_KEY == null || server.INNGEST_EVENT_KEY.length === 0)
+  ) {
+    throw new Error("INNGEST_EVENT_KEY is required in production");
+  }
+  return server;
+}
+
+export const env = {
+  server: parseServerEnv(),
   client: parseEnv(clientSchema, {
     NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:
       process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,

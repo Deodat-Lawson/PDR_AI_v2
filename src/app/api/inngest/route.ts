@@ -1,59 +1,22 @@
 /**
  * Inngest API Route
- * This endpoint serves the Inngest SDK and allows Inngest to trigger functions
- * 
- * When Inngest is disabled (INNGEST_EVENT_KEY not set), this route returns 404
+ * This endpoint serves the Inngest SDK and registers all background functions.
+ *
+ * Inngest is a core dependency — the route is always enabled.
+ * In development, the Inngest dev server syncs with this endpoint.
+ * In production, the Inngest cloud service communicates with this endpoint.
  */
 
-import { NextResponse } from "next/server";
-import { isInngestEnabled } from "~/lib/ocr/trigger";
+import { serve } from "inngest/next";
+import { inngest } from "~/server/inngest/client";
+import { uploadDocument } from "~/server/inngest/functions/processDocument";
 
-// Disabled handler - returns 404 when Inngest is not enabled
-const disabledHandler = () => {
-  return NextResponse.json(
-    { 
-      error: "Inngest is disabled", 
-      message: "Set INNGEST_EVENT_KEY environment variable to enable background processing" 
-    },
-    { status: 404 }
-  );
-};
+// Register all Inngest functions
+const handler = serve({
+  client: inngest,
+  functions: [uploadDocument],
+});
 
-// Dynamic handler creation based on Inngest configuration
-async function createHandlers() {
-  if (!isInngestEnabled()) {
-    return {
-      GET: disabledHandler,
-      POST: disabledHandler,
-      PUT: disabledHandler,
-    };
-  }
-
-  // Only import Inngest dependencies when enabled
-  const { serve } = await import("inngest/next");
-  const { inngest } = await import("~/server/inngest/client");
-  const { uploadDocument } = await import("~/server/inngest/functions/processDocument");
-
-  if (!inngest || !uploadDocument) {
-    console.error("[Inngest Route] Inngest client or functions not available despite INNGEST_EVENT_KEY being set");
-    return {
-      GET: disabledHandler,
-      POST: disabledHandler,
-      PUT: disabledHandler,
-    };
-  }
-
-  // Register all Inngest functions
-  return serve({
-    client: inngest,
-    functions: [uploadDocument],
-  });
-}
-
-// Create handlers at module load time
-// Note: This uses top-level await which is supported in Next.js 13+
-const handlers = await createHandlers();
-
-export const GET = handlers.GET;
-export const POST = handlers.POST;
-export const PUT = handlers.PUT;
+export const GET = handler.GET;
+export const POST = handler.POST;
+export const PUT = handler.PUT;

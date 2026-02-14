@@ -94,6 +94,35 @@ interface AzureOperationResponse {
   };
 }
 
+const AZURE_SUPPORTED_FORMATS =
+  "PDF, JPEG, PNG, BMP, TIFF, and other image formats. Office formats (DOCX, PPTX, XLSX) are not supported by Azure Document Intelligence.";
+
+/**
+ * Parse Azure Document Intelligence error response into a clear message.
+ * For InvalidContent (unsupported/corrupted file), suggest supported formats.
+ */
+function parseAzureErrorMessage(status: number, errorText: string): string {
+  try {
+    const json = JSON.parse(errorText) as {
+      error?: {
+        code?: string;
+        message?: string;
+        innererror?: { code?: string; message?: string };
+      };
+    };
+    const inner = json.error?.innererror;
+    const code = inner?.code ?? json.error?.code;
+    const msg = inner?.message ?? json.error?.message;
+
+    if (status === 400 && (code === "InvalidContent" || msg?.toLowerCase().includes("unsupported"))) {
+      return `Azure Document Intelligence does not support this file. ${AZURE_SUPPORTED_FORMATS} Original: ${errorText}`;
+    }
+  } catch {
+    // ignore parse errors, fall back to raw message
+  }
+  return `Azure Document Intelligence submit failed: ${status} - ${errorText}`;
+}
+
 /**
  * Azure Document Intelligence Adapter
  * Uses the Layout model for comprehensive document analysis
@@ -201,9 +230,8 @@ export class AzureDocumentIntelligenceAdapter implements OCRAdapter {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(
-        `Azure Document Intelligence submit failed: ${response.status} - ${errorText}`
-      );
+      const message = parseAzureErrorMessage(response.status, errorText);
+      throw new Error(message);
     }
 
     const operationLocation = response.headers.get("Operation-Location");

@@ -4,11 +4,13 @@ export type RetrievalMethod =
   | "vector_ann"
   | "bm25"
   | "ensemble_rrf"
+  | "ensemble_rrf_reranked"
   | "bm25_fallback"
   | "ann_hnsw"
   | "ann_ivf"
   | "ann_hybrid"
-  | "ann_prefiltered";
+  | "ann_prefiltered"
+  | "graph_traversal";
 
 export interface BaseSearchMetadata {
   chunkId?: number;
@@ -20,6 +22,7 @@ export interface BaseSearchMetadata {
   source?: string;
   searchScope: SearchScope;
   retrievalMethod?: RetrievalMethod;
+  rerankScore?: number;
   timestamp?: string;
 }
 

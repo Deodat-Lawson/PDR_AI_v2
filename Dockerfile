@@ -1,4 +1,4 @@
-# Installing dependencies (use npm to install pnpm so we don't rely on Corepack's network fetch)
+# Installing dependencies
 FROM node:20-alpine AS deps
 RUN npm install -g pnpm@10.15.1
 WORKDIR /app

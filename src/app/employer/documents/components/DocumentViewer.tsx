@@ -1,8 +1,13 @@
 "use client";
 
-import React, { useEffect } from 'react';
-import { FileText } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import Image from 'next/image';
+import { FileText, FileImage, FileSpreadsheet, FileCode, Loader2, AlertTriangle, RotateCw, Presentation } from 'lucide-react';
 import type { DocumentType } from '../types';
+import { getDocumentDisplayType, type DocumentDisplayType } from '../types/document';
+import { DocxViewer } from './DocxViewer';
+import { XlsxViewer } from './XlsxViewer';
+import { PptxViewer } from './PptxViewer';
 
 interface DocumentViewerProps {
   document: DocumentType | null;
@@ -11,6 +16,133 @@ interface DocumentViewerProps {
   hideActions?: boolean;
   minimal?: boolean;
   isCollapsed?: boolean;
+}
+
+export const DISPLAY_TYPE_LABELS: Record<DocumentDisplayType, string> = {
+  pdf: "PDF",
+  image: "Image",
+  docx: "Word",
+  xlsx: "Spreadsheet",
+  pptx: "Presentation",
+  text: "Text / HTML",
+  unknown: "File",
+};
+
+export const DISPLAY_TYPE_ICONS: Record<DocumentDisplayType, React.ElementType> = {
+  pdf: FileText,
+  image: FileImage,
+  docx: FileText,
+  xlsx: FileSpreadsheet,
+  pptx: Presentation,
+  text: FileCode,
+  unknown: FileText,
+};
+
+/** Wrapper that shows a loading spinner and error state around an iframe */
+function IframeWithState({
+  src,
+  title,
+  iframeKey,
+}: {
+  src: string;
+  title: string;
+  iframeKey?: string | number;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  // Reset states when src changes
+  useEffect(() => {
+    setLoading(true);
+    setError(false);
+  }, [src]);
+
+  return (
+    <div className="relative w-full h-full">
+      {loading && !error && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 z-10 bg-muted/30">
+          <Loader2 className="w-8 h-8 text-purple-500 animate-spin" />
+          <p className="text-sm text-muted-foreground font-medium">Loading...</p>
+        </div>
+      )}
+      {error && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-8 text-center z-10 bg-muted/30">
+          <div className="w-14 h-14 rounded-2xl bg-red-50 dark:bg-red-900/20 flex items-center justify-center">
+            <AlertTriangle className="w-7 h-7 text-red-500" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-foreground mb-1">Failed to load document</p>
+            <p className="text-xs text-muted-foreground mb-4">The document could not be displayed.</p>
+            <button
+              onClick={() => { setLoading(true); setError(false); }}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium transition-colors"
+            >
+              <RotateCw className="w-4 h-4" />
+              Retry
+            </button>
+          </div>
+        </div>
+      )}
+      <iframe
+        key={iframeKey}
+        src={src}
+        className="w-full h-full border-0"
+        title={title}
+        onLoad={() => setLoading(false)}
+        onError={() => { setLoading(false); setError(true); }}
+      />
+    </div>
+  );
+}
+
+/** Wrapper that shows a loading spinner and error state around an image */
+function ImageWithState({ src, alt }: { src: string; alt: string }) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    setError(false);
+  }, [src]);
+
+  return (
+    <div className="w-full h-full flex items-center justify-center p-4 overflow-auto bg-muted/30 relative min-h-[200px]">
+      {loading && !error && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 z-10 bg-muted/30">
+          <Loader2 className="w-8 h-8 text-purple-500 animate-spin" />
+          <p className="text-sm text-muted-foreground font-medium">Loading image...</p>
+        </div>
+      )}
+      {error && (
+        <div className="flex flex-col items-center justify-center gap-4 p-8 text-center">
+          <div className="w-14 h-14 rounded-2xl bg-red-50 dark:bg-red-900/20 flex items-center justify-center">
+            <AlertTriangle className="w-7 h-7 text-red-500" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-foreground mb-1">Failed to load image</p>
+            <button
+              onClick={() => { setLoading(true); setError(false); }}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium transition-colors mt-3"
+            >
+              <RotateCw className="w-4 h-4" />
+              Retry
+            </button>
+          </div>
+        </div>
+      )}
+      {!error && (
+        <Image
+          src={src}
+          alt={alt}
+          fill
+          className="object-contain rounded-lg shadow-md"
+          onLoad={() => setLoading(false)}
+          onError={() => { setLoading(false); setError(true); }}
+          unoptimized={src.startsWith("blob:") || src.startsWith("data:")}
+        />
+      )}
+    </div>
+  );
 }
 
 export function DocumentViewer({ 
@@ -68,7 +200,48 @@ export function DocumentViewer({
     );
   }
 
+  const displayType = getDocumentDisplayType(document);
+  const DisplayIcon = DISPLAY_TYPE_ICONS[displayType];
   const getPdfSrcWithPage = (url: string, page: number) => `${url}#page=${page}`;
+
+  const renderContent = () => {
+    switch (displayType) {
+      case "pdf":
+        return (
+          <IframeWithState
+            iframeKey={`${document.id}-${pdfPageNumber}`}
+            src={getPdfSrcWithPage(document.url, pdfPageNumber)}
+            title={document.title}
+          />
+        );
+      case "image":
+        return <ImageWithState src={document.url} alt={document.title} />;
+      case "docx":
+        return <DocxViewer url={document.url} title={document.title} />;
+      case "xlsx":
+        return <XlsxViewer url={document.url} title={document.title} />;
+      case "pptx":
+        return <PptxViewer url={document.url} title={document.title} />;
+      case "text":
+        return (
+          <IframeWithState
+            iframeKey={document.id}
+            src={document.url}
+            title={document.title}
+          />
+        );
+      case "unknown":
+      default:
+        // Graceful fallback: try iframe (browsers handle PDFs, images, text natively)
+        return (
+          <IframeWithState
+            iframeKey={document.id}
+            src={document.url}
+            title={document.title}
+          />
+        );
+    }
+  };
 
   return (
     <div className="flex flex-col bg-background h-full overflow-hidden transition-all duration-300">
@@ -79,13 +252,16 @@ export function DocumentViewer({
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <div className="p-1 bg-purple-100 dark:bg-purple-900/30 rounded">
-                  <FileText className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                  <DisplayIcon className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                 </div>
                 <h1 className="text-sm font-semibold truncate text-foreground leading-none">
                   {document.title}
                 </h1>
                 <span className="px-1.5 py-0.5 bg-muted text-[10px] text-muted-foreground rounded capitalize font-medium">
                   {document.category}
+                </span>
+                <span className="px-1.5 py-0.5 bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 text-[10px] rounded font-medium">
+                  {DISPLAY_TYPE_LABELS[displayType]}
                 </span>
               </div>
             </div>
@@ -97,14 +273,9 @@ export function DocumentViewer({
         </div>
       )}
 
-      {/* Document Content - Flush with edges for better binding */}
+      {/* Document Content */}
       <div className="flex-1 relative bg-muted/30 overflow-hidden">
-        <iframe
-          key={`${document.id}-${pdfPageNumber}`}
-          src={getPdfSrcWithPage(document.url, pdfPageNumber)}
-          className="w-full h-full border-0"
-          title={document.title}
-        />
+        {renderContent()}
       </div>
     </div>
   );

@@ -58,7 +58,7 @@ export interface DocumentMetadata {
 /**
  * Supported OCR providers
  */
-export type OCRProvider = "AZURE" | "LANDING_AI" | "NATIVE_PDF" | "DATALAB";
+export type OCRProvider = "AZURE" | "LANDING_AI" | "NATIVE_PDF" | "DATALAB" | "INGESTION";
 
 /**
  * Document complexity assessment result
@@ -190,6 +190,8 @@ export interface ProcessDocumentEventData {
   userId: string;
   documentId: number;
   category: string;
+  /** MIME type of the uploaded file (used by the ingestion router) */
+  mimeType?: string;
   options?: {
     forceOCR?: boolean;
     preferredProvider?: OCRProvider;

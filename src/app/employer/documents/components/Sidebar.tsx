@@ -28,12 +28,16 @@ import {
   DropdownMenuTrigger,
 } from '~/app/employer/documents/components/ui/dropdown-menu';
 import { ChatSelector } from './ChatSelector';
+import { DISPLAY_TYPE_ICONS } from './DocumentViewer';
 import type { ViewMode, DocumentType, CategoryGroup } from '../types';
+import { getDocumentDisplayType, type DocumentDisplayType } from '../types/document';
 
 interface SidebarProps {
   categories: CategoryGroup[];
   searchTerm: string;
   setSearchTerm: (term: string) => void;
+  fileTypeFilter?: DocumentDisplayType | "all";
+  setFileTypeFilter?: (filter: DocumentDisplayType | "all") => void;
   selectedDoc: DocumentType | null;
   setSelectedDoc: (doc: DocumentType | null) => void;
   viewMode: ViewMode;
@@ -54,6 +58,8 @@ export function Sidebar({
   categories,
   searchTerm,
   setSearchTerm,
+  fileTypeFilter: _fileTypeFilter = "all",
+  setFileTypeFilter: _setFileTypeFilter,
   selectedDoc,
   setSelectedDoc,
   viewMode,
@@ -299,7 +305,10 @@ export function Sidebar({
 
                 {category.isOpen && (
                   <div className="mt-1 space-y-0.5 ml-2 border-l border-border pl-1 animate-in slide-in-from-left-1 duration-200">
-                    {category.documents.map(doc => (
+                    {category.documents.map(doc => {
+                      const docDisplayType = getDocumentDisplayType(doc);
+                      const DocIcon = DISPLAY_TYPE_ICONS[docDisplayType];
+                      return (
                       <div
                         key={doc.id}
                         className={cn(
@@ -319,7 +328,7 @@ export function Sidebar({
                               : "text-muted-foreground"
                           )}
                         >
-                          <FileText className={cn(
+                          <DocIcon className={cn(
                             "w-4 h-4 flex-shrink-0 transition-colors",
                             selectedDoc?.id === doc.id ? "text-purple-600 dark:text-purple-400" : "text-muted-foreground group-hover:text-foreground"
                           )} />
@@ -353,7 +362,8 @@ export function Sidebar({
                           </DropdownMenu>
                         )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>

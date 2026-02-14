@@ -9,13 +9,14 @@ import { db } from "~/server/db";
 import { fileUploads } from "~/server/db/schema";
 
 const MAX_FILE_SIZE = 16 * 1024 * 1024; // 16MB to match UploadThing config
-const ALLOWED_MIME_TYPES = ["application/pdf"];
 
 export async function POST(request: Request) {
+  const uploadStart = Date.now();
   try {
     // Authenticate user
     const { userId } = await auth();
     if (!userId) {
+      console.warn("[UploadLocal] Rejected: no authenticated user");
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -27,22 +28,20 @@ export async function POST(request: Request) {
     const file = formData.get("file") as File | null;
 
     if (!file) {
+      console.warn("[UploadLocal] Rejected: no file in form data");
       return NextResponse.json(
         { error: "No file provided" },
         { status: 400 }
       );
     }
 
-    // Validate file type
-    if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-      return NextResponse.json(
-        { error: "Invalid file type. Only PDF files are allowed." },
-        { status: 400 }
-      );
-    }
+    console.log(
+      `[UploadLocal] Received file: name=${file.name}, mime=${file.type}, size=${(file.size / 1024).toFixed(1)}KB, user=${userId}`
+    );
 
-    // Validate file size
+    // Validate file size (any file type is accepted)
     if (file.size > MAX_FILE_SIZE) {
+      console.warn(`[UploadLocal] Rejected: file too large size=${(file.size / 1024 / 1024).toFixed(1)}MB, max=${MAX_FILE_SIZE / 1024 / 1024}MB`);
       return NextResponse.json(
         { error: `File too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB.` },
         { status: 400 }
@@ -50,10 +49,13 @@ export async function POST(request: Request) {
     }
 
     // Convert file to base64
+    console.log(`[UploadLocal] Converting to base64...`);
     const arrayBuffer = await file.arrayBuffer();
     const base64Data = Buffer.from(arrayBuffer).toString("base64");
+    console.log(`[UploadLocal] Base64 encoded: ${(base64Data.length / 1024).toFixed(1)}KB`);
 
     // Store in database
+    console.log(`[UploadLocal] Storing in database...`);
     const [uploadedFile] = await db.insert(fileUploads).values({
       userId,
       filename: file.name,
@@ -66,6 +68,7 @@ export async function POST(request: Request) {
     });
 
     if (!uploadedFile) {
+      console.error("[UploadLocal] Database insert returned no result");
       return NextResponse.json(
         { error: "Failed to store file" },
         { status: 500 }
@@ -74,6 +77,11 @@ export async function POST(request: Request) {
 
     // Return URL that can be used to fetch the file
     const fileUrl = `/api/files/${uploadedFile.id}`;
+    const elapsed = Date.now() - uploadStart;
+
+    console.log(
+      `[UploadLocal] Success: id=${uploadedFile.id}, url=${fileUrl}, name=${uploadedFile.filename}, mime=${file.type} (${elapsed}ms)`
+    );
 
     return NextResponse.json({
       success: true,
@@ -82,7 +90,8 @@ export async function POST(request: Request) {
       id: uploadedFile.id,
     });
   } catch (error) {
-    console.error("Error uploading file:", error);
+    const elapsed = Date.now() - uploadStart;
+    console.error(`[UploadLocal] Failed after ${elapsed}ms:`, error);
     return NextResponse.json(
       {
         error: "Failed to upload file",

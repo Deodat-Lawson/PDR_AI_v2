@@ -13,6 +13,7 @@ import { DocumentGenerator } from "./DocumentGenerator";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "~/app/employer/documents/components/ui/resizable";
 import { cn } from "~/lib/utils";
 import type { ViewMode, DocumentType, CategoryGroup, errorType, PredictiveAnalysisResponse } from "../types";
+import { getDocumentDisplayType, type DocumentDisplayType } from "../types/document";
 import { useAIChat } from "../hooks/useAIChat";
 import { useAIChatbot } from "../hooks/useAIChatbot";
 import { Button } from "~/app/employer/documents/components/ui/button";
@@ -42,6 +43,7 @@ export function DocumentViewerShell({ userRole }: DocumentViewerShellProps) {
   
   // UI States
   const [searchTerm, setSearchTerm] = useState("");
+  const [fileTypeFilter, setFileTypeFilter] = useState<DocumentDisplayType | "all">("all");
   const [openCategories, setOpenCategories] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<ViewMode>("with-ai-qa");
   const [qaSubMode, setQaSubMode] = useState<"simple" | "chat">("simple");
@@ -339,13 +341,16 @@ export function DocumentViewerShell({ userRole }: DocumentViewerShellProps) {
     return null;
   };
 
-  // Memoized Category Grouping
+  // Memoized Category Grouping (with file type filter)
   const categories = React.useMemo(() => {
     const lowerSearch = searchTerm.toLowerCase();
-    const filteredDocs = documents.filter(doc => 
+    let filteredDocs = documents.filter(doc => 
       doc.title.toLowerCase().includes(lowerSearch) || 
       (doc.aiSummary?.toLowerCase().includes(lowerSearch) ?? false)
     );
+    if (fileTypeFilter !== "all") {
+      filteredDocs = filteredDocs.filter(doc => getDocumentDisplayType(doc) === fileTypeFilter);
+    }
 
     const grouping: Record<string, CategoryGroup> = {};
     filteredDocs.forEach(doc => {
@@ -358,7 +363,7 @@ export function DocumentViewerShell({ userRole }: DocumentViewerShellProps) {
     });
 
     return Object.values(grouping);
-  }, [documents, searchTerm, openCategories]);
+  }, [documents, searchTerm, openCategories, fileTypeFilter]);
 
   // Render main content based on view mode
   const renderContent = () => {
@@ -561,6 +566,8 @@ export function DocumentViewerShell({ userRole }: DocumentViewerShellProps) {
             categories={categories}
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
+            fileTypeFilter={fileTypeFilter}
+            setFileTypeFilter={setFileTypeFilter}
             selectedDoc={selectedDoc}
             setSelectedDoc={handleSelectDoc}
             viewMode={viewMode}

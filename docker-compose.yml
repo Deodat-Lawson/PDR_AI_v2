@@ -1,4 +1,15 @@
 # Pass env file as argument: docker compose --env-file .env up
+#
+# Profiles:
+#   default (no flag)        — db + migrate + app + sidecar
+#   --profile dev            — adds Inngest dev server (local dashboard at :8288)
+#   --profile minimal        — db only (for local Next.js dev with `pnpm dev`)
+#
+# Examples:
+#   docker compose --env-file .env up                           # production-like
+#   docker compose --env-file .env --profile dev up             # with Inngest dev server
+#   docker compose --env-file .env --profile minimal up db      # just the database
+
 services:
   db:
     image: pgvector/pgvector:pg16
@@ -56,14 +67,60 @@ services:
       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
       UPLOADTHING_TOKEN: ${UPLOADTHING_TOKEN:-}
       NEXT_PUBLIC_UPLOADTHING_ENABLED: ${NEXT_PUBLIC_UPLOADTHING_ENABLED:-}
-      INNGEST_EVENT_KEY: ${INNGEST_EVENT_KEY:-}
+      # Inngest — required in production for background job processing
+      INNGEST_EVENT_KEY: ${INNGEST_EVENT_KEY}
       TAVILY_API_KEY: ${TAVILY_API_KEY:-}
       DATALAB_API_KEY: ${DATALAB_API_KEY:-}
       AZURE_DOC_INTELLIGENCE_ENDPOINT: ${AZURE_DOC_INTELLIGENCE_ENDPOINT:-}
       AZURE_DOC_INTELLIGENCE_KEY: ${AZURE_DOC_INTELLIGENCE_KEY:-}
       LANDING_AI_API_KEY: ${LANDING_AI_API_KEY:-}
+      # Sidecar — Graph RAG auto-enables when this is set
+      SIDECAR_URL: ${SIDECAR_URL:-http://sidecar:8000}
     ports:
       - "3000:3000"
 
+  # FastAPI sidecar — local ML compute (embeddings, reranking, NER / Graph RAG)
+  sidecar:
+    build:
+      context: ./sidecar
+      dockerfile: Dockerfile
+    container_name: pdr_ai_v2-sidecar
+    restart: unless-stopped
+    environment:
+      DEVICE: ${SIDECAR_DEVICE:-cpu}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-BAAI/bge-large-en-v1.5}
+      RERANKER_MODEL: ${RERANKER_MODEL:-cross-encoder/ms-marco-MiniLM-L-12-v2}
+      NER_MODEL: ${NER_MODEL:-dslim/bert-base-NER}
+    volumes:
+      - model_cache:/app/model-cache
+    ports:
+      - "8000:8000"
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+  # Inngest dev server — local dashboard & event processing for development
+  # Start with: docker compose --profile dev up
+  # Dashboard: http://localhost:8288
+  inngest-dev:
+    image: inngest/inngest:latest
+    container_name: pdr_ai_v2-inngest
+    restart: unless-stopped
+    ports:
+      - "8288:8288"
+    command: inngest dev -u http://app:3000/api/inngest
+    depends_on:
+      - app
+    profiles:
+      - dev
+
 volumes:
   postgres_data:
+  model_cache:
