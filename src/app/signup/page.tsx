@@ -80,16 +80,6 @@ const SignupPage: React.FC = () => {
     // Guard so the auto-join from ?code= only fires once
     const autoJoinTriggered = useRef(false);
 
-    // Build the Clerk redirect URL, preserving ?code= if present
-    const codeParam = searchParams.get("code");
-    const clerkRedirectUrl = codeParam
-        ? `/signup?code=${encodeURIComponent(codeParam)}`
-        : "/signup";
-
-    // ═════════════════════════════════════════════════════════════════════════
-    // AUTO-JOIN FROM URL ?code= PARAM (after Clerk redirect-back)
-    // ═════════════════════════════════════════════════════════════════════════
-
     const performJoin = useCallback(
         async (code: string) => {
             if (!userId || !user) return;

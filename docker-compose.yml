@@ -1,0 +1,69 @@
+# Pass env file as argument: docker compose --env-file .env up
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: pdr_ai_v2-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: pdr_ai_v2
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    ports:
+      - "5433:5432"   # host:container — use 5433 to avoid conflict with local Postgres on 5432
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d pdr_ai_v2"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Applies schema with db:push (no migration files). Use this for fresh DBs.
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: migrate
+      args:
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-password}@db:5432/pdr_ai_v2
+      SKIP_ENV_VALIDATION: "1"
+    restart: "no"
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+      args:
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+    container_name: pdr_ai_v2-app
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-password}@db:5432/pdr_ai_v2
+      NODE_ENV: production
+      # Pass through from .env (user must set these)
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY}
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+      UPLOADTHING_TOKEN: ${UPLOADTHING_TOKEN:-}
+      NEXT_PUBLIC_UPLOADTHING_ENABLED: ${NEXT_PUBLIC_UPLOADTHING_ENABLED:-}
+      INNGEST_EVENT_KEY: ${INNGEST_EVENT_KEY:-}
+      TAVILY_API_KEY: ${TAVILY_API_KEY:-}
+      DATALAB_API_KEY: ${DATALAB_API_KEY:-}
+      AZURE_DOC_INTELLIGENCE_ENDPOINT: ${AZURE_DOC_INTELLIGENCE_ENDPOINT:-}
+      AZURE_DOC_INTELLIGENCE_KEY: ${AZURE_DOC_INTELLIGENCE_KEY:-}
+      LANDING_AI_API_KEY: ${LANDING_AI_API_KEY:-}
+    ports:
+      - "3000:3000"
+
+volumes:
+  postgres_data:

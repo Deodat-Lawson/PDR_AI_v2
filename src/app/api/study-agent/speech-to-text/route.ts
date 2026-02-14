@@ -6,11 +6,9 @@ import { File } from "formdata-node";
 /**
  * Speech-to-Text API using OpenAI Whisper
  * Converts audio to text
+ * Note: OpenAI client is lazy-initialized at runtime to avoid build failures
+ * when OPENAI_API_KEY is not available during Next.js build (e.g. in Docker).
  */
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
 
 export async function POST(request: Request) {
   try {
@@ -23,13 +21,17 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check OpenAI API key
+    // Check OpenAI API key (must be done before instantiating client)
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json(
         { error: "OpenAI API key not configured" },
         { status: 500 }
       );
     }
+
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
 
     // Get audio file from request
     const formData = await request.formData();
