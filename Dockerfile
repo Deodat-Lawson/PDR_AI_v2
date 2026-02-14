@@ -1,6 +1,6 @@
-# Installing dependencies
+# Installing dependencies (use npm to install pnpm so we don't rely on Corepack's network fetch)
 FROM node:20-alpine AS deps
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN npm install -g pnpm@10.15.1
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml ./
@@ -10,7 +10,7 @@ RUN pnpm install --frozen-lockfile
 
 # Builder
 FROM node:20-alpine AS builder
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN npm install -g pnpm@10.15.1
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
@@ -32,7 +32,7 @@ RUN pnpm build
 
 # Schema sync
 FROM node:20-alpine AS migrate
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN npm install -g pnpm@10.15.1
 WORKDIR /app
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/pnpm-lock.yaml ./pnpm-lock.yaml

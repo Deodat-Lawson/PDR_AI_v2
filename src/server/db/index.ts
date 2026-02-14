@@ -8,5 +8,5 @@ export const db = drizzle(client, { schema });
 
 /** Extract rows from db.execute() result (postgres.js returns array directly) */
 export function toRows<T>(result: unknown): T[] {
-  return Array.isArray(result) ? result : [];
+  return (Array.isArray(result) ? result : []) as T[];
 }
