@@ -12,7 +12,7 @@ import {
     uniqueIndex,
 } from "drizzle-orm/pg-core";
 
-import { pgVector } from "~/server/db/pgVector";
+import { pgVector } from "../pgVector";
 import { pgTable } from "./helpers";
 import { document, company } from "./base";
 
@@ -135,13 +135,9 @@ export const documentStructure = pgTable(
     })
 );
 
-// ============================================================================
-// 2. Document Sections - Section Content with RLM Metadata
-// ============================================================================
-// Stores actual content with cost-aware metadata for LLM planning.
 
-export const documentSections = pgTable(
-    "document_sections",
+export const documentContextChunks = pgTable(
+    "document_context_chunks",
     {
         id: serial("id").primaryKey(),
         documentId: bigint("document_id", { mode: "bigint" })
@@ -154,6 +150,7 @@ export const documentSections = pgTable(
         content: text("content").notNull(),
         tokenCount: integer("token_count").notNull().default(0), // For cost estimation
         charCount: integer("char_count").notNull().default(0),
+        // Optional embedding for the parent chunk (can be used for coarse retrieval)
         embedding: pgVector({ dimension: 1536 })("embedding"),
         contentHash: varchar("content_hash", { length: 64 }), // SHA-256 for deduplication
         semanticType: varchar("semantic_type", {
@@ -172,24 +169,53 @@ export const documentSections = pgTable(
         ),
     },
     (table) => ({
-        documentIdIdx: index("doc_sections_document_id_idx").on(table.documentId),
-        structureIdIdx: index("doc_sections_structure_id_idx").on(table.structureId),
-        documentPageIdx: index("doc_sections_document_page_idx").on(
+        documentIdIdx: index("doc_ctx_chunks_document_id_idx").on(table.documentId),
+        structureIdIdx: index("doc_ctx_chunks_structure_id_idx").on(table.structureId),
+        documentPageIdx: index("doc_ctx_chunks_document_page_idx").on(
             table.documentId,
             table.pageNumber
         ),
-        contentHashIdx: index("doc_sections_content_hash_idx").on(table.contentHash),
-        semanticTypeIdx: index("doc_sections_semantic_type_idx").on(
+        contentHashIdx: index("doc_ctx_chunks_content_hash_idx").on(table.contentHash),
+        semanticTypeIdx: index("doc_ctx_chunks_semantic_type_idx").on(
             table.documentId,
             table.semanticType
         ),
     })
 );
 
-// ============================================================================
-// 3. Document Metadata - Document-Level Planning Layer
-// ============================================================================
-// Aggregate statistics and semantic summaries for LLM planning decisions.
+export const documentRetrievalChunks = pgTable(
+    "document_retrieval_chunks",
+    {
+        id: serial("id").primaryKey(),
+        contextChunkId: bigint("context_chunk_id", { mode: "bigint" })
+            .notNull()
+            .references(() => documentContextChunks.id, { onDelete: "cascade" }),
+        documentId: bigint("document_id", { mode: "bigint" })
+            .notNull()
+            .references(() => document.id, { onDelete: "cascade" }),
+        content: text("content").notNull(),
+        tokenCount: integer("token_count").notNull().default(0),
+        
+        // Full dimension embedding (storage)
+        embedding: pgVector({ dimension: 1536 })("embedding"),
+        
+        // Matryoshka optimization: Index only the first 512 dimensions for speed
+        embeddingShort: pgVector({ dimension: 512 })("embedding_short"),
+        
+        createdAt: timestamp("created_at", { withTimezone: true })
+            .default(sql`CURRENT_TIMESTAMP`)
+            .notNull(),
+    },
+    (table) => ({
+        contextChunkIdIdx: index("doc_ret_chunks_context_chunk_id_idx").on(table.contextChunkId),
+        documentIdIdx: index("doc_ret_chunks_document_id_idx").on(table.documentId),
+        // Index on the short embedding for fast ANN search
+        embeddingShortIdx: index("doc_ret_chunks_embedding_short_idx").using(
+            "hnsw",
+            table.embeddingShort.op("vector_cosine_ops")
+        ),
+    })
+);
 
 export const documentMetadata = pgTable(
     "document_metadata",
@@ -254,7 +280,7 @@ export const documentPreviews = pgTable(
             .notNull()
             .references(() => document.id, { onDelete: "cascade" }),
         sectionId: bigint("section_id", { mode: "bigint" }).references(
-            () => documentSections.id,
+            () => documentContextChunks.id,
             { onDelete: "cascade" }
         ),
         structureId: bigint("structure_id", { mode: "bigint" }).references(
@@ -302,7 +328,7 @@ export const workspaceResults = pgTable(
             { onDelete: "cascade" }
         ),
         sectionId: bigint("section_id", { mode: "bigint" }).references(
-            () => documentSections.id,
+            () => documentContextChunks.id,
             { onDelete: "cascade" }
         ),
         structureId: bigint("structure_id", { mode: "bigint" }).references(
@@ -370,24 +396,39 @@ export const documentStructureRelations = relations(
         children: many(documentStructure, {
             relationName: "structure_parent_child",
         }),
-        sections: many(documentSections),
+        sections: many(documentContextChunks),
         previews: many(documentPreviews),
     })
 );
 
-export const documentSectionsRelations = relations(
-    documentSections,
+export const documentContextChunksRelations = relations(
+    documentContextChunks,
     ({ one, many }) => ({
         document: one(document, {
-            fields: [documentSections.documentId],
+            fields: [documentContextChunks.documentId],
             references: [document.id],
         }),
         structure: one(documentStructure, {
-            fields: [documentSections.structureId],
+            fields: [documentContextChunks.structureId],
             references: [documentStructure.id],
         }),
+        retrievalChunks: many(documentRetrievalChunks),
         previews: many(documentPreviews),
         workspaceResults: many(workspaceResults),
+    })
+);
+
+export const documentRetrievalChunksRelations = relations(
+    documentRetrievalChunks,
+    ({ one }) => ({
+        contextChunk: one(documentContextChunks, {
+            fields: [documentRetrievalChunks.contextChunkId],
+            references: [documentContextChunks.id],
+        }),
+        document: one(document, {
+            fields: [documentRetrievalChunks.documentId],
+            references: [document.id],
+        }),
     })
 );
 
@@ -403,9 +444,9 @@ export const documentPreviewsRelations = relations(documentPreviews, ({ one }) =
         fields: [documentPreviews.documentId],
         references: [document.id],
     }),
-    section: one(documentSections, {
+    section: one(documentContextChunks, {
         fields: [documentPreviews.sectionId],
-        references: [documentSections.id],
+        references: [documentContextChunks.id],
     }),
     structure: one(documentStructure, {
         fields: [documentPreviews.structureId],
@@ -422,9 +463,9 @@ export const workspaceResultsRelations = relations(workspaceResults, ({ one }) =
         fields: [workspaceResults.documentId],
         references: [document.id],
     }),
-    section: one(documentSections, {
+    section: one(documentContextChunks, {
         fields: [workspaceResults.sectionId],
-        references: [documentSections.id],
+        references: [documentContextChunks.id],
     }),
     structure: one(documentStructure, {
         fields: [workspaceResults.structureId],
@@ -487,7 +528,8 @@ export interface WorkspaceMetadata {
 // ============================================================================
 
 export type DocumentStructure = InferSelectModel<typeof documentStructure>;
-export type DocumentSection = InferSelectModel<typeof documentSections>;
+export type DocumentSection = InferSelectModel<typeof documentContextChunks>;
+export type DocumentRetrievalChunk = InferSelectModel<typeof documentRetrievalChunks>;
 export type DocumentMetadataRecord = InferSelectModel<typeof documentMetadata>;
 export type DocumentPreview = InferSelectModel<typeof documentPreviews>;
 export type WorkspaceResult = InferSelectModel<typeof workspaceResults>;
@@ -499,3 +541,10 @@ export type DocumentClass = (typeof documentClassEnum)[number];
 export type PreviewType = (typeof previewTypeEnum)[number];
 export type ResultType = (typeof resultTypeEnum)[number];
 export type WorkspaceStatus = (typeof workspaceStatusEnum)[number];
+
+// ============================================================================
+// Backward Compatibility Aliases
+// ============================================================================
+
+export const documentSections = documentContextChunks;
+export const documentSectionsRelations = documentContextChunksRelations;

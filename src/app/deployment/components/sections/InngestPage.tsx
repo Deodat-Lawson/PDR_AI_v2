@@ -58,7 +58,7 @@ export const InngestPage: React.FC<DeploymentProps> = ({
           }`}
         >
           <Sparkles className="w-4 h-4" />
-          Without Inngest, document processing runs synchronously (fire-and-forget)
+          INNGEST_EVENT_KEY is required for background document processing
         </div>
       </motion.div>
 
@@ -195,8 +195,8 @@ export const InngestPage: React.FC<DeploymentProps> = ({
 
         <div className="mt-8">
           <WarningBox
-            title="No Keys Needed for Local Development"
-            description="For local development, you don't need INNGEST_EVENT_KEY or INNGEST_SIGNING_KEY. The dev server handles everything locally."
+            title="Key Required in All Environments"
+            description="INNGEST_EVENT_KEY is required in development and production. For local dev, use the same key or a dev key from the Inngest dashboard; the Inngest dev server works with both."
             darkMode={darkMode}
           />
         </div>
@@ -238,13 +238,13 @@ export const InngestPage: React.FC<DeploymentProps> = ({
         <Step
           number={1}
           title="Add Environment Variables"
-          description="Add these to your production environment:"
-          code={`# Inngest Background Jobs (Optional)
+          description="Add these to your production environment (required for background job processing):"
+          code={`# Inngest Background Jobs (Required)
 INNGEST_EVENT_KEY=your_event_key_here
 INNGEST_SIGNING_KEY=signkey-prod-xxxxx`}
           onCopy={() =>
             copyToClipboard(
-              `# Inngest Background Jobs (Optional)
+              `# Inngest Background Jobs (Required)
 INNGEST_EVENT_KEY=your_event_key_here
 INNGEST_SIGNING_KEY=signkey-prod-xxxxx`,
               'inngest-prod-1'
@@ -270,13 +270,10 @@ INNGEST_SIGNING_KEY=signkey-prod-xxxxx`,
                              ▼
 ┌─────────────────────────────────────────────────────────────┐
 │              triggerDocumentProcessing()                    │
-│  ┌──────────────────────┐  ┌──────────────────────────────┐ │
-│  │  INNGEST_EVENT_KEY?  │  │  No key = Sync processing    │ │
-│  │  ───────────────────▶│  │  (fire-and-forget)           │ │
-│  │  Yes = Send event    │  │                              │ │
-│  └──────────────────────┘  └──────────────────────────────┘ │
+│  INNGEST_EVENT_KEY required → Send event to job runner     │
+│  (Key validated at startup; no sync fallback)               │
 └────────────────────────────┬────────────────────────────────┘
-                             │ (if Inngest enabled)
+                             │
                              ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                    Inngest Cloud                            │

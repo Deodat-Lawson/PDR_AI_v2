@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { Upload, FileText, BarChart, Brain, Settings, Users, HelpCircle, GraduationCap, Clock, MousePointerClick } from "lucide-react";
+import { Upload, FileText, BarChart, Brain, Settings, Users, HelpCircle, Clock, MousePointerClick } from "lucide-react";
 import styles from "~/styles/Employer/Home.module.css";
 import { useRouter } from "next/navigation";
 import ProfileDropdown from "~/app/employer/_components/ProfileDropdown";
@@ -122,13 +122,6 @@ const HomeScreen = () => {
             description: "View analytics and insights about document usage",
             path: "/employer/statistics",
             isBeta: false,
-        },
-        {
-            icon: <GraduationCap className={styles.menuIcon} />,
-            title: "Study Agent",
-            description: "AI-powered study companion with teacher and study buddy modes",
-            path: "/employer/studyAgent",
-            isBeta: true,
         },
         {
             icon: <Users className={styles.menuIcon} />,

@@ -51,7 +51,7 @@ export async function GET(
       headers: {
         "Content-Type": file.mimeType,
         "Content-Length": binaryData.length.toString(),
-        "Content-Disposition": `inline; filename="${file.filename}"`,
+        "Content-Disposition": `inline; filename="${encodeURIComponent(file.filename)}"; filename*=UTF-8''${encodeURIComponent(file.filename)}`,
         "Cache-Control": "private, max-age=31536000", // Cache for 1 year (immutable content)
       },
     });

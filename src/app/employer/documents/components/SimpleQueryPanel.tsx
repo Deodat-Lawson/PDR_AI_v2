@@ -39,13 +39,15 @@ interface SimpleQueryPanelProps {
   styleOptions: Record<string, string>;
   referencePages: number[];
   setPdfPageNumber: (p: number) => void;
+  userRole?: 'employer' | 'employee';
 }
 
 const styleIcons: Record<string, React.ReactNode> = {
   concise: <Zap className="w-3.5 h-3.5" />,
   detailed: <BookOpen className="w-3.5 h-3.5" />,
   academic: <GraduationCap className="w-3.5 h-3.5" />,
-  "bullet-points": <List className="w-3.5 h-3.5" />,
+  organized: <List className="w-3.5 h-3.5" />,
+  "bullet-points": <List className="w-3.5 h-3.5" />, // Backwards compat just in case
 };
 
 export function SimpleQueryPanel({
@@ -65,8 +67,10 @@ export function SimpleQueryPanel({
   setAiStyle,
   styleOptions,
   referencePages: _referencePages,
-  setPdfPageNumber: _setPdfPageNumber
+  setPdfPageNumber: _setPdfPageNumber,
+  userRole = 'employer',
 }: SimpleQueryPanelProps) {
+  const showCompanyScope = userRole === 'employer';
   const [isFocused, setIsFocused] = useState(false);
 
   return (
@@ -86,43 +90,45 @@ export function SimpleQueryPanel({
         </div>
       </div>
 
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-h-0">
         <div className="p-5 space-y-5">
-          {/* Search Scope Toggle */}
-          <div className="space-y-2">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-1 flex items-center gap-1.5">
-              <span className="w-1 h-1 rounded-full bg-violet-500" />
-              Search In
-            </span>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setSearchScope('document')}
-                className={cn(
-                  "flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200",
-                  searchScope === 'document'
-                    ? "bg-violet-600 text-white shadow-lg shadow-violet-500/25"
-                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
-                )}
-              >
-                <FileText className="w-3.5 h-3.5" />
-                This Document
-              </button>
-              <button
-                onClick={() => companyId && setSearchScope('company')}
-                disabled={!companyId}
-                className={cn(
-                  "flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200",
-                  searchScope === 'company'
-                    ? "bg-violet-600 text-white shadow-lg shadow-violet-500/25"
-                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700",
-                  !companyId && "opacity-50 cursor-not-allowed"
-                )}
-              >
-                <Building2 className="w-3.5 h-3.5" />
-                All Documents
-              </button>
+          {/* Search Scope Toggle - only show company scope for employers */}
+          {showCompanyScope && (
+            <div className="space-y-2">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-1 flex items-center gap-1.5">
+                <span className="w-1 h-1 rounded-full bg-violet-500" />
+                Search In
+              </span>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setSearchScope('document')}
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200",
+                    searchScope === 'document'
+                      ? "bg-violet-600 text-white shadow-lg shadow-violet-500/25"
+                      : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
+                  )}
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  This Document
+                </button>
+                <button
+                  onClick={() => companyId && setSearchScope('company')}
+                  disabled={!companyId}
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200",
+                    searchScope === 'company'
+                      ? "bg-violet-600 text-white shadow-lg shadow-violet-500/25"
+                      : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700",
+                    !companyId && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  <Building2 className="w-3.5 h-3.5" />
+                  All Documents
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Response Style Pills */}
           <div className="space-y-2">
@@ -264,10 +270,10 @@ export function SimpleQueryPanel({
                   </Button>
                 </div>
                 
-                <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm min-w-0 overflow-hidden">
                   <MarkdownMessage
                     content={aiAnswer}
-                    className="text-sm leading-relaxed text-foreground prose prose-sm dark:prose-invert max-w-none"
+                    className="text-sm leading-relaxed text-foreground prose prose-sm dark:prose-invert max-w-none break-words"
                   />
                 </div>
               </div>

@@ -88,7 +88,7 @@ async function runVisionCheck(images: Uint8Array[]): Promise<VisionClassificatio
   return { label: dominantLabel, score: maxComplexityScore };
 }
 
-async function renderPagesToImages(buffer: ArrayBuffer, pageIndices: number[]): Promise<Uint8Array[]> {
+export async function renderPagesToImages(buffer: ArrayBuffer, pageIndices: number[]): Promise<Uint8Array[]> {
   try {
     const { fromBuffer } = await import("pdf2pic");
 

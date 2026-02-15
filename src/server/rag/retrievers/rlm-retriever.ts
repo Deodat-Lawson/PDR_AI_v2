@@ -16,7 +16,7 @@
  * 5. Workspace operations - Store/retrieve intermediate results
  */
 
-import { db } from "~/server/db/index";
+import { db, toRows } from "~/server/db/index";
 import { eq, and, sql, asc, desc, lte, inArray, isNull } from "drizzle-orm";
 import {
     documentStructure,
@@ -765,7 +765,7 @@ export class RLMRetriever {
             LIMIT ${topK}
         `;
 
-        const results = await db.execute<{
+        type SectionRow = {
             id: number;
             content: string;
             token_count: number;
@@ -773,13 +773,14 @@ export class RLMRetriever {
             semantic_type: string | null;
             structure_path: string | null;
             distance: number;
-        }>(sqlQuery);
+        };
+        const results = await db.execute<SectionRow>(sqlQuery);
 
         // Apply token budget if specified
         let cumulative = 0;
         const sections: SectionWithCost[] = [];
 
-        for (const row of results.rows) {
+        for (const row of toRows<SectionRow>(results)) {
             if (maxTokens && cumulative + row.token_count > maxTokens && sections.length > 0) {
                 break;
             }

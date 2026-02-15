@@ -12,7 +12,7 @@ import {
     bigint,
 } from "drizzle-orm/pg-core";
 
-import { pgVector } from "~/server/db/pgVector";
+import { pgVector } from "../pgVector";
 import { pgTable } from "./helpers";
 
 // ============================================================================

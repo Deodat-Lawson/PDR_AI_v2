@@ -7,7 +7,7 @@ interface Chat {
   agentMode: 'autonomous' | 'interactive' | 'assisted';
   visibility: 'public' | 'private';
   status: 'active' | 'completed' | 'paused' | 'failed';
-  aiStyle?: 'concise' | 'detailed' | 'academic' | 'bullet-points';
+  aiStyle?: string;
   aiPersona?: 'general' | 'learning-coach' | 'financial-expert' | 'legal-expert' | 'math-reasoning';
   createdAt: string;
   updatedAt?: string;
@@ -34,7 +34,7 @@ interface CreateChatParams {
   title: string;
   agentMode?: 'autonomous' | 'interactive' | 'assisted';
   visibility?: 'public' | 'private';
-  aiStyle?: 'concise' | 'detailed' | 'academic' | 'bullet-points';
+  aiStyle?: string;
   aiPersona?: 'general' | 'learning-coach' | 'financial-expert' | 'legal-expert' | 'math-reasoning';
   documentId?: string | number;
 }

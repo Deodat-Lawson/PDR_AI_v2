@@ -2,7 +2,15 @@ import type { NextConfig } from "next";
 
 import "./src/env";
 
+// Standalone uses symlinks when copying traced deps; Windows often lacks permission (EPERM).
+// Use standalone only on non-Windows, or when STANDALONE_BUILD=1 (e.g. CI/Docker or Windows with Developer Mode).
+const useStandalone =
+  process.env.STANDALONE_BUILD === "1" || process.platform !== "win32";
+
 const config: NextConfig = {
+  // Standalone output for Docker deployment (smaller production image)
+  output: useStandalone ? "standalone" : undefined,
+
   // Force HuggingFace Transformers to use web backend (WASM) instead of Node.js (onnxruntime-node)
   // This prevents the 404MB onnxruntime-node package from being required
   env: {
@@ -11,16 +19,21 @@ const config: NextConfig = {
     ONNX_EXECUTION_PROVIDERS: "wasm",
   },
 
-  // Webpack config to completely ignore onnxruntime-node
+  // Webpack config: externals for optional / heavy packages
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   webpack: (webpackConfig: any, { isServer }: { isServer: boolean }) => {
     if (isServer) {
-      // Mark onnxruntime-node as external - never bundle it
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
       webpackConfig.externals = webpackConfig.externals ?? [];
+      // Mark onnxruntime-node as external - never bundle it
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       webpackConfig.externals.push({
         "onnxruntime-node": "commonjs onnxruntime-node",
+      });
+      // Optional: Trigger.dev SDK — only needed when JOB_RUNNER=trigger-dev
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      webpackConfig.externals.push({
+        "@trigger.dev/sdk/v3": "commonjs @trigger.dev/sdk/v3",
       });
     }
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return

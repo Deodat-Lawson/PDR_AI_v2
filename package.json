@@ -6,8 +6,6 @@
   "scripts": {
     "build": "next build",
     "check": "eslint . && tsc --noEmit",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "dev": "next dev",
@@ -19,7 +17,8 @@
     "typecheck": "tsc --noEmit",
     "format:write": "prettier --write \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
-    "postinstall": "node scripts/copy-vad-assets.mjs"
+    "postinstall": "node scripts/copy-vad-assets.mjs",
+    "inngest:dev": "pnpm dlx inngest-cli@latest dev -u http://localhost:3000/api/inngest"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.31.9",
@@ -67,6 +66,7 @@
     "@ricky0123/vad-web": "^0.0.30",
     "@uploadthing/react": "^7.3.3",
     "@vercel/analytics": "^1.6.1",
+    "cheerio": "^1.2.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "*",
     "cmdk": "^1.1.1",
@@ -79,9 +79,11 @@
     "geist": "^1.5.1",
     "inngest": "^3.49.3",
     "input-otp": "^1.4.2",
+    "jszip": "^3.10.1",
     "katex": "^0.16.25",
     "langchain": "^0.3.33",
     "lucide-react": "^0.487.0",
+    "mammoth": "^1.11.0",
     "motion": "^12.29.2",
     "next": "^15.5.7",
     "next-themes": "^0.4.6",
@@ -110,10 +112,12 @@
     "sonner": "^2.0.3",
     "string-similarity-js": "^2.1.4",
     "tailwind-merge": "*",
+    "tesseract.js": "^7.0.0",
     "tsx": "^4.20.5",
     "uploadthing": "^7.7.4",
     "uuid": "^11.1.0",
     "vaul": "^1.1.2",
+    "xlsx": "^0.18.5",
     "zod": "^3.23.8"
   },
   "devDependencies": {

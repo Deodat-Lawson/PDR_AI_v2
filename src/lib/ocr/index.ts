@@ -30,7 +30,6 @@ export {
 export {
   triggerDocumentProcessing,
   parseProvider,
-  isInngestEnabled,
   type TriggerOptions,
 } from "./trigger";
 

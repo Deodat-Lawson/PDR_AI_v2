@@ -2,25 +2,20 @@ import { Inngest } from "inngest";
 import type { ProcessDocumentEventData } from "~/lib/ocr/types";
 
 /**
- * Create an Inngest client if configured
- * Returns null if INNGEST_EVENT_KEY is not set
+ * Create the Inngest client.
+ * INNGEST_EVENT_KEY is required in all environments (validated in env.ts).
  */
-function createInngestClient(): Inngest | null {
+function createInngestClient(): Inngest {
   const eventKey = process.env.INNGEST_EVENT_KEY;
-  
-  if (!eventKey) {
-    console.log("[Inngest] No INNGEST_EVENT_KEY configured, Inngest client disabled");
-    return null;
-  }
 
   return new Inngest({
     id: "pdr-ai",
     name: "PDR AI",
-    eventKey,
+    ...(eventKey && { eventKey }),
   });
 }
 
-// Create the Inngest client (nullable when not configured)
+// Inngest client — always available (key is required)
 export const inngest = createInngestClient();
 
 export type ProcessDocumentEvent = {

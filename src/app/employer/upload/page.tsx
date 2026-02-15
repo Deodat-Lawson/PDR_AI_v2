@@ -4,7 +4,7 @@ import React, { useState, useCallback } from "react";
 import { Brain, Home } from "lucide-react";
 import { useRouter } from "next/navigation";
 import EmployerAuthCheck from "./EmployerAuthCheck";
-import UploadForm from "./UploadForm";
+import UploadForm, { type AvailableProviders } from "./UploadForm";
 import CategoryManagement from "./CategoryManagement";
 import styles from "~/styles/Employer/Upload.module.css";
 import { ThemeToggle } from "~/app/_components/ThemeToggle";
@@ -33,6 +33,11 @@ const Page: React.FC = () => {
     const [useUploadThing, setUseUploadThing] = useState<boolean>(true);
     const [isUploadThingConfigured, setIsUploadThingConfigured] = useState<boolean>(false);
     const [isUpdatingPreference, setIsUpdatingPreference] = useState(false);
+    const [availableProviders, setAvailableProviders] = useState<AvailableProviders>({
+        azure: false,
+        datalab: false,
+        landingAI: false,
+    });
 
     const fetchUploadThingConfig = useCallback(async () => {
         try {
@@ -93,10 +98,30 @@ const Page: React.FC = () => {
         }
     }, []);
 
+    const fetchOCRConfig = useCallback(async () => {
+        try {
+            const res = await fetch("/api/config/ocr", {
+                method: "GET",
+                headers: { "Content-Type": "application/json" },
+            });
+            if (res.ok) {
+                const data = await res.json() as AvailableProviders;
+                setAvailableProviders(data);
+            }
+        } catch (error) {
+            console.error("Error fetching OCR config:", error);
+        }
+    }, []);
+
     const handleAuthSuccess = useCallback(async () => {
-        // Fetch categories, company data, and UploadThing config on auth success
-        await Promise.all([fetchCategories(), fetchCompanyData(), fetchUploadThingConfig()]);
-    }, [fetchCategories, fetchCompanyData, fetchUploadThingConfig]);
+        // Fetch categories, company data, UploadThing config, and OCR config on auth success
+        await Promise.all([
+            fetchCategories(), 
+            fetchCompanyData(), 
+            fetchUploadThingConfig(),
+            fetchOCRConfig()
+        ]);
+    }, [fetchCategories, fetchCompanyData, fetchUploadThingConfig, fetchOCRConfig]);
 
     const handleToggleUploadMethod = useCallback(async (newValue: boolean) => {
         setIsUpdatingPreference(true);
@@ -207,6 +232,7 @@ const Page: React.FC = () => {
                     isUploadThingConfigured={isUploadThingConfigured}
                     onToggleUploadMethod={handleToggleUploadMethod}
                     isUpdatingPreference={isUpdatingPreference}
+                    availableProviders={availableProviders}
                 />
 
                 <CategoryManagement

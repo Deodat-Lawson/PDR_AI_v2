@@ -1,6 +1,9 @@
 /**
  * Pipeline Trigger Utilities
  * Helper functions to invoke the OCR-to-Vector pipeline
+ *
+ * Always dispatches via the configured job runner (JOB_RUNNER, default: Inngest).
+ * INNGEST_EVENT_KEY is required. On dispatch failure, throws (no sync fallback).
  */
 
 import { env } from "~/env";
@@ -14,20 +17,22 @@ export interface TriggerOptions {
   forceOCR?: boolean;
   /** Preferred OCR provider */
   preferredProvider?: OCRProvider;
+  /** MIME type of the uploaded file — forwarded to the ingestion router */
+  mimeType?: string;
 }
 
 /**
- * Check if Inngest is enabled
- * Returns true if INNGEST_EVENT_KEY is set
+ * Check if the sidecar ML service is available
  */
-export function isInngestEnabled(): boolean {
-  return !!env.server.INNGEST_EVENT_KEY;
+export function isSidecarEnabled(): boolean {
+  return !!process.env.SIDECAR_URL;
 }
 
 /**
- * Trigger the OCR-to-Vector pipeline for a document
- * Routes to Inngest or synchronous processing based on configuration
- * Returns the job ID for tracking
+ * Trigger the OCR-to-Vector pipeline for a document.
+ *
+ * Dispatches via the configured job runner (Inngest or Trigger.dev).
+ * Throws on dispatch failure; no sync fallback.
  */
 export async function triggerDocumentProcessing(
   documentUrl: string,
@@ -48,57 +53,36 @@ export async function triggerDocumentProcessing(
     userId,
     documentId,
     category,
+    mimeType: options?.mimeType,
     options: {
       forceOCR: options?.forceOCR,
       preferredProvider: options?.preferredProvider,
     },
   };
 
-  // Try Inngest first if configured
-  if (isInngestEnabled()) {
-    try {
-      const { inngest } = await import("~/server/inngest/client");
-      
-      if (inngest) {
-        const result = await inngest.send({
-          name: "document/process.requested",
-          data: eventData,
-        });
+  console.log(
+    `[Trigger] Dispatching job=${jobId}, doc="${documentName}", docId=${documentId}, ` +
+    `mime=${options?.mimeType ?? "none"}, provider=${options?.preferredProvider ?? "auto"}, ` +
+    `runner=${env.server.JOB_RUNNER ?? "inngest"}`
+  );
 
-        console.log(`[Trigger] Successfully queued job ${jobId} via Inngest`);
-        return {
-          jobId,
-          eventIds: result.ids,
-        };
-      }
-    } catch (error) {
-      // Inngest failed - log and fall through to sync processing
-      console.warn(
-        `[Trigger] Inngest failed for job ${jobId}, falling back to sync processing:`,
-        error instanceof Error ? error.message : error
-      );
-    }
-  }
+  const { getDispatcher } = await import("~/lib/jobs");
+  const dispatcher = getDispatcher();
 
-  // Fallback: synchronous processing
-  // This runs when Inngest is not configured OR when Inngest fails
-  const { processDocumentSync } = await import("./processor");
-  
-  console.log(`[Trigger] Using synchronous processing for job ${jobId}`);
-  
-  // Await processing to ensure it completes in serverless environments
-  // setImmediate doesn't work on Vercel/serverless as the function terminates after response
   try {
-    await processDocumentSync(eventData);
-  } catch (error) {
-    console.error(`[Trigger] Sync processing failed for job ${jobId}:`, error);
-    // Don't throw - the document record was already created, job will show as failed
-  }
+    const result = await dispatcher.dispatch(eventData);
 
-  return {
-    jobId,
-    eventIds: [], // No Inngest events in sync mode
-  };
+    console.log(
+      `[Trigger] Successfully queued job=${jobId} via ${dispatcher.name}, ` +
+      `eventIds=${result.eventIds.length}`
+    );
+    return result;
+  } catch (error) {
+    console.error(`[Trigger] Job dispatch failed for job=${jobId}:`, error);
+    throw new Error(
+      `Job dispatch failed for job=${jobId}: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
 }
 
 /**

@@ -232,7 +232,7 @@ export function UploadDocumentModal({
           {/* File Upload Area */}
           {!fileUrl ? (
             <UploadDropzone
-              endpoint="pdfUploader"
+              endpoint="anyUploader"
               onUploadBegin={() => setIsUploading(true)}
               onClientUploadComplete={(res) => {
                 setIsUploading(false);
