@@ -27,6 +27,7 @@ import type {
 
 const DEFAULT_WEIGHTS: [number, number] = [0.4, 0.6];
 const DEFAULT_TOP_K = 8;
+const RERANK_CANDIDATE_MULTIPLIER = 4; // Fetch 4x candidates for re-ranking
 const SIDECAR_URL = process.env.SIDECAR_URL;
 
 export function createOpenAIEmbeddings(): OpenAIEmbeddings {
@@ -41,11 +42,13 @@ export async function createDocumentEnsembleRetriever(
   options: DocumentSearchOptions,
   embeddings?: EmbeddingsProvider
 ): Promise<EnsembleRetriever> {
-  const { documentId, weights = DEFAULT_WEIGHTS, topK = DEFAULT_TOP_K } = options;
+  const { documentId, weights = DEFAULT_WEIGHTS, topK = DEFAULT_TOP_K, filters } = options;
   const emb = embeddings ?? createOpenAIEmbeddings();
+  const candidateK = topK * RERANK_CANDIDATE_MULTIPLIER;
 
-  const bm25Retriever = await createDocumentBM25Retriever(documentId, topK);
-  const vectorRetriever = createDocumentVectorRetriever(documentId, emb, topK);
+  // We increase the candidate pool for both retrievers to improve recall before re-ranking
+  const bm25Retriever = await createDocumentBM25Retriever(documentId, candidateK);
+  const vectorRetriever = createDocumentVectorRetriever(documentId, emb, candidateK, filters);
 
   return new EnsembleRetriever({
     retrievers: [bm25Retriever, vectorRetriever],
@@ -57,11 +60,12 @@ export async function createCompanyEnsembleRetriever(
   options: CompanySearchOptions,
   embeddings?: EmbeddingsProvider
 ): Promise<EnsembleRetriever> {
-  const { companyId, weights = DEFAULT_WEIGHTS, topK = 10 } = options;
+  const { companyId, weights = DEFAULT_WEIGHTS, topK = 10, filters } = options;
   const emb = embeddings ?? createOpenAIEmbeddings();
+  const candidateK = topK * RERANK_CANDIDATE_MULTIPLIER;
 
-  const bm25Retriever = await createCompanyBM25Retriever(companyId, topK);
-  const vectorRetriever = createCompanyVectorRetriever(companyId, emb, topK);
+  const bm25Retriever = await createCompanyBM25Retriever(companyId, candidateK);
+  const vectorRetriever = createCompanyVectorRetriever(companyId, emb, candidateK, filters);
 
   return new EnsembleRetriever({
     retrievers: [bm25Retriever, vectorRetriever],
@@ -73,11 +77,12 @@ export async function createMultiDocEnsembleRetriever(
   options: MultiDocSearchOptions,
   embeddings?: EmbeddingsProvider
 ): Promise<EnsembleRetriever> {
-  const { documentIds, weights = DEFAULT_WEIGHTS, topK = DEFAULT_TOP_K } = options;
+  const { documentIds, weights = DEFAULT_WEIGHTS, topK = DEFAULT_TOP_K, filters } = options;
   const emb = embeddings ?? createOpenAIEmbeddings();
+  const candidateK = topK * RERANK_CANDIDATE_MULTIPLIER;
 
-  const bm25Retriever = await createMultiDocBM25Retriever(documentIds, topK);
-  const vectorRetriever = createMultiDocVectorRetriever(documentIds, emb, topK);
+  const bm25Retriever = await createMultiDocBM25Retriever(documentIds, candidateK);
+  const vectorRetriever = createMultiDocVectorRetriever(documentIds, emb, candidateK, filters);
 
   return new EnsembleRetriever({
     retrievers: [bm25Retriever, vectorRetriever],
@@ -100,7 +105,7 @@ export async function documentEnsembleSearch(
     const retriever = await createDocumentEnsembleRetriever(options, embeddings);
     const results = await retriever.getRelevantDocuments(query);
 
-    console.log(`✅ [EnsembleSearch] Found ${results.length} results for document ${documentId}`);
+    console.log(`✅ [EnsembleSearch] Found ${results.length} candidates for document ${documentId} (requested topK=${topK})`);
 
     const mapped: SearchResult[] = results.map((doc) => ({
       pageContent: doc.pageContent,
@@ -112,7 +117,8 @@ export async function documentEnsembleSearch(
       },
     }));
 
-    return rerankResults(query, mapped);
+    const reranked = await rerankResults(query, mapped);
+    return reranked.slice(0, topK);
   } catch (error) {
     console.error("[EnsembleSearch] Document search error:", error);
     return fallbackBM25Search(query, "document", { documentId }, topK);
@@ -134,7 +140,7 @@ export async function companyEnsembleSearch(
     const retriever = await createCompanyEnsembleRetriever(options, embeddings);
     const results = await retriever.getRelevantDocuments(query);
 
-    console.log(`✅ [EnsembleSearch] Found ${results.length} results for company ${companyId}`);
+    console.log(`✅ [EnsembleSearch] Found ${results.length} candidates for company ${companyId} (requested topK=${topK})`);
 
     const mapped: SearchResult[] = results.map((doc) => ({
       pageContent: doc.pageContent,
@@ -146,7 +152,8 @@ export async function companyEnsembleSearch(
       },
     }));
 
-    return rerankResults(query, mapped);
+    const reranked = await rerankResults(query, mapped);
+    return reranked.slice(0, topK);
   } catch (error) {
     console.error("[EnsembleSearch] Company search error:", error);
     return fallbackBM25Search(query, "company", { companyId }, topK);
@@ -174,7 +181,7 @@ export async function multiDocEnsembleSearch(
     const results = await retriever.getRelevantDocuments(query);
 
     console.log(
-      `✅ [EnsembleSearch] Found ${results.length} results from ${documentIds.length} documents`
+      `✅ [EnsembleSearch] Found ${results.length} candidates from ${documentIds.length} documents (requested topK=${topK})`
     );
 
     const mapped: SearchResult[] = results.map((doc) => ({
@@ -187,7 +194,8 @@ export async function multiDocEnsembleSearch(
       },
     }));
 
-    return rerankResults(query, mapped);
+    const reranked = await rerankResults(query, mapped);
+    return reranked.slice(0, topK);
   } catch (error) {
     console.error("[EnsembleSearch] Multi-doc search error:", error);
     return fallbackBM25Search(query, "multi-document", { documentIds }, topK);

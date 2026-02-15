@@ -49,10 +49,17 @@ export interface MultiDocSearchResult extends SearchResult {
   };
 }
 
+export interface SearchFilters {
+  documentClass?: string;
+  dateRange?: { start?: Date; end?: Date };
+  topicTags?: string[];
+}
+
 export interface EnsembleSearchOptions {
   weights?: [number, number];
   topK?: number;
   minSimilarity?: number;
+  filters?: SearchFilters;
 }
 
 export interface DocumentSearchOptions extends EnsembleSearchOptions {

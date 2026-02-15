@@ -11,7 +11,6 @@ import {
   kgEntityMentions,
   kgRelationships,
   entityLabelEnum,
-  relationshipTypeEnum,
   type EntityLabel,
   type RelationshipType,
 } from "~/server/db/schema";
@@ -19,10 +18,6 @@ import { eq, and, sql } from "drizzle-orm";
 
 function isEntityLabel(s: string): s is EntityLabel {
   return (entityLabelEnum as readonly string[]).includes(s);
-}
-
-function isRelationshipType(s: string): s is RelationshipType {
-  return (relationshipTypeEnum as readonly string[]).includes(s);
 }
 
 const SIDECAR_URL = process.env.SIDECAR_URL;

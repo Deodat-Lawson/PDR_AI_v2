@@ -53,7 +53,7 @@ export function createErrorResponse(
       success: false,
       message,
       errorType,
-      ...(process.env.NODE_ENV === 'development' && error && { error: String(error) }),
+      ...(error && { error: String(error) ?? "Unknown error" }),
       timestamp: new Date().toISOString(),
     },
     { status }

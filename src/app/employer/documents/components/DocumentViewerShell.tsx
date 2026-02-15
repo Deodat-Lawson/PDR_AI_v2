@@ -19,12 +19,12 @@ import { useAIChatbot } from "../hooks/useAIChatbot";
 import { Button } from "~/app/employer/documents/components/ui/button";
 import type { ImperativePanelHandle } from "react-resizable-panels";
 
-const SYSTEM_PROMPTS = {
-  concise: "Concise & Direct",
-  detailed: "Detailed & Comprehensive",
-  academic: "Academic & Analytical",
-  "bullet-points": "Organized Bullet Points",
-} as const;
+import { RESPONSE_STYLES, type ResponseStyleId } from "~/lib/ai/styles";
+
+const STYLE_OPTIONS = Object.entries(RESPONSE_STYLES).reduce((acc, [key, config]) => {
+  acc[key as ResponseStyleId] = config.label;
+  return acc;
+}, {} as Record<ResponseStyleId, string>);
 
 export interface DocumentViewerShellProps {
   /** 'employer' or 'employee' — controls auth, features, and UI gating */
@@ -305,7 +305,7 @@ export function DocumentViewerShell({ userRole }: DocumentViewerShellProps) {
       const data = await sendAIChatQuery({
         question: currentQuestion,
         searchScope,
-        style: aiStyle as "concise" | "detailed" | "academic" | "bullet-points",
+        style: aiStyle as ResponseStyleId,
         documentId: searchScope === "document" && selectedDoc ? selectedDoc.id : undefined,
         companyId: searchScope === "company" ? companyId ?? undefined : undefined,
       });
@@ -448,7 +448,7 @@ export function DocumentViewerShell({ userRole }: DocumentViewerShellProps) {
                       setSearchScope={setSearchScope}
                       aiStyle={aiStyle}
                       setAiStyle={setAiStyle}
-                      styleOptions={SYSTEM_PROMPTS}
+                      styleOptions={STYLE_OPTIONS}
                       referencePages={referencePages}
                       setPdfPageNumber={setPdfPageNumber}
                       userRole={userRole}
@@ -471,7 +471,7 @@ export function DocumentViewerShell({ userRole }: DocumentViewerShellProps) {
                               setSearchScope={setSearchScope}
                               companyId={companyId}
                               setPdfPageNumber={setPdfPageNumber}
-                              styleOptions={SYSTEM_PROMPTS}
+                              styleOptions={STYLE_OPTIONS}
                               onCreateChat={handleCreateChat}
                               isPreviewCollapsed={isPreviewCollapsed}
                               onTogglePreview={() => {

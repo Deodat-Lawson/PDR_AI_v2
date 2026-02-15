@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useCallback } from "react";
-import { Calendar, FileText, FolderPlus, Plus, Upload, Cloud, Database, ExternalLink, AlertCircle } from "lucide-react";
+import { Calendar, FileText, FolderPlus, Plus, Upload, Cloud, Database, ExternalLink, AlertCircle, Cpu, Brain } from "lucide-react";
 import Link from "next/link";
 import { UploadDropzone } from "~/app/utils/uploadthing";
 import { useAuth } from "@clerk/nextjs";
@@ -19,7 +19,13 @@ interface UploadFormData {
     fileUrl: string | null;
     fileName: string;
     fileMimeType?: string;
-    enableOCR: boolean;
+    processingMethod: string; // "standard", "azure", "datalab", "landing_ai"
+}
+
+export interface AvailableProviders {
+    azure: boolean;
+    datalab: boolean;
+    landingAI: boolean;
 }
 
 interface UploadFormProps {
@@ -28,6 +34,7 @@ interface UploadFormProps {
     isUploadThingConfigured: boolean;
     onToggleUploadMethod: (useUploadThing: boolean) => Promise<void>;
     isUpdatingPreference: boolean;
+    availableProviders: AvailableProviders;
 }
 
 const UploadForm: React.FC<UploadFormProps> = ({ 
@@ -35,7 +42,8 @@ const UploadForm: React.FC<UploadFormProps> = ({
     useUploadThing, 
     isUploadThingConfigured,
     onToggleUploadMethod,
-    isUpdatingPreference 
+    isUpdatingPreference,
+    availableProviders
 }) => {
     const { userId } = useAuth();
     const router = useRouter();
@@ -48,7 +56,7 @@ const UploadForm: React.FC<UploadFormProps> = ({
         uploadDate: new Date().toISOString().split("T")[0]!,
         fileUrl: null,
         fileName: "",
-        enableOCR: false,
+        processingMethod: "standard",
     });
 
     const [errors, setErrors] = useState<Partial<UploadFormData>>({});
@@ -63,11 +71,6 @@ const UploadForm: React.FC<UploadFormProps> = ({
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
         setErrors((prev) => ({ ...prev, [name]: undefined }));
-    };
-
-    const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { name, checked } = e.target;
-        setFormData((prev) => ({ ...prev, [name]: checked }));
     };
 
     const validateForm = (): boolean => {
@@ -182,6 +185,13 @@ const UploadForm: React.FC<UploadFormProps> = ({
             // If UploadThing is configured and enabled, use cloud; otherwise database
             const storageType = useUploadThing && isUploadThingConfigured ? "cloud" : "database";
 
+            // Map processing method to provider
+            const preferredProvider = formData.processingMethod === "standard" ? undefined : formData.processingMethod.toUpperCase();
+            
+            // Note: forceOCR logic in backend relies on options.forceOCR which we're not setting explicitly here 
+            // unless we want to enforce it. The new pipeline treats preferredProvider being set as "use this provider".
+            // If processingMethod is "standard", preferredProvider is undefined and it will fall back to auto/none.
+            
             const response = await fetch("/api/uploadDocument", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -192,6 +202,7 @@ const UploadForm: React.FC<UploadFormProps> = ({
                     documentUrl: formData.fileUrl,
                     storageType,
                     mimeType: formData.fileMimeType,
+                    preferredProvider: preferredProvider === "LANDING_AI" ? "LANDING_AI" : preferredProvider, // Ensure correct casing if needed
                 }),
             });
 
@@ -411,21 +422,96 @@ const UploadForm: React.FC<UploadFormProps> = ({
                     </div>
                 </div>
 
-                {/* OCR Processing */}
+                {/* Processing Method Selection */}
                 <div className={styles.formGroup}>
-                    <label className={styles.checkboxLabel}>
-                        <input
-                            type="checkbox"
-                            name="enableOCR"
-                            checked={formData.enableOCR}
-                            onChange={handleCheckboxChange}
-                            className={styles.checkbox}
-                        />
-                        <span>Enable OCR Processing</span>
-                    </label>
-                    <p className={styles.helpText}>
-                        Extract text from scanned documents or images using advanced OCR technology
-                    </p>
+                    <label className={styles.label}>Processing Method</label>
+                    <div className={styles.radioGroup}>
+                        <label className={`${styles.radioOption} ${formData.processingMethod === "standard" ? styles.radioOptionSelected : ""}`}>
+                            <input
+                                type="radio"
+                                name="processingMethod"
+                                value="standard"
+                                checked={formData.processingMethod === "standard"}
+                                onChange={handleInputChange}
+                                className={styles.hiddenRadio}
+                            />
+                            <div className={styles.radioContent}>
+                                <div className={styles.radioIconWrapper}>
+                                    <FileText className={styles.radioIcon} />
+                                </div>
+                                <div className={styles.radioText}>
+                                    <span className={styles.radioTitle}>Standard</span>
+                                    <span className={styles.radioDescription}>No OCR</span>
+                                </div>
+                            </div>
+                        </label>
+
+                        {availableProviders.azure && (
+                            <label className={`${styles.radioOption} ${formData.processingMethod === "azure" ? styles.radioOptionSelected : ""}`}>
+                                <input
+                                    type="radio"
+                                    name="processingMethod"
+                                    value="azure"
+                                    checked={formData.processingMethod === "azure"}
+                                    onChange={handleInputChange}
+                                    className={styles.hiddenRadio}
+                                />
+                                <div className={styles.radioContent}>
+                                    <div className={styles.radioIconWrapper}>
+                                        <Cpu className={styles.radioIcon} />
+                                    </div>
+                                    <div className={styles.radioText}>
+                                        <span className={styles.radioTitle}>Azure OCR</span>
+                                        <span className={styles.radioDescription}>Best for Layouts</span>
+                                    </div>
+                                </div>
+                            </label>
+                        )}
+
+                        {availableProviders.landingAI && (
+                            <label className={`${styles.radioOption} ${formData.processingMethod === "landing_ai" ? styles.radioOptionSelected : ""}`}>
+                                <input
+                                    type="radio"
+                                    name="processingMethod"
+                                    value="landing_ai"
+                                    checked={formData.processingMethod === "landing_ai"}
+                                    onChange={handleInputChange}
+                                    className={styles.hiddenRadio}
+                                />
+                                <div className={styles.radioContent}>
+                                    <div className={styles.radioIconWrapper}>
+                                        <Brain className={styles.radioIcon} />
+                                    </div>
+                                    <div className={styles.radioText}>
+                                        <span className={styles.radioTitle}>Landing AI</span>
+                                        <span className={styles.radioDescription}>Multimodal</span>
+                                    </div>
+                                </div>
+                            </label>
+                        )}
+
+                        {availableProviders.datalab && (
+                            <label className={`${styles.radioOption} ${formData.processingMethod === "datalab" ? styles.radioOptionSelected : ""}`}>
+                                <input
+                                    type="radio"
+                                    name="processingMethod"
+                                    value="datalab"
+                                    checked={formData.processingMethod === "datalab"}
+                                    onChange={handleInputChange}
+                                    className={styles.hiddenRadio}
+                                />
+                                <div className={styles.radioContent}>
+                                    <div className={styles.radioIconWrapper}>
+                                        <FileText className={styles.radioIcon} />
+                                    </div>
+                                    <div className={styles.radioText}>
+                                        <span className={styles.radioTitle}>Datalab Chandra</span>
+                                        <span className={styles.radioDescription}>Cheap and High Performance</span>
+                                    </div>
+                                </div>
+                            </label>
+                        )}
+                    </div>
                 </div>
             </div>
 
