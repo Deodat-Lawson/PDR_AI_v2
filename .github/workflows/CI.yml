@@ -52,9 +52,6 @@ jobs:
       - name: pnpm install
         run: pnpm install --frozen-lockfile
 
-      - name: Generate Drizzle client
-        run: pnpm db:generate
-
       - name: Push database schema
         run: pnpm db:push
 
