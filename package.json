@@ -6,7 +6,7 @@
   "scripts": {
     "build": "next build",
     "check": "eslint . && tsc --noEmit",
-    "db:push": "drizzle-kit push",
+    "db:push": "node scripts/ensure-pgvector.mjs && drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "dev": "next dev",
     "lint": "eslint .",

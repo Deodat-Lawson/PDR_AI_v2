@@ -45,10 +45,11 @@ Create `.env` from `.env.example` and fill required values:
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
 - `CLERK_SECRET_KEY`
 - `OPENAI_API_KEY`
-- `UPLOADTHING_TOKEN`
+- `INNGEST_EVENT_KEY`, as placeholder
 
 Optional integrations:
 
+- `UPLOADTHING_TOKEN`
 - `TAVILY_API_KEY`
 - `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`
 - `AZURE_DOC_INTELLIGENCE_ENDPOINT`, `AZURE_DOC_INTELLIGENCE_KEY`
@@ -58,13 +59,13 @@ Optional integrations:
 ### 3) Start database and apply schema
 
 ```bash
-chmod +x start-database.sh
 pnpm db:push
 ```
 
 ### 4) Run app
 
 ```bash
+pnpm inngest:dev
 pnpm run dev
 ```
 
