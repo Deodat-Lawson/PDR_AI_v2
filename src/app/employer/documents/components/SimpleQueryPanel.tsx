@@ -89,7 +89,7 @@ export function SimpleQueryPanel({
         </div>
       </div>
 
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-h-0">
         <div className="p-5 space-y-5">
           {/* Search Scope Toggle - only show company scope for employers */}
           {showCompanyScope && (
@@ -269,10 +269,10 @@ export function SimpleQueryPanel({
                   </Button>
                 </div>
                 
-                <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm min-w-0 overflow-hidden">
                   <MarkdownMessage
                     content={aiAnswer}
-                    className="text-sm leading-relaxed text-foreground prose prose-sm dark:prose-invert max-w-none"
+                    className="text-sm leading-relaxed text-foreground prose prose-sm dark:prose-invert max-w-none break-words"
                   />
                 </div>
               </div>

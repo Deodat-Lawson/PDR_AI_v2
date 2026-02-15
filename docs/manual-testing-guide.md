@@ -29,15 +29,23 @@ Before the first pass:
    pnpm db:push
    ```
 
-3. **Run dev server**
+3. **Enable Inngest** (required for background document processing)
+   - Set `INNGEST_EVENT_KEY=placeholder` in `.env`.
+   - In a **separate terminal**, run the Inngest dev server:
+   ```bash
+   pnpm inngest:dev
+   ```
+   Dashboard: **http://localhost:8288**. Keep this running while testing.
+
+4. **Run dev server**
    ```bash
    pnpm run dev
    ```
    Open **http://localhost:3000**.
 
-4. **Test accounts**
-   - Have at least one **Employer** (or Owner) and one **Employee** account.
-   - Optionally one **pending** employer and one **pending** employee for approval flows.
+5. **Test accounts**
+   - Have at least one **Employer** (or Owner) account.
+   - Optionally have one **pending** employer and one **pending** employee for approval flows.
 
 Complete sections 1–5 (and 6 if desired), then proceed to Run 2.
 
@@ -50,11 +58,13 @@ Before the second pass:
 1. **Environment**
    - Use the same `.env` (or a copy) with keys valid for the Docker run (e.g. `DATABASE_URL` for the Compose `db` service).
 
-2. **Start full stack**
+2. **Start full stack (with Inngest)**
+   - Ensure `INNGEST_EVENT_KEY` (and optionally `INNGEST_SIGNING_KEY`) is set in `.env`.
+   - Use the `dev` profile so the Inngest dev server runs (required for document upload/processing):
    ```bash
-   docker compose --env-file .env up
+   docker compose --env-file .env --profile dev up
    ```
-   Wait until the app is ready (migrate completes, app listens). Open **http://localhost:3000** (or the port mapped for the `app` service).
+   Wait until the app and Inngest are ready (migrate completes, app listens). Open **http://localhost:3000**; Inngest dashboard at **http://localhost:8288**.
 
 3. **Test accounts**
    - Reuse the same Employer/Employee accounts (Clerk and DB are shared if you point to the same DB) or create fresh ones.
@@ -63,23 +73,20 @@ Run the **same checklist** (sections 1–5, and optionally 6) again. Note any di
 
 ---
 
-## 1. Public pages (unauthenticated)
+## 1. Public pages (Only needs to be tested if working on the main landing page)
 
 | # | Check | Route | Expected |
 |---|--------|--------|----------|
-| 1.1 | Landing page loads | `/` | Hero, feature cards, “Start Free Trial”, “Schedule Demo”, nav links. |
+| 1.1 | Landing page loads | `/` |
 | 1.2 | Sign up link | Click “Start Free Trial” / `/signup` | Navigates to signup. |
 | 1.3 | Sign in link | Nav or `/signin` | Sign-in form (Clerk). |
 | 1.4 | Contact | `/contact` | Contact page loads. |
 | 1.5 | About | `/about` | About page loads. |
 | 1.6 | Pricing | `/pricing` | Pricing page loads. |
 | 1.7 | Deployment (public) | `/deployment` | Deployment/setup guide loads (no auth). |
-
-**Quick smoke:** Visit each URL in a logged-out browser; no 500s, no broken layout.
-
 ---
 
-## 2. Authentication flows
+## 2. Authentication flows (Only needed if working on authentication)
 
 ### 2.1 Sign up
 
@@ -109,16 +116,7 @@ Run the **same checklist** (sections 1–5, and optionally 6) again. Note any di
 
 ## 3. Employer flows
 
-### 3.1 Employer home (`/employer/home`)
-
-| # | Check | Expected |
-|---|--------|----------|
-| 3.1.1 | Page loads | Dashboard with stats (employees, documents, etc.) and menu cards. |
-| 3.1.2 | Stats | Numbers load from `/api/company/analysis-dashboard` (or equivalent); no infinite loading. |
-| 3.1.3 | Nav | Navbar with logo, theme toggle, profile dropdown. |
-| 3.1.4 | Menu cards | Upload Documents, View Documents, Document Statistics, Manage Employees, User Settings, Contact Support — each links to correct route. |
-
-### 3.2 Upload (`/employer/upload`)
+### 3.1 Upload (`/employer/upload`)
 
 | # | Check | Expected |
 |---|--------|----------|
@@ -128,7 +126,7 @@ Run the **same checklist** (sections 1–5, and optionally 6) again. Note any di
 | 3.2.4 | Validation | Invalid or oversized file shows clear error. |
 | 3.2.5 | OCR (if configured) | With OCR provider keys set, option to run OCR on scanned PDF; processing completes or fails gracefully. |
 
-### 3.3 Documents (`/employer/documents`)
+### 3.2 Documents (`/employer/documents`)
 
 | # | Check | Expected |
 |---|--------|----------|
@@ -140,14 +138,14 @@ Run the **same checklist** (sections 1–5, and optionally 6) again. Note any di
 | 3.3.6 | Document generator (if present) | Outline/citation/grammar/research/export panels open and behave; export works or shows clear state. |
 | 3.3.7 | Simple query / Agent chat | Query panel or agent chat returns answers; no infinite loading. |
 
-### 3.4 Statistics (`/employer/statistics`)
+### 3.3 Statistics (`/employer/statistics`)
 
 | # | Check | Expected |
 |---|--------|----------|
 | 3.4.1 | Page loads | Charts and tables load (employee activity, document stats). |
 | 3.4.2 | Data | Numbers and trends match backend; document details sheet or drill-down works if present. |
 
-### 3.5 Manage employees (`/employer/employees`)
+### 3.4 Manage employees (`/employer/employees`) (Only if working on authentication)
 
 | # | Check | Expected |
 |---|--------|----------|
@@ -155,43 +153,27 @@ Run the **same checklist** (sections 1–5, and optionally 6) again. Note any di
 | 3.5.2 | Approve/deny (if applicable) | Pending employees can be approved/denied; list updates. |
 | 3.5.3 | Invite / add (if applicable) | Invite or add employee flow works; no 500. |
 
-### 3.6 Settings (`/employer/settings`)
+### 3.6 Settings (`/employer/settings`) (Only if working on settings)
 
 | # | Check | Expected |
 |---|--------|----------|
 | 3.6.1 | Page loads | Settings form (profile, preferences, etc.) loads. |
 | 3.6.2 | Save | Changing and saving updates without error. |
 
-### 3.7 Contact support (`/employer/contact`)
+### 3.7 Contact support (`/employer/contact`) (Only if working on support)
 
 | # | Check | Expected |
 |---|--------|----------|
 | 3.7.1 | Page loads | Contact/support form or info loads. |
 
-### 3.8 Study Agent (`/employer/studyAgent`)
-
-| # | Check | Expected |
-|---|--------|----------|
-| 3.8.1 | Study agent entry | `/employer/studyAgent` loads; onboarding/teacher/studyBuddy links work. |
-| 3.8.2 | Teacher mode | `/employer/studyAgent/teacher` loads and core flow works. |
-| 3.8.3 | Study Buddy mode | `/employer/studyAgent/studyBuddy` loads and core flow works. |
-| 3.8.4 | Onboarding | `/employer/studyAgent/onboarding` loads if present. |
-
-### 3.9 Pending approval (`/employer/pending-approval`)
+### 3.9 Pending approval (`/employer/pending-approval`) (Only if working on authentication)
 
 | # | Check | Expected |
 |---|--------|----------|
 | 3.9.1 | Message | Clear “pending approval” message; no employer actions that require verification. |
-
-### 3.10 Profile & sign out
-
-| # | Check | Expected |
-|---|--------|----------|
-| 3.10.1 | Profile dropdown | Opens; sign out logs user out and redirects appropriately. |
-
 ---
 
-## 4. Employee flows
+## 4. Employee flows (Employers and employees share the same document screen. So only need to test this if employee sepcific features are touched)
 
 ### 4.1 Employee home (`/employee/home`)
 
@@ -208,12 +190,6 @@ Run the **same checklist** (sections 1–5, and optionally 6) again. Note any di
 | 4.2.2 | Viewer | Opening a document shows viewer (PDF/DOCX/etc.). |
 | 4.2.3 | AI Q&A | Chat/Q&A over documents works; answers are scoped to allowed content. |
 
-### 4.3 Pending approval (`/employee/pending-approval`)
-
-| # | Check | Expected |
-|---|--------|----------|
-| 4.3.1 | Message | “Pending approval” message; no access to full document list until verified. |
-
 ### 4.4 Profile & sign out
 
 | # | Check | Expected |
@@ -221,52 +197,3 @@ Run the **same checklist** (sections 1–5, and optionally 6) again. Note any di
 | 4.4.1 | Sign out | Same as employer; clean redirect after sign out. |
 
 ---
-
-## 5. Global UI & behavior
-
-| # | Check | Expected |
-|---|--------|----------|
-| 5.1 | Theme toggle | Light/dark/system switch works; no flash or broken styles. |
-| 5.2 | Responsive | Key pages (landing, dashboards, documents) are usable on narrow viewport (no critical overflow or hidden actions). |
-| 5.3 | Errors | Network/server errors show user-friendly message or toast, not raw stack trace. |
-| 5.4 | Loading | Loading states (skeletons/spinners) appear where appropriate; no permanent loading. |
-
----
-
-## 6. API smoke checks (optional)
-
-If you want to sanity-check APIs used by the app:
-
-| # | Check | Expected |
-|---|--------|----------|
-| 6.1 | `GET /api/employerAuth` | 200 when signed in as employer. |
-| 6.2 | `GET /api/employeeAuth` | 200 when signed in as employee. |
-| 6.3 | `GET /api/company/analysis-dashboard` | 200 and JSON with dashboard data (as employer). |
-| 6.4 | Document Q&A / RAG | `POST` to document Q&A endpoint returns answer or structured error. |
-| 6.5 | `GET /api/metrics` | Returns Prometheus metrics if enabled. |
-
-Use browser DevTools Network tab or `curl` with appropriate auth/cookies.
-
----
-
-## 7. Regression tips
-
-- **After auth/DB changes:** Re-test sign up (employer + employee), sign in redirects, and pending-approval flows.
-- **After document/upload changes:** Re-test upload (multiple types), viewer (PDF/DOCX/XLSX/PPTX), and RAG/chat.
-- **After role/permission changes:** Re-test employer vs employee access and wrong-role redirects.
-- **After new pages:** Add a row to the relevant section (employer/employee/public) and run that subsection every PR.
-
----
-
-## 8. Checklist summary (quick pass)
-
-**Do this quick pass in both Run 1 (local dev) and Run 2 (Docker):**
-
-1. [ ] Landing `/` and sign in `/signin` load.
-2. [ ] Sign in as **employer** → `/employer/home` → open **Upload**, **Documents**, **Statistics**, **Employees**, **Settings**.
-3. [ ] Upload one document; open it in **Documents** and run one **AI Q&A**.
-4. [ ] Sign in as **employee** → `/employee/documents`; open a document and run Q&A.
-5. [ ] Theme toggle and sign out on both roles.
-6. [ ] Public `/deployment` and `/contact` load.
-
-For **full confidence**, run every table in sections 1–5 (and 6 if desired) **in both local dev and Docker**.

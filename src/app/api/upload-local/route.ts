@@ -7,8 +7,12 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "~/server/db";
 import { fileUploads } from "~/server/db/schema";
+import { isUploadAccepted } from "~/lib/upload-accepted";
 
 const MAX_FILE_SIZE = 16 * 1024 * 1024; // 16MB to match UploadThing config
+
+const UNSUPPORTED_TYPE_MESSAGE =
+  "Unsupported file type. Accepted: PDF, Word, Excel, PowerPoint, text, HTML, images (PNG, JPG, TIFF, etc.).";
 
 export async function POST(request: Request) {
   const uploadStart = Date.now();
@@ -39,7 +43,14 @@ export async function POST(request: Request) {
       `[UploadLocal] Received file: name=${file.name}, mime=${file.type}, size=${(file.size / 1024).toFixed(1)}KB, user=${userId}`
     );
 
-    // Validate file size (any file type is accepted)
+    if (!isUploadAccepted({ name: file.name, type: file.type })) {
+      console.warn(`[UploadLocal] Rejected: unsupported file type name=${file.name}, mime=${file.type}`);
+      return NextResponse.json(
+        { error: UNSUPPORTED_TYPE_MESSAGE },
+        { status: 400 }
+      );
+    }
+
     if (file.size > MAX_FILE_SIZE) {
       console.warn(`[UploadLocal] Rejected: file too large size=${(file.size / 1024 / 1024).toFixed(1)}MB, max=${MAX_FILE_SIZE / 1024 / 1024}MB`);
       return NextResponse.json(

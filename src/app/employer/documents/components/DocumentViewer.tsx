@@ -1,13 +1,13 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import Image from 'next/image';
 import { FileText, FileImage, FileSpreadsheet, FileCode, Loader2, AlertTriangle, RotateCw, Presentation } from 'lucide-react';
 import type { DocumentType } from '../types';
 import { getDocumentDisplayType, type DocumentDisplayType } from '../types/document';
 import { DocxViewer } from './DocxViewer';
 import { XlsxViewer } from './XlsxViewer';
 import { PptxViewer } from './PptxViewer';
+import { ImageViewer } from './ImageViewer';
 
 interface DocumentViewerProps {
   document: DocumentType | null;
@@ -95,56 +95,6 @@ function IframeWithState({
   );
 }
 
-/** Wrapper that shows a loading spinner and error state around an image */
-function ImageWithState({ src, alt }: { src: string; alt: string }) {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-
-  useEffect(() => {
-    setLoading(true);
-    setError(false);
-  }, [src]);
-
-  return (
-    <div className="w-full h-full flex items-center justify-center p-4 overflow-auto bg-muted/30 relative min-h-[200px]">
-      {loading && !error && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 z-10 bg-muted/30">
-          <Loader2 className="w-8 h-8 text-purple-500 animate-spin" />
-          <p className="text-sm text-muted-foreground font-medium">Loading image...</p>
-        </div>
-      )}
-      {error && (
-        <div className="flex flex-col items-center justify-center gap-4 p-8 text-center">
-          <div className="w-14 h-14 rounded-2xl bg-red-50 dark:bg-red-900/20 flex items-center justify-center">
-            <AlertTriangle className="w-7 h-7 text-red-500" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-foreground mb-1">Failed to load image</p>
-            <button
-              onClick={() => { setLoading(true); setError(false); }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium transition-colors mt-3"
-            >
-              <RotateCw className="w-4 h-4" />
-              Retry
-            </button>
-          </div>
-        </div>
-      )}
-      {!error && (
-        <Image
-          src={src}
-          alt={alt}
-          fill
-          className="object-contain rounded-lg shadow-md"
-          onLoad={() => setLoading(false)}
-          onError={() => { setLoading(false); setError(true); }}
-          unoptimized={src.startsWith("blob:") || src.startsWith("data:")}
-        />
-      )}
-    </div>
-  );
-}
-
 export function DocumentViewer({ 
   document, 
   pdfPageNumber = 1, 
@@ -215,7 +165,7 @@ export function DocumentViewer({
           />
         );
       case "image":
-        return <ImageWithState src={document.url} alt={document.title} />;
+        return <ImageViewer src={document.url} alt={document.title} minimal={minimal} />;
       case "docx":
         return <DocxViewer url={document.url} title={document.title} />;
       case "xlsx":

@@ -6,7 +6,11 @@ import Link from "next/link";
 import { UploadDropzone } from "~/app/utils/uploadthing";
 import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
+import { isUploadAccepted, UPLOAD_ACCEPT_STRING } from "~/lib/upload-accepted";
 import styles from "~/styles/Employer/Upload.module.css";
+
+const UNSUPPORTED_FILE_TYPE_MESSAGE =
+    "Unsupported file type. Please upload a document or image.";
 
 interface UploadFormData {
     title: string;
@@ -85,6 +89,10 @@ const UploadForm: React.FC<UploadFormProps> = ({
 
     // Handle local file upload (when UploadThing is disabled)
     const handleLocalFileUpload = useCallback(async (file: File) => {
+        if (!isUploadAccepted({ name: file.name, type: file.type })) {
+            setErrors((prev) => ({ ...prev, fileUrl: UNSUPPORTED_FILE_TYPE_MESSAGE }));
+            return;
+        }
         if (file.size > 16 * 1024 * 1024) {
             setErrors((prev) => ({ ...prev, fileUrl: "File size must be less than 16MB" }));
             return;
@@ -230,7 +238,10 @@ const UploadForm: React.FC<UploadFormProps> = ({
         if (useUploadThing) {
             return (
                 <UploadDropzone
-                    endpoint="anyUploader"
+                    endpoint="documentUploaderRestricted"
+                    content={{
+                        allowedContent: "Documents & images — up to 128MB",
+                    }}
                     onClientUploadComplete={(res) => {
                         if (!res?.length) return;
                         const file = res[0]!;
@@ -269,7 +280,7 @@ const UploadForm: React.FC<UploadFormProps> = ({
                 <input
                     ref={fileInputRef}
                     type="file"
-                    accept="*/*"
+                    accept={UPLOAD_ACCEPT_STRING}
                     onChange={handleFileInputChange}
                     className={styles.fileInput}
                 />
@@ -282,7 +293,9 @@ const UploadForm: React.FC<UploadFormProps> = ({
                             Drag & drop your file here, or{" "}
                             <span className={styles.browseButton}>browse</span>
                         </p>
-                        <p className={styles.uploadHint}>Any file up to 16MB</p>
+                        <p className={styles.uploadHint}>
+                            Documents & images — up to 16MB
+                        </p>
                     </>
                 )}
             </div>
