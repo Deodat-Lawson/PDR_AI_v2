@@ -8,6 +8,18 @@ import {
 } from "~/lib/ocr/chunker";
 import type { PageContent, DocumentChunk, ExtractedTable } from "~/lib/ocr/types";
 
+// Force table description fallback in tests (no real OpenAI calls).
+// In CI, OPENAI_API_KEY may be set and the LLM path would return different text.
+jest.mock("openai", () => {
+  return jest.fn().mockImplementation(() => ({
+    chat: {
+      completions: {
+        create: jest.fn().mockRejectedValue(new Error("Mocked to use fallback")),
+      },
+    },
+  }));
+});
+
 describe("OCR Chunker Module", () => {
   // Helper to create mock page content
   const createMockPage = (
