@@ -26,11 +26,15 @@ export const CACHE_CONFIG = {
   MAX_ENTRIES: 1000
 } as const;
 
-// Document Processing
+// Document Processing (SUPPORTED_FORMATS aligned with ingestion/upload-accepted)
 export const DOCUMENT_LIMITS = {
   MAX_FILE_SIZE_MB: 50,
   MAX_PAGES: 1000,
-  SUPPORTED_FORMATS: ['pdf', 'docx', 'doc', 'txt'] as const
+  SUPPORTED_FORMATS: [
+    'pdf', 'png', 'jpg', 'jpeg', 'tiff', 'tif', 'webp', 'gif', 'bmp',
+    'docx', 'doc', 'xlsx', 'xls', 'csv', 'pptx', 'ppt',
+    'txt', 'md', 'markdown', 'html', 'htm',
+  ] as const
 } as const;
 
 // Predictive Analysis batching
