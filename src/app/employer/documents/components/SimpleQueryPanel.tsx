@@ -46,7 +46,8 @@ const styleIcons: Record<string, React.ReactNode> = {
   concise: <Zap className="w-3.5 h-3.5" />,
   detailed: <BookOpen className="w-3.5 h-3.5" />,
   academic: <GraduationCap className="w-3.5 h-3.5" />,
-  "bullet-points": <List className="w-3.5 h-3.5" />,
+  organized: <List className="w-3.5 h-3.5" />,
+  "bullet-points": <List className="w-3.5 h-3.5" />, // Backwards compat just in case
 };
 
 export function SimpleQueryPanel({

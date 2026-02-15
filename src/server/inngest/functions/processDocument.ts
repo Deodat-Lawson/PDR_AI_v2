@@ -26,7 +26,6 @@ import type {
   PipelineResult,
   VectorizedChunk,
   DocumentChunk,
-  OCRProvider,
 } from "~/lib/ocr/types";
 
 export type { ProcessDocumentEventData, PipelineResult, VectorizedChunk };

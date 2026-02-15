@@ -1,28 +1,41 @@
 import type {
   PageContent,
   DocumentChunk,
-  ChunkMetadata,
   ExtractedTable,
+  VectorizedChunk,
 } from "./types";
 
+import OpenAI from "openai";
+
+// Lazy init to avoid issues if env var missing at module load
+let openai: OpenAI | null = null;
+function getOpenAI() {
+  if (!openai && process.env.OPENAI_API_KEY) {
+    openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  }
+  return openai;
+}
+
 export interface ChunkingConfig {
-  maxTokens?: number;
+  parentMaxTokens?: number;
+  childMaxTokens?: number;
   overlapTokens?: number;
   charsPerToken?: number;
   includePageContext?: boolean;
 }
 
 const DEFAULT_CONFIG: Required<ChunkingConfig> = {
-  maxTokens: 500,
+  parentMaxTokens: 1000,
+  childMaxTokens: 256,
   overlapTokens: 50,
   charsPerToken: 4,
   includePageContext: true,
 };
 
-export function chunkDocument(
+export async function chunkDocument(
   pages: PageContent[],
   config?: ChunkingConfig
-): DocumentChunk[] {
+): Promise<DocumentChunk[]> {
   const cfg = { ...DEFAULT_CONFIG, ...config };
   const chunks: DocumentChunk[] = [];
   let globalChunkIndex = 0;
@@ -30,10 +43,12 @@ export function chunkDocument(
   for (const page of pages) {
     const pageChunks: DocumentChunk[] = [];
 
+    // Chunk text blocks into Parent-Child hierarchy
     const textChunks = chunkTextBlocks(page.textBlocks, page.pageNumber, cfg);
     pageChunks.push(...textChunks);
 
-    const tableChunks = chunkTables(page.tables, page.pageNumber, cfg);
+    // Tables are treated as Parent chunks (context) with a single Child (itself) for retrieval
+    const tableChunks = await chunkTables(page.tables, page.pageNumber, cfg);
     pageChunks.push(...tableChunks);
 
     for (const chunk of pageChunks) {
@@ -56,33 +71,67 @@ function chunkTextBlocks(
 
   const mergedText = textBlocks.join("\n\n");
 
-  const maxChars = config.maxTokens * config.charsPerToken;
+  const parentMaxChars = config.parentMaxTokens * config.charsPerToken;
+  const childMaxChars = config.childMaxTokens * config.charsPerToken;
   const overlapChars = config.overlapTokens * config.charsPerToken;
 
-  const textChunks = splitWithOverlap(mergedText, maxChars, overlapChars);
+  // 1. Create Parent Chunks (Context)
+  const parentTexts = splitWithOverlap(mergedText, parentMaxChars, overlapChars);
 
-  return textChunks.map((content, index) => ({
-    id: "",
-    content,
-    type: "text" as const,
-    metadata: {
-      pageNumber,
-      chunkIndex: index,
-      totalChunksInPage: 0,
-      isTable: false,
-    },
-  }));
+  return parentTexts.map((parentContent, pIndex) => {
+    // 2. Create Child Chunks (Retrieval) from Parent Content
+    const childTexts = splitWithOverlap(parentContent, childMaxChars, overlapChars);
+    
+    const children: DocumentChunk[] = childTexts.map((childContent, cIndex) => ({
+      id: "", // Assigned later or ignored
+      content: childContent,
+      type: "text" as const,
+      metadata: {
+        pageNumber,
+        chunkIndex: cIndex,
+        totalChunksInPage: childTexts.length,
+        isTable: false,
+      }
+    }));
+
+    return {
+      id: "",
+      content: parentContent,
+      type: "text" as const,
+      metadata: {
+        pageNumber,
+        chunkIndex: pIndex,
+        totalChunksInPage: 0, // Set by caller
+        isTable: false,
+      },
+      children
+    };
+  });
 }
 
-function chunkTables(
+async function chunkTables(
   tables: ExtractedTable[],
   pageNumber: number,
   _config: Required<ChunkingConfig>
-): DocumentChunk[] {
-  return tables.map((table, tableIndex) => {
-    const tableDescription = generateTableDescription(table, pageNumber, tableIndex);
-
+): Promise<DocumentChunk[]> {
+  const tableChunks = await Promise.all(tables.map(async (table, tableIndex) => {
+    const tableDescription = await generateTableDescription(table, pageNumber, tableIndex);
     const content = `${tableDescription}\n\n${table.markdown}`;
+
+    // Table is both Parent and Child (1:1 mapping for now)
+    const child: DocumentChunk = {
+        id: "",
+        content,
+        type: "table" as const,
+        metadata: {
+            pageNumber,
+            chunkIndex: 0,
+            totalChunksInPage: 1,
+            isTable: true,
+            tableIndex,
+            tableDescription,
+        }
+    };
 
     return {
       id: "",
@@ -96,21 +145,23 @@ function chunkTables(
         tableIndex,
         tableDescription,
       },
+      children: [child]
     };
-  });
+  }));
+
+  return tableChunks;
 }
 
-function generateTableDescription(
+async function generateTableDescription(
   table: ExtractedTable,
   pageNumber: number,
   tableIndex: number
-): string {
+): Promise<string> {
+  // Use regex as fallback description base
   const headers = table.rows[0];
   let contentDescription = "structured data";
-
   if (headers && headers.length > 0) {
     const headerText = headers.join(" ").toLowerCase();
-
     if (headerText.includes("date") || headerText.includes("time")) {
       contentDescription = "time-series or dated information";
     } else if (headerText.includes("price") || headerText.includes("cost") || headerText.includes("amount")) {
@@ -125,10 +176,41 @@ function generateTableDescription(
       contentDescription = `data about ${headers.slice(0, 3).join(", ")}`;
     }
   }
-
   const sizeDescription = `${table.rowCount} rows × ${table.columnCount} columns`;
+  const fallbackDesc = `Table from Page ${pageNumber} (Table ${tableIndex + 1}) containing ${contentDescription}. Size: ${sizeDescription}.`;
 
-  return `Table from Page ${pageNumber} (Table ${tableIndex + 1}) containing ${contentDescription}. Size: ${sizeDescription}.`;
+  // Try LLM summary if available
+  const openai = getOpenAI();
+  if (!openai) {
+    return fallbackDesc;
+  }
+
+  try {
+    const tablePreview = table.markdown.substring(0, 1000); // Limit context
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini", // Use mini for speed/cost
+      messages: [
+        {
+          role: "system",
+          content: "You are a concise data analyst. Summarize the following table in one sentence, describing what kind of data it contains and any key trends or categories. Do not list all rows.",
+        },
+        {
+          role: "user",
+          content: `Table headers: ${headers?.join(", ") ?? "None"}\n\nTable content snippet:\n${tablePreview}`,
+        },
+      ],
+      max_tokens: 60,
+    });
+
+    const summary = response.choices[0]?.message?.content?.trim();
+    if (summary) {
+      return `Table on Page ${pageNumber}: ${summary}`;
+    }
+  } catch (error) {
+    console.warn("Table summary generation failed, using fallback", error);
+  }
+
+  return fallbackDesc;
 }
 
 function splitWithOverlap(
@@ -169,19 +251,13 @@ function splitWithOverlap(
       chunks.push(chunk);
     }
 
-    // Calculate next start position with overlap
     const newStart = end - overlapChars;
-
-    // CRITICAL: Always ensure forward progress to prevent infinite loop
-    // newStart must be strictly greater than start, not just >= 
     if (newStart > start && newStart < text.length) {
       start = newStart;
     } else {
-      // If we can't make progress with overlap, just move to end
       start = end;
     }
 
-    // Safety check: if we're not at the end but haven't moved, force progress
     if (start === end && start < text.length) {
       start = Math.min(start + 1, text.length);
     }
@@ -195,12 +271,13 @@ export function estimateTokens(text: string, charsPerToken = 4): number {
 }
 
 export function getTotalChunkSize(chunks: DocumentChunk[]): {
-  totalChunks: number;
+  totalChunks: number; // Counting PARENTS or CHILDREN? Usually we care about Parents for context, Children for vector usage.
   textChunks: number;
   tableChunks: number;
   totalCharacters: number;
   estimatedTokens: number;
 } {
+    // This is for logging mostly. Let's count Parents.
   const textChunks = chunks.filter((c) => c.type === "text");
   const tableChunks = chunks.filter((c) => c.type === "table");
   const totalCharacters = chunks.reduce((sum, c) => sum + c.content.length, 0);
@@ -214,24 +291,90 @@ export function getTotalChunkSize(chunks: DocumentChunk[]): {
   };
 }
 
+/**
+ * Prepares strings for embedding by flattening the hierarchy (extracting all children).
+ * Handles Contextual Prepending (Structure Path + Title).
+ */
 export function prepareForEmbedding(chunks: DocumentChunk[]): string[] {
-  return chunks.map((chunk) => chunk.content);
+  const strings: string[] = [];
+  
+  for (const parent of chunks) {
+    if (parent.children && parent.children.length > 0) {
+      for (const child of parent.children) {
+        let textToEmbed = child.content;
+        
+        // Contextual Prepending
+        const parts: string[] = [];
+        if (child.metadata.documentTitle) {
+            parts.push(`Document: ${child.metadata.documentTitle}`);
+        }
+        if (child.metadata.structurePath) {
+            parts.push(`Section: ${child.metadata.structurePath}`);
+        }
+        if (child.metadata.tableDescription) {
+            parts.push(`Context: ${child.metadata.tableDescription}`);
+        }
+        
+        if (parts.length > 0) {
+            textToEmbed = `${parts.join(" > ")}\nContent: ${textToEmbed}`;
+        }
+
+        strings.push(textToEmbed);
+      }
+    } else {
+      // Should not happen with new logic, but fallback to parent content
+      strings.push(parent.content);
+    }
+  }
+  return strings;
 }
 
+/**
+ * Merges generated embeddings back into the hierarchical structure.
+ */
 export function mergeWithEmbeddings(
   chunks: DocumentChunk[],
   embeddings: number[][]
-): Array<{ content: string; metadata: ChunkMetadata; vector: number[] }> {
-  if (chunks.length !== embeddings.length) {
-    throw new Error(
-      `Mismatch: ${chunks.length} chunks but ${embeddings.length} embeddings`
-    );
-  }
+): VectorizedChunk[] {
+  
+  // We need to consume embeddings sequentially
+  let embeddingIndex = 0;
+  
+  return chunks.map(parent => {
+    const parentChildren = parent.children ?? [];
+    const vectorizedChildren: VectorizedChunk[] = [];
 
-  return chunks.map((chunk, index) => ({
-    content: chunk.content,
-    metadata: chunk.metadata,
-    vector: embeddings[index]!,
-  }));
+    if (parentChildren.length > 0) {
+        for (const child of parentChildren) {
+            const vector = embeddings[embeddingIndex++];
+            if (!vector) {
+                throw new Error("Embedding mismatch: fewer embeddings than children");
+            }
+            // Logic for Matryoshka Short Embedding (first 512 dims)
+            const vectorShort = vector.slice(0, 512);
+
+            vectorizedChildren.push({
+                content: child.content,
+                metadata: child.metadata,
+                vector: vector,
+                vectorShort: vectorShort,
+                // Children don't have children
+            });
+        }
+    } else {
+         // Fallback - should not happen if prepareForEmbedding works correctly
+         const vector = embeddings[embeddingIndex++];
+         if (vector) {
+             // If parent was treated as a child (no children), it would be in embeddings.
+             // But chunker structure guarantees children.
+         }
+    }
+
+    return {
+      content: parent.content,
+      metadata: parent.metadata,
+      vector: [], // Parent has no vector in this design
+      children: vectorizedChildren
+    };
+  });
 }
-

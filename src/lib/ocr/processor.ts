@@ -5,12 +5,15 @@
  */
 
 import type { RoutingDecision } from "~/lib/ocr/complexity";
-import { createAzureAdapter, createLandingAIAdapter } from "~/lib/ocr/adapters";
+import { renderPagesToImages } from "~/lib/ocr/complexity";
+import { enrichPageWithVlm } from "~/lib/ocr/enrichment";
+import { createAzureAdapter, createLandingAIAdapter, createDatalabAdapter } from "~/lib/ocr/adapters";
 import { chunkDocument, mergeWithEmbeddings, prepareForEmbedding, getTotalChunkSize } from "~/lib/ocr/chunker";
 import { generateEmbeddings } from "~/lib/ai/embeddings";
 import { db } from "~/server/db";
 import {
-  documentSections,
+  documentContextChunks,
+  documentRetrievalChunks,
   documentStructure,
   documentMetadata,
   document as documentTable,
@@ -133,8 +136,66 @@ export async function normalizeDocument(
       case "LANDING_AI":
         normalizedDoc = await processWithLandingAI(documentUrl);
         break;
+      case "DATALAB":
+        normalizedDoc = await processWithDatalab(documentUrl);
+        break;
       default:
         normalizedDoc = await processWithAzure(documentUrl);
+    }
+  }
+
+  // --- VLM Enrichment Step ---
+  // Only applicable for PDFs where we can render pages to images.
+  // Triggers:
+  // 1. "Complex" / "Handwritten" label from Router
+  // 2. Low OCR confidence (< 70%)
+  // 3. Explicitly requested via options (future)
+  
+  const isPdf = documentUrl.toLowerCase().endsWith(".pdf") || 
+                (await fetch(documentUrl, { method: "HEAD" }).then(r => r.headers.get("content-type") === "application/pdf").catch(() => false));
+
+  if (isPdf && process.env.OPENAI_API_KEY) {
+    const isComplex = routerDecision.visionLabel 
+      ? ["complex", "handwritten", "messy", "figure", "diagram"].some(l => routerDecision.visionLabel?.toLowerCase().includes(l))
+      : false;
+    
+    const isLowConfidence = (normalizedDoc.metadata.confidenceScore ?? 100) < 70;
+
+    if (isComplex || isLowConfidence) {
+      console.log(`[Enrichment] Triggering VLM enrichment (Complex=${isComplex}, LowConf=${isLowConfidence})`);
+      try {
+        const response = await fetch(documentUrl);
+        const buffer = await response.arrayBuffer();
+        
+        // Identify pages to enrich (all for now, or sample? Plan says "Complex" or "Low Conf").
+        // For efficiency, let's limit to the first 5 pages + any low confidence pages if we had per-page confidence (we have avg).
+        // Let's enrich up to 5 pages for now to avoid massive costs/latency.
+        const pagesToEnrich = normalizedDoc.pages.slice(0, 5).map(p => p.pageNumber);
+        
+        if (pagesToEnrich.length > 0) {
+          console.log(`[Enrichment] Rendering ${pagesToEnrich.length} pages for VLM...`);
+          const images = await renderPagesToImages(buffer, pagesToEnrich);
+          
+          for (let i = 0; i < images.length; i++) {
+            const imageBuffer = images[i];
+            if (!imageBuffer) continue;
+            
+            const pageNum = pagesToEnrich[i];
+            console.log(`[Enrichment] Analyzing Page ${pageNum} with VLM...`);
+            
+            const description = await enrichPageWithVlm(Buffer.from(imageBuffer));
+            if (description) {
+               const page = normalizedDoc.pages.find(p => p.pageNumber === pageNum);
+               if (page) {
+                 page.textBlocks.push(`\n[Visual Description]: ${description}`);
+                 console.log(`[Enrichment] Added description to Page ${pageNum}`);
+               }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("[Enrichment] Failed:", err);
+      }
     }
   }
 
@@ -153,22 +214,23 @@ export async function normalizeDocument(
 /**
  * Chunk the normalized document pages
  */
-export function chunkPages(pages: PageContent[]): DocumentChunk[] {
+export async function chunkPages(pages: PageContent[]): Promise<DocumentChunk[]> {
   const pageSizes = pages.map((page, idx) => {
     const textLength = page.textBlocks.join("").length;
     return `Page ${idx + 1}: ${textLength} chars, ${page.textBlocks.length} blocks, ${page.tables.length} tables`;
   });
   console.log(`[Chunking] Page content sizes:\n${pageSizes.join("\n")}`);
 
-  const documentChunks = chunkDocument(pages, {
-    maxTokens: 500,
+  const documentChunks = await chunkDocument(pages, {
+    parentMaxTokens: 1000,
+    childMaxTokens: 256,
     overlapTokens: 50,
     includePageContext: true,
   });
-  console.log(`[Chunking] Created ${documentChunks.length} chunks`);
+  console.log(`[Chunking] Created ${documentChunks.length} Parent chunks`);
 
   documentChunks.forEach((chunk, idx) => {
-    console.log(`[Chunking] Chunk ${idx}: ${chunk.content.length} chars, page ${chunk.metadata.pageNumber}, type ${chunk.type}`);
+    console.log(`[Chunking] Parent Chunk ${idx}: ${chunk.content.length} chars, ${chunk.children?.length ?? 0} children`);
   });
 
   return documentChunks;
@@ -187,9 +249,9 @@ export async function vectorizeChunks(chunks: DocumentChunk[]): Promise<Vectoriz
     return [];
   }
 
-  console.log(`[Vectorize] Preparing ${chunks.length} chunks for embedding (model=text-embedding-3-large, dims=1536)`);
+  console.log(`[Vectorize] Preparing ${chunks.length} Parent chunks (and children) for embedding`);
   const contentStrings = prepareForEmbedding(chunks);
-  console.log(`[Vectorize] Content strings prepared, total chars=${contentStrings.reduce((s, c) => s + c.length, 0)}`);
+  console.log(`[Vectorize] Flattened to ${contentStrings.length} Child/Table chunks for embedding, total chars=${contentStrings.reduce((s, c) => s + c.length, 0)}`);
 
   const embedStart = Date.now();
   const embeddingResult = await generateEmbeddings(contentStrings, {
@@ -200,7 +262,7 @@ export async function vectorizeChunks(chunks: DocumentChunk[]): Promise<Vectoriz
   console.log(`[Vectorize] Embeddings generated: ${embeddingResult.embeddings.length} vectors (${Date.now() - embedStart}ms)`);
 
   const merged = mergeWithEmbeddings(chunks, embeddingResult.embeddings);
-  console.log(`[Vectorize] Merged ${merged.length} vectorized chunks`);
+  console.log(`[Vectorize] Merged back into ${merged.length} Parent chunks`);
   return merged;
 }
 
@@ -219,7 +281,7 @@ export interface StoredSection {
 
 /**
  * Store vectorized chunks in the database.
- * Returns an array of { sectionId, content } for each inserted section,
+ * Returns an array of { sectionId, content } for each inserted section (Context Chunk),
  * which downstream steps (e.g. entity extraction) can use.
  */
 export async function storeDocument(
@@ -236,7 +298,7 @@ export async function storeDocument(
 
   const storeStart = Date.now();
   console.log(
-    `[Storage] Storing ${vectorizedChunks.length} chunks for docId=${documentId}, job=${jobId}, ` +
+    `[Storage] Storing ${vectorizedChunks.length} Parent chunks for docId=${documentId}, job=${jobId}, ` +
     `pages=${normalizationResult.pages.length}`
   );
 
@@ -261,32 +323,53 @@ export async function storeDocument(
     throw new Error("Failed to create root document structure");
   }
 
-  // 2. Insert document sections with embeddings
-  console.log(`[Storage] 2/5 Inserting ${vectorizedChunks.length} document sections...`);
+  // 2. Insert document context chunks (Parents) and retrieval chunks (Children)
+  console.log(`[Storage] 2/5 Inserting ${vectorizedChunks.length} document context chunks...`);
   const storedSections: StoredSection[] = [];
 
   for (const chunk of vectorizedChunks) {
     const contentHash = crypto.createHash("sha256").update(chunk.content).digest("hex");
     const isTable = chunk.metadata.isTable;
 
-    const [row] = await db.insert(documentSections).values({
+    // Insert Parent (Context Chunk)
+    const [row] = await db.insert(documentContextChunks).values({
       documentId: BigInt(documentId),
       structureId: BigInt(rootId),
       content: chunk.content,
       tokenCount: Math.ceil(chunk.content.length / 4),
       charCount: chunk.content.length,
-      embedding: sql`${JSON.stringify(chunk.vector)}::vector(1536)`,
+      // Parent chunks might not have embeddings in this architecture
+      // But if 'vector' is present and not empty, use it. In new chunker, parent vector is empty.
+      embedding: chunk.vector && chunk.vector.length > 0 
+          ? sql`${JSON.stringify(chunk.vector)}::vector(1536)` 
+          : null,
       pageNumber: chunk.metadata.pageNumber,
       semanticType: isTable ? "tabular" : "narrative",
       contentHash,
-    }).returning({ id: documentSections.id });
+    }).returning({ id: documentContextChunks.id });
 
     if (row) {
       storedSections.push({ sectionId: row.id, content: chunk.content });
+
+      // Insert Children (Retrieval Chunks)
+      if (chunk.children && chunk.children.length > 0) {
+          for (const child of chunk.children) {
+              await db.insert(documentRetrievalChunks).values({
+                  contextChunkId: BigInt(row.id),
+                  documentId: BigInt(documentId),
+                  content: child.content,
+                  tokenCount: Math.ceil(child.content.length / 4),
+                  embedding: sql`${JSON.stringify(child.vector)}::vector(1536)`,
+                  embeddingShort: child.vectorShort 
+                      ? sql`${JSON.stringify(child.vectorShort)}::vector(512)` 
+                      : null,
+              });
+          }
+      }
     }
   }
 
-  console.log(`[Storage] 2/5 Done: ${storedSections.length} sections inserted`);
+  console.log(`[Storage] 2/5 Done: ${storedSections.length} context chunks inserted`);
 
   // 3. Create document metadata for planning layer
   console.log("[Storage] 3/5 Creating document metadata...");
@@ -397,30 +480,49 @@ export async function processDocumentSync(
       .where(eq(ocrJobs.id, jobId));
 
     // Detect whether the new ingestion layer should handle this file.
-    // PDFs still go through the original pipeline. Office extensions always use ingestion.
-    const isPdf =
-      !isKnownOfficeDocument(documentName) &&
+    // PDFs still go through the original pipeline.
+    // Office files go through the original pipeline IF Azure is configured; otherwise ingestion.
+    const isOffice = isKnownOfficeDocument(documentName);
+    const hasAzure = !!process.env.AZURE_DOC_INTELLIGENCE_KEY && !!process.env.AZURE_DOC_INTELLIGENCE_ENDPOINT;
+
+    const isPdfCandidate =
+      !isOffice &&
       (!mimeType ||
         mimeType === "application/pdf" ||
         documentName.toLowerCase().endsWith(".pdf"));
+
+    const useMainPipeline = isPdfCandidate || (isOffice && hasAzure);
+
     console.log(
-      `[Processor] isPdf=${isPdf} (mimeType=${mimeType ?? "undefined"}, ` +
-        `nameEndsPdf=${documentName.toLowerCase().endsWith(".pdf")}, officeExt=${isKnownOfficeDocument(documentName)})`
+      `[Processor] useMainPipeline=${useMainPipeline} (isPdf=${isPdfCandidate}, isOffice=${isOffice}, hasAzure=${hasAzure})`
     );
 
     let normalizationResult: NormalizationResult;
 
-    if (isPdf) {
-      // --- Original PDF pipeline (Steps A + B) ---
-      const stepAStart = Date.now();
-      console.log(`[Processor] Step A: Routing PDF document ${documentId}...`);
-      const routerDecision = await routeDocument(documentUrl, options);
-      console.log(
-        `[Processor] Step A done (${Date.now() - stepAStart}ms): ` +
-        `isNative=${routerDecision.isNativePDF}, provider=${routerDecision.selectedProvider}, ` +
-        `pages=${routerDecision.pageCount}, confidence=${routerDecision.confidence}, ` +
-        `vision=${routerDecision.visionLabel ?? "none"}, reason="${routerDecision.reason}"`
-      );
+    if (useMainPipeline) {
+      let routerDecision: RouterDecisionResult;
+
+      if (isOffice) {
+        console.log(`[Processor] Routing Office document to Azure (keys available)`);
+        routerDecision = {
+          isNativePDF: false,
+          pageCount: 0, // Unknown until processed
+          selectedProvider: "AZURE",
+          confidence: 1.0,
+          reason: "Office document processed via Azure",
+        };
+      } else {
+        // --- Original PDF pipeline (Steps A + B) ---
+        const stepAStart = Date.now();
+        console.log(`[Processor] Step A: Routing PDF document ${documentId}...`);
+        routerDecision = await routeDocument(documentUrl, options);
+        console.log(
+          `[Processor] Step A done (${Date.now() - stepAStart}ms): ` +
+          `isNative=${routerDecision.isNativePDF}, provider=${routerDecision.selectedProvider}, ` +
+          `pages=${routerDecision.pageCount}, confidence=${routerDecision.confidence}, ` +
+          `vision=${routerDecision.visionLabel ?? "none"}, reason="${routerDecision.reason}"`
+        );
+      }
 
       const stepBStart = Date.now();
       console.log(`[Processor] Step B: Normalizing with ${routerDecision.selectedProvider}...`);
@@ -458,7 +560,7 @@ export async function processDocumentSync(
     // Step C: Chunking
     const stepCStart = Date.now();
     console.log(`[Processor] Step C: Chunking ${normalizationResult.pages.length} pages...`);
-    const chunks = chunkPages(normalizationResult.pages);
+    const chunks = await chunkPages(normalizationResult.pages);
     console.log(`[Processor] Step C done (${Date.now() - stepCStart}ms): ${chunks.length} chunks`);
 
     // Step D: Vectorize
@@ -627,3 +729,10 @@ export async function processWithLandingAI(documentUrl: string): Promise<Normali
   return adapter.uploadDocument(documentUrl);
 }
 
+/**
+ * Process document with Datalab
+ */
+export async function processWithDatalab(documentUrl: string): Promise<NormalizedDocument> {
+  const adapter = createDatalabAdapter();
+  return adapter.uploadDocument(documentUrl);
+}

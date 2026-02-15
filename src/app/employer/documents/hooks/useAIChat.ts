@@ -6,7 +6,7 @@ export interface AIChatRequest {
   question: string;
   searchScope: 'document' | 'company';
   aiModel?: 'gpt-4o' | 'gpt-5.2' | 'gpt-5.1' | 'claude-sonnet-4' | 'claude-opus-4.5' | 'gemini-2.5-flash' | 'gemini-3-flash' | 'gemini-3-pro';
-  style?: 'concise' | 'detailed' | 'academic' | 'bullet-points';
+  style?: string;
   enableWebSearch?: boolean;
   conversationHistory?: string;
   aiPersona?: 'general' | 'learning-coach' | 'financial-expert' | 'legal-expert' | 'math-reasoning';

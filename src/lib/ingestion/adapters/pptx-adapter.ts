@@ -32,6 +32,32 @@ export class PptxAdapter implements SourceAdapter {
     );
 
     const JSZip = (await import("jszip")).default;
+
+    // #region agent log
+    try {
+      const typeGlobalFile = typeof global.File;
+      const typeGlobalThisFile = typeof globalThis.File;
+      await fetch('http://127.0.0.1:7243/ingest/bcb599e5-0995-455d-900a-f795e258dd22',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'pptx-adapter.ts:35',message:'Before polyfill',data:{typeGlobalFile, typeGlobalThisFile, nodeVersion: process.version},timestamp:Date.now()})}).catch(() => void 0);
+    } catch {}
+    // #endregion
+
+    // Polyfill File for Node.js < 20 (required by cheerio/undici)
+    if (!globalThis.File) {
+      const { File } = await import("node:buffer");
+      // @ts-expect-error - polyfill File for Node.js < 20 environment
+      globalThis.File = File;
+      // @ts-expect-error - polyfill File for Node.js < 20 environment
+      global.File = File;
+    }
+
+    // #region agent log
+    try {
+      const typeGlobalFile = typeof global.File;
+      const typeGlobalThisFile = typeof globalThis.File;
+      await fetch('http://127.0.0.1:7243/ingest/bcb599e5-0995-455d-900a-f795e258dd22',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'pptx-adapter.ts:47',message:'After polyfill',data:{typeGlobalFile, typeGlobalThisFile},timestamp:Date.now()})}).catch(() => void 0);
+    } catch {}
+    // #endregion
+
     const cheerio = await import("cheerio");
 
     const buffer = await this.resolveBuffer(input);

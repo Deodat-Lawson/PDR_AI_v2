@@ -95,7 +95,7 @@ interface AzureOperationResponse {
 }
 
 const AZURE_SUPPORTED_FORMATS =
-  "PDF, JPEG, PNG, BMP, TIFF, and other image formats. Office formats (DOCX, PPTX, XLSX) are not supported by Azure Document Intelligence.";
+  "PDF, JPEG, PNG, BMP, TIFF, HEIF, DOCX, PPTX, XLSX, and other common formats.";
 
 /**
  * Parse Azure Document Intelligence error response into a clear message.

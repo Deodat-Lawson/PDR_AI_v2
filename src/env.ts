@@ -11,9 +11,6 @@ const optionalString = () =>
 
 const serverSchema = z.object({
   DATABASE_URL: z.preprocess(normalize, z.string().url()),
-  NODE_ENV: z
-    .enum(["development", "test", "production"])
-    .default("development"),
   OPENAI_API_KEY: requiredString(),
   CLERK_SECRET_KEY: requiredString(),
   UPLOADTHING_TOKEN: optionalString(),
@@ -71,7 +68,6 @@ const parseEnv = <T extends z.AnyZodObject>(
 function parseServerEnv() {
   const server = parseEnv(serverSchema, {
     DATABASE_URL: process.env.DATABASE_URL,
-    NODE_ENV: process.env.NODE_ENV,
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
     CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY,
     UPLOADTHING_TOKEN: process.env.UPLOADTHING_TOKEN,
@@ -88,7 +84,6 @@ function parseServerEnv() {
     SIDECAR_URL: process.env.SIDECAR_URL,
   });
   if (
-    server.NODE_ENV === "production" &&
     (server.INNGEST_EVENT_KEY == null || server.INNGEST_EVENT_KEY.length === 0)
   ) {
     throw new Error("INNGEST_EVENT_KEY is required in production");

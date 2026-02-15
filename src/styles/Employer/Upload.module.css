@@ -830,3 +830,95 @@
 [data-theme="dark"] .uploadArea :global([data-ut-element="allowed-content"]) {
     @apply text-gray-400;
 }
+
+/* Radio Group - Processing Method Selection */
+.radioGroup {
+    @apply grid grid-cols-1 md:grid-cols-2 gap-4 mt-2;
+}
+
+.radioOption {
+    @apply relative flex cursor-pointer rounded-xl border-2 border-gray-200 bg-white/50
+    transition-all duration-200 p-4;
+    @apply hover:border-purple-300 hover:bg-white;
+}
+
+.radioOptionSelected {
+    @apply border-purple-600 bg-purple-50;
+    @apply hover:border-purple-600 hover:bg-purple-50;
+}
+
+.hiddenRadio {
+    @apply sr-only;
+}
+
+.radioContent {
+    @apply flex items-center gap-4;
+}
+
+.radioIconWrapper {
+    @apply flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-500
+    transition-colors duration-200;
+}
+
+.radioOptionSelected .radioIconWrapper {
+    @apply bg-purple-100 text-purple-600;
+}
+
+.radioIcon {
+    @apply h-6 w-6;
+}
+
+.radioText {
+    @apply flex flex-col;
+}
+
+.radioTitle {
+    @apply text-sm font-semibold text-gray-900;
+}
+
+.radioOptionSelected .radioTitle {
+    @apply text-purple-900;
+}
+
+.radioDescription {
+    @apply text-xs text-gray-500;
+}
+
+.radioOptionSelected .radioDescription {
+    @apply text-purple-700;
+}
+
+/* Dark Theme Overrides for Radio Group */
+[data-theme="dark"] .radioOption {
+    @apply border-purple-500/20 bg-slate-800/60;
+    @apply hover:border-purple-400/40 hover:bg-slate-700/60;
+}
+
+[data-theme="dark"] .radioOptionSelected {
+    @apply border-purple-500 bg-purple-900/20;
+    @apply hover:border-purple-400 hover:bg-purple-900/30;
+}
+
+[data-theme="dark"] .radioIconWrapper {
+    @apply bg-slate-700 text-gray-400;
+}
+
+[data-theme="dark"] .radioOptionSelected .radioIconWrapper {
+    @apply bg-purple-900/40 text-purple-300;
+}
+
+[data-theme="dark"] .radioTitle {
+    @apply text-gray-200;
+}
+
+[data-theme="dark"] .radioOptionSelected .radioTitle {
+    @apply text-white;
+}
+
+[data-theme="dark"] .radioDescription {
+    @apply text-gray-400;
+}
+
+[data-theme="dark"] .radioOptionSelected .radioDescription {
+    @apply text-purple-300;
+}

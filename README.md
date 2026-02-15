@@ -59,7 +59,6 @@ Optional integrations:
 
 ```bash
 chmod +x start-database.sh
-./start-database.sh
 pnpm db:push
 ```
 
@@ -78,13 +77,13 @@ Open `http://localhost:3000`.
 Runs `db` + `migrate` + `app` via Compose:
 
 ```bash
-docker compose --env-file .env up
+docker compose --env-file .env --profile dev up
 ```
 
 Detached mode:
 
 ```bash
-docker compose --env-file .env up -d
+docker compose --env-file .env --profile dev up -d
 ```
 
 ### Method 2: App container only (external DB)

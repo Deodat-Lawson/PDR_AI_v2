@@ -307,7 +307,7 @@ export async function POST(request: Request) {
 
             return NextResponse.json({
                 success: false,
-                error: process.env.NODE_ENV === 'development' ? String(error) : undefined,
+                error: String(error) ?? "Unknown error",
                 message,
                 errorType,
                 timestamp: new Date().toISOString()

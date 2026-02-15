@@ -100,6 +100,8 @@ export interface DocumentChunk {
   type: ChunkType;
   /** Metadata for retrieval context */
   metadata: ChunkMetadata;
+  /** Sub-chunks for finer retrieval (Parent-Child architecture) */
+  children?: DocumentChunk[];
 }
 
 /**
@@ -116,6 +118,8 @@ export interface ChunkMetadata {
   /** Source document info */
   documentId?: number;
   documentTitle?: string;
+  /** Structure path for contextual retrieval */
+  structurePath?: string;
 }
 
 /**
@@ -125,6 +129,10 @@ export interface VectorizedChunk {
   content: string;
   metadata: ChunkMetadata;
   vector: number[];
+  /** Matryoshka 512-dim embedding for fast index */
+  vectorShort?: number[]; 
+  /** Vectorized children */
+  children?: VectorizedChunk[];
 }
 
 /**

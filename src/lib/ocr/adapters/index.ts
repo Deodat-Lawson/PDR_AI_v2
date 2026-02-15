@@ -5,4 +5,5 @@
 
 export { createAzureAdapter } from "./azureAdapter";
 export { createLandingAIAdapter } from "./landingAdapter";
+export { createDatalabAdapter } from "./datalabAdapter";
 
