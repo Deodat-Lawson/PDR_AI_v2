@@ -34,7 +34,8 @@ jobs:
       DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED }}
       POSTGRES_PRISMA_URL: ${{ secrets.POSTGRES_PRISMA_URL}}
       POSTGRES_URL: ${{ secrets.POSTGRES_URL }} 
-
+      INNGEST_EVENT_KEY: ${{ secrets.INNGEST_EVENT_KEY }} 
+  
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -85,7 +86,8 @@ jobs:
       DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED }}
       POSTGRES_PRISMA_URL: ${{ secrets.POSTGRES_PRISMA_URL}}
       POSTGRES_URL: ${{ secrets.POSTGRES_URL }} 
-    
+      INNGEST_EVENT_KEY: ${{ secrets.INNGEST_EVENT_KEY }} 
+      
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
