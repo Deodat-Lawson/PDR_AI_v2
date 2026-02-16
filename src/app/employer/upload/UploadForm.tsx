@@ -1,13 +1,26 @@
 "use client";
 
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import { Calendar, FileText, FolderPlus, Plus, Upload, Cloud, Database, ExternalLink, AlertCircle, Cpu, Brain } from "lucide-react";
 import Link from "next/link";
-import { UploadDropzone } from "~/app/utils/uploadthing";
+import dynamic from "next/dynamic";
 import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { isUploadAccepted, UPLOAD_ACCEPT_STRING } from "~/lib/upload-accepted";
 import styles from "~/styles/Employer/Upload.module.css";
+
+const UploadDropzone = dynamic(
+    () => import("~/app/utils/uploadthing").then((module) => module.UploadDropzone),
+    {
+        ssr: false,
+        loading: () => (
+            <div className={styles.uploadArea}>
+                <Upload className={styles.uploadIcon} />
+                <p className={styles.uploadText}>Loading uploader...</p>
+            </div>
+        ),
+    }
+);
 
 const UNSUPPORTED_FILE_TYPE_MESSAGE =
     "Unsupported file type. Please upload a document or image.";
@@ -63,6 +76,13 @@ const UploadForm: React.FC<UploadFormProps> = ({
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [isDragActive, setIsDragActive] = useState(false);
+    const [cloudUploaderActivated, setCloudUploaderActivated] = useState(false);
+
+    useEffect(() => {
+        if (!useUploadThing) {
+            setCloudUploaderActivated(false);
+        }
+    }, [useUploadThing]);
 
     // --- Handlers ---
     const handleInputChange = (
@@ -247,6 +267,27 @@ const UploadForm: React.FC<UploadFormProps> = ({
 
         // Use UploadThing if enabled
         if (useUploadThing) {
+            if (!cloudUploaderActivated) {
+                return (
+                    <div className={styles.uploadArea}>
+                        <Cloud className={styles.uploadIcon} />
+                        <p className={styles.uploadText}>
+                            Cloud uploader is ready when you need it.
+                        </p>
+                        <p className={styles.uploadHint}>
+                            Load it only when you are about to upload.
+                        </p>
+                        <button
+                            type="button"
+                            className={styles.browseButton}
+                            onClick={() => setCloudUploaderActivated(true)}
+                        >
+                            Load Cloud Uploader
+                        </button>
+                    </div>
+                );
+            }
+
             return (
                 <UploadDropzone
                     endpoint="documentUploaderRestricted"

@@ -90,21 +90,7 @@ const SettingsPage = () => {
 
         const checkEmployerAndFetchCompany = async () => {
             try {
-                // 1) Verify the user is an employer
-                const response = await fetch("/api/employerAuth", {
-                    method: "GET",
-                });
-
-                if (response.status === 300) {
-                    router.push("/employee/pending-approval");
-                    return;
-                } else if (!response.ok) {
-                    window.alert("Authentication failed! You are not an employer.");
-                    router.push("/");
-                    return;
-                }
-
-                // 2) Fetch company info
+                // Fetch company info after middleware-authenticated navigation.
                 const companyResponse = await fetch("/api/fetchCompany", {
                     method: "GET",
                 });

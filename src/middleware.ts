@@ -5,6 +5,11 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { eq } from "drizzle-orm";
 import { users } from "~/server/db/schema";
 
+const shouldLogPerf =
+    process.env.NODE_ENV === "development" &&
+    (process.env.DEBUG_PERF === "1" || process.env.DEBUG_PERF === "true");
+const middlewareUserCacheTtlMs = 10_000;
+
 // Routes that require authentication
 const isProtectedRoute = createRouteMatcher([
     '/employer(.*)',
@@ -40,62 +45,112 @@ const getDb = () => {
     return _middlewareDb;
 };
 
+type CachedUserValue = {
+    role: string;
+    status: string;
+};
+
+const middlewareUserCache = new Map<string, {
+    value: CachedUserValue;
+    expiresAt: number;
+}>();
+
+const getCachedMiddlewareUser = (userId: string): CachedUserValue | undefined => {
+    const cached = middlewareUserCache.get(userId);
+    if (!cached) {
+        return undefined;
+    }
+    if (cached.expiresAt < Date.now()) {
+        middlewareUserCache.delete(userId);
+        return undefined;
+    }
+    return cached.value;
+};
+
+const setCachedMiddlewareUser = (userId: string, value: CachedUserValue) => {
+    middlewareUserCache.set(userId, {
+        value,
+        expiresAt: Date.now() + middlewareUserCacheTtlMs,
+    });
+};
+
 export default clerkMiddleware(async (auth, req) => {
+    const requestStart = Date.now();
+    let dbQueryMs: number | null = null;
     const { userId } = await auth();
     const pathname = req.nextUrl.pathname;
-    
-    // Skip API routes and static files for redirect logic
-    if (pathname.startsWith('/api/') || pathname.startsWith('/_next/')) {
+
+    try {
+        // Skip API routes and static files for redirect logic
+        if (pathname.startsWith('/api/') || pathname.startsWith('/_next/')) {
+            if (isProtectedRoute(req) && !isPublicRoute(req)) {
+                await auth.protect({ unauthenticatedUrl: new URL('/signin', req.url).toString() });
+            }
+            return;
+        }
+
+        // Protect routes that require authentication
         if (isProtectedRoute(req) && !isPublicRoute(req)) {
             await auth.protect({ unauthenticatedUrl: new URL('/signin', req.url).toString() });
         }
-        return;
-    }
 
-    // Protect routes that require authentication
-    if (isProtectedRoute(req) && !isPublicRoute(req)) {
-        await auth.protect({ unauthenticatedUrl: new URL('/signin', req.url).toString() });
-    }
+        // Route authenticated users based on their DB role + status
+        if (userId && (isAuthRedirectRoute(req) || isProtectedRoute(req))) {
+            const hasCodeParam = pathname === '/signup' && req.nextUrl.searchParams.has('code');
 
-    // Route authenticated users based on their DB role + status
-    if (userId && (isAuthRedirectRoute(req) || isProtectedRoute(req))) {
-        const hasCodeParam = pathname === '/signup' && req.nextUrl.searchParams.has('code');
-
-        try {
-            const db = getDb();
-            const [existingUser] = await db
-                .select({ role: users.role, status: users.status })
-                .from(users)
-                .where(eq(users.userId, userId));
-
-            if (!existingUser) {
-                // User exists in Clerk but not in DB – send to signup to finish registration
-                if (pathname !== '/signup') {
-                    return NextResponse.redirect(new URL('/signup', req.url));
+            try {
+                const cachedUser = getCachedMiddlewareUser(userId);
+                let existingUser = cachedUser;
+                if (cachedUser === undefined) {
+                    const db = getDb();
+                    const dbStart = Date.now();
+                    const [queriedUser] = await db
+                        .select({ role: users.role, status: users.status })
+                        .from(users)
+                        .where(eq(users.userId, userId));
+                    dbQueryMs = Date.now() - dbStart;
+                    existingUser = queriedUser;
+                    // Only cache verified users to avoid stale pending/signup states.
+                    if (existingUser && existingUser.status === "verified") {
+                        setCachedMiddlewareUser(userId, existingUser);
+                    }
                 }
-            } else if (hasCodeParam) {
-                // Let the signup page handle the "already registered" error
-                return;
-            } else if (existingUser.status !== "verified") {
-                // User is pending approval – redirect to the correct pending page
-                const pendingPath = existingUser.role === "employee"
-                    ? '/employee/pending-approval'
-                    : '/employer/pending-approval';
-                if (pathname !== pendingPath) {
-                    return NextResponse.redirect(new URL(pendingPath, req.url));
+
+                if (!existingUser) {
+                    // User exists in Clerk but not in DB – send to signup to finish registration
+                    if (pathname !== '/signup') {
+                        return NextResponse.redirect(new URL('/signup', req.url));
+                    }
+                } else if (hasCodeParam) {
+                    // Let the signup page handle the "already registered" error
+                    return;
+                } else if (existingUser.status !== "verified") {
+                    // User is pending approval – redirect to the correct pending page
+                    const pendingPath = existingUser.role === "employee"
+                        ? '/employee/pending-approval'
+                        : '/employer/pending-approval';
+                    if (pathname !== pendingPath) {
+                        return NextResponse.redirect(new URL(pendingPath, req.url));
+                    }
+                } else if (isAuthRedirectRoute(req)) {
+                    // Verified user on / or /signup – send to their dashboard
+                    if (existingUser.role === "employer" || existingUser.role === "owner") {
+                        return NextResponse.redirect(new URL('/employer/home', req.url));
+                    } else if (existingUser.role === "employee") {
+                        return NextResponse.redirect(new URL('/employee/documents', req.url));
+                    }
                 }
-            } else if (isAuthRedirectRoute(req)) {
-                // Verified user on / or /signup – send to their dashboard
-                if (existingUser.role === "employer" || existingUser.role === "owner") {
-                    return NextResponse.redirect(new URL('/employer/home', req.url));
-                } else if (existingUser.role === "employee") {
-                    return NextResponse.redirect(new URL('/employee/documents', req.url));
-                }
+                // Verified user on a protected route – let through
+            } catch (error) {
+                // If DB query fails, let the request continue without redirect
+                console.error("Middleware DB query failed:", error);
             }
-            // Verified user on a protected route – let through
-        } catch (error) {
-            // If DB query fails, let the request continue without redirect
-            console.error("Middleware DB query failed:", error);
+        }
+    } finally {
+        if (shouldLogPerf) {
+            const totalMs = Date.now() - requestStart;
+            const dbSegment = dbQueryMs == null ? "n/a" : `${dbQueryMs}ms`;
+            console.info(`[perf] middleware path=${pathname} total=${totalMs}ms db=${dbSegment}`);
         }
     }
 });

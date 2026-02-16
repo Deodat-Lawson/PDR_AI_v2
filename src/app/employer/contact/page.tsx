@@ -30,29 +30,8 @@ const EmployerContactPage = () => {
             return;
         }
 
-        const checkEmployerRole = async () => {
-            try {
-                const response = await fetch("/api/employerAuth", {
-                    method: "GET",
-                });
-
-                if (response.status === 300) {
-                    router.push("/employee/pending-approval");
-                    return;
-                } else if (!response.ok) {
-                    window.alert("Authentication failed! You are not an employer.");
-                    router.push("/");
-                    return;
-                }
-            } catch (error) {
-                console.error("Error checking employer role:", error);
-                router.push("/");
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        checkEmployerRole().catch(console.error);
+        // Middleware already enforces role and status for /employer routes.
+        setLoading(false);
     }, [userId, router, isLoaded]);
 
     const handleInputChange = (

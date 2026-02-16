@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { db } from "../../../server/db/index";
-import { document, users, fileUploads } from "../../../server/db/schema";
+import { dbCore } from "../../../server/db/core";
+import { document, users, fileUploads } from "../../../server/db/schema/base";
 import { eq, inArray } from "drizzle-orm";
 import { validateRequestBody, UserIdSchema } from "~/lib/validation";
 import { auth } from '@clerk/nextjs/server';
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
             );
         }
 
-        const [userInfo] = await db
+        const [userInfo] = await dbCore
             .select()
             .from(users)
             .where(eq(users.userId, userId));
@@ -72,7 +72,7 @@ export async function POST(request: Request) {
 
         const companyId = userInfo.companyId;
 
-        const docs = await db
+        const docs = await dbCore
             .select()
             .from(document)
             .where(eq(document.companyId, companyId));
@@ -89,7 +89,7 @@ export async function POST(request: Request) {
 
         let mimeByFileId: Record<number, string> = {};
         if (uniqueFileIds.length > 0) {
-            const rows = await db
+            const rows = await dbCore
                 .select({ id: fileUploads.id, mimeType: fileUploads.mimeType })
                 .from(fileUploads)
                 .where(inArray(fileUploads.id, uniqueFileIds));

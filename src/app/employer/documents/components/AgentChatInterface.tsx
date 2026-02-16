@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
+import dynamic from "next/dynamic";
 import { 
   Sparkles, 
   Send, 
@@ -16,8 +17,16 @@ import {
 } from 'lucide-react';
 import { useAIChatbot, type Message } from '../hooks/useAIChatbot';
 import { useAIChat } from '../hooks/useAIChat';
-import MarkdownMessage from "~/app/_components/MarkdownMessage";
 import { cn } from '~/lib/utils';
+
+const MarkdownMessage = dynamic(
+  () => import("~/app/_components/MarkdownMessage"),
+  {
+    loading: () => (
+      <div className="text-sm text-muted-foreground">Rendering response...</div>
+    ),
+  }
+);
 
 interface AgentChatInterfaceProps {
   chatId: string | null;

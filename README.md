@@ -55,6 +55,7 @@ Optional integrations:
 - `AZURE_DOC_INTELLIGENCE_ENDPOINT`, `AZURE_DOC_INTELLIGENCE_KEY`
 - `LANDING_AI_API_KEY`, `DATALAB_API_KEY`
 - `LANGCHAIN_TRACING_V2`, `LANGCHAIN_API_KEY`, `LANGCHAIN_PROJECT`
+- `DEBUG_PERF` (`1` or `true`) to enable dev perf logs for middleware and key auth/dashboard APIs
 
 ### 3) Start database and apply schema
 
