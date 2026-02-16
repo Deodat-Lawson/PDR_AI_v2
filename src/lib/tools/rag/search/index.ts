@@ -6,4 +6,4 @@ export {
   documentEnsembleSearch,
   companyEnsembleSearch,
   multiDocEnsembleSearch,
-} from "~/lib/tools/rag/search/ensemble-search";
+} from "./ensemble-search";

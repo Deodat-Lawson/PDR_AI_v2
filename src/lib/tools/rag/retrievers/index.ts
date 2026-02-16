@@ -3,6 +3,9 @@ export {
   createDocumentVectorRetriever,
   createCompanyVectorRetriever,
   createMultiDocVectorRetriever,
+} from "./vector-retriever";
+
+export {
   getDocumentChunks,
   getCompanyChunks,
   getMultiDocChunks,
@@ -10,13 +13,14 @@ export {
   createDocumentBM25Retriever,
   createCompanyBM25Retriever,
   createMultiDocBM25Retriever,
+} from "./bm25-retriever";
+
+export {
   RLMRetriever,
   createRLMRetriever,
   getDocumentSummary,
   getStructureContent,
-  GraphRetriever,
-  createGraphRetriever,
-} from "~/lib/tools/rag/retrievers";
+} from "./rlm-retriever";
 
 export type {
   DocumentOverview,
@@ -26,5 +30,6 @@ export type {
   WorkspaceEntry,
   TokenBudgetOptions,
   WorkspaceStoreOptions,
-} from "~/lib/tools/rag/retrievers";
+} from "./rlm-retriever";
 
+export { GraphRetriever, createGraphRetriever } from "./graph-retriever";

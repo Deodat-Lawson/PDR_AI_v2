@@ -24,7 +24,7 @@ import {
   multiDocEnsembleSearch,
   validateDocumentAccess,
   formatResultsForPrompt,
-} from "~/server/rag";
+} from "~/lib/tools/rag";
 import { runStudyBuddyAgent } from "../agentic/orchestrator";
 import type { StudyMode } from "../agentic/types";
 

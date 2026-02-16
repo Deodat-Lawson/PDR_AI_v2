@@ -8,7 +8,7 @@ import {
     type RetrievalMethod,
     type DocumentSearchOptions,
     type SearchResult
-} from "~/server/rag";
+} from "~/lib/tools/rag";
 import { validateRequestBody, QuestionSchema } from "~/lib/validation";
 import { auth } from "@clerk/nextjs/server";
 import { qaRequestCounter, qaRequestDuration } from "~/server/metrics/registry";

@@ -8,7 +8,7 @@ import type { RoutingDecision } from "~/lib/ocr/complexity";
 import { renderPagesToImages } from "~/lib/ocr/complexity";
 import { enrichPageWithVlm } from "~/lib/ocr/enrichment";
 import { createAzureAdapter, createLandingAIAdapter, createDatalabAdapter } from "~/lib/ocr/adapters";
-import { chunkDocument, mergeWithEmbeddings, prepareForEmbedding, getTotalChunkSize } from "~/lib/ocr/chunker";
+import { chunkDocument, mergeWithEmbeddings, prepareForEmbedding } from "~/lib/ocr/chunker";
 import { generateEmbeddings } from "~/lib/ai/embeddings";
 import { db } from "~/server/db";
 import {
@@ -460,205 +460,14 @@ export async function markJobFailed(jobId: string, error: Error): Promise<void> 
 export async function processDocumentSync(
   eventData: ProcessDocumentEventData
 ): Promise<PipelineResult> {
-  const { jobId, documentUrl, documentId, documentName, companyId, mimeType, options } = eventData;
-  const pipelineStartTime = Date.now();
-
-  try {
-    console.log(
-      `[Processor] ========== START job=${jobId}, docId=${documentId} ==========\n` +
-      `[Processor] name="${documentName}", url="${documentUrl.substring(0, 100)}", ` +
-      `mime=${mimeType ?? "not provided"}, provider=${options?.preferredProvider ?? "auto"}, forceOCR=${options?.forceOCR ?? false}`
-    );
-
-    // Update job status to processing
-    await db
-      .update(ocrJobs)
-      .set({
-        status: "processing",
-        startedAt: new Date(),
-      })
-      .where(eq(ocrJobs.id, jobId));
-
-    // Detect whether the new ingestion layer should handle this file.
-    // PDFs still go through the original pipeline.
-    // Office files go through the original pipeline IF Azure is configured; otherwise ingestion.
-    const isOffice = isKnownOfficeDocument(documentName);
-    const hasAzure = !!process.env.AZURE_DOC_INTELLIGENCE_KEY && !!process.env.AZURE_DOC_INTELLIGENCE_ENDPOINT;
-
-    const isPdfCandidate =
-      !isOffice &&
-      (!mimeType ||
-        mimeType === "application/pdf" ||
-        documentName.toLowerCase().endsWith(".pdf"));
-
-    const useMainPipeline = isPdfCandidate || (isOffice && hasAzure);
-
-    console.log(
-      `[Processor] useMainPipeline=${useMainPipeline} (isPdf=${isPdfCandidate}, isOffice=${isOffice}, hasAzure=${hasAzure})`
-    );
-
-    let normalizationResult: NormalizationResult;
-
-    if (useMainPipeline) {
-      let routerDecision: RouterDecisionResult;
-
-      if (isOffice) {
-        console.log(`[Processor] Routing Office document to Azure (keys available)`);
-        routerDecision = {
-          isNativePDF: false,
-          pageCount: 0, // Unknown until processed
-          selectedProvider: "AZURE",
-          confidence: 1.0,
-          reason: "Office document processed via Azure",
-        };
-      } else {
-        // --- Original PDF pipeline (Steps A + B) ---
-        const stepAStart = Date.now();
-        console.log(`[Processor] Step A: Routing PDF document ${documentId}...`);
-        routerDecision = await routeDocument(documentUrl, options);
-        console.log(
-          `[Processor] Step A done (${Date.now() - stepAStart}ms): ` +
-          `isNative=${routerDecision.isNativePDF}, provider=${routerDecision.selectedProvider}, ` +
-          `pages=${routerDecision.pageCount}, confidence=${routerDecision.confidence}, ` +
-          `vision=${routerDecision.visionLabel ?? "none"}, reason="${routerDecision.reason}"`
-        );
-      }
-
-      const stepBStart = Date.now();
-      console.log(`[Processor] Step B: Normalizing with ${routerDecision.selectedProvider}...`);
-      normalizationResult = await normalizeDocument(documentUrl, routerDecision);
-      console.log(
-        `[Processor] Step B done (${Date.now() - stepBStart}ms): ` +
-        `pages=${normalizationResult.pages.length}, provider=${normalizationResult.provider}, ` +
-        `ocr_time=${normalizationResult.processingTimeMs}ms, confidence=${normalizationResult.confidenceScore ?? "N/A"}`
-      );
-    } else {
-      // --- New ingestion layer for non-PDF files ---
-      const ingestStart = Date.now();
-      console.log(`[Processor] Using ingestion layer for mime=${mimeType ?? "unknown"}, name="${documentName}"`);
-      const { ingestToNormalized } = await import("~/lib/ingestion");
-
-      const normalizedDoc = await ingestToNormalized(documentUrl, {
-        mimeType,
-        filename: documentName,
-        forceOCR: options?.forceOCR,
-      });
-      console.log(
-        `[Processor] Ingestion done (${Date.now() - ingestStart}ms): ` +
-        `pages=${normalizedDoc.pages.length}, provider=${normalizedDoc.metadata.provider}, ` +
-        `processingTime=${normalizedDoc.metadata.processingTimeMs}ms`
-      );
-
-      normalizationResult = {
-        pages: normalizedDoc.pages,
-        provider: normalizedDoc.metadata.provider,
-        processingTimeMs: normalizedDoc.metadata.processingTimeMs,
-        confidenceScore: normalizedDoc.metadata.confidenceScore,
-      };
-    }
-
-    // Step C: Chunking
-    const stepCStart = Date.now();
-    console.log(`[Processor] Step C: Chunking ${normalizationResult.pages.length} pages...`);
-    const chunks = await chunkPages(normalizationResult.pages);
-    console.log(`[Processor] Step C done (${Date.now() - stepCStart}ms): ${chunks.length} chunks`);
-
-    // Step D: Vectorize
-    const stepDStart = Date.now();
-    console.log(`[Processor] Step D: Vectorizing ${chunks.length} chunks...`);
-    const vectorizedChunks = await vectorizeChunks(chunks);
-    console.log(`[Processor] Step D done (${Date.now() - stepDStart}ms): ${vectorizedChunks.length} vectors`);
-
-    // Step E: Storage
-    const stepEStart = Date.now();
-    console.log(`[Processor] Step E: Storing ${vectorizedChunks.length} chunks for docId=${documentId}...`);
-    const storedSections = await storeDocument(documentId, jobId, vectorizedChunks, normalizationResult, pipelineStartTime);
-    console.log(`[Processor] Step E done (${Date.now() - stepEStart}ms)`);
-
-    // Step F: Graph RAG entity extraction (when sidecar is available)
-    if (process.env.SIDECAR_URL && storedSections.length > 0) {
-      const stepFStart = Date.now();
-      console.log(`[Processor] Step F: Extracting entities for ${storedSections.length} sections...`);
-      try {
-        // Health check first
-        const healthy = await fetch(`${process.env.SIDECAR_URL}/health`)
-          .then(r => r.ok)
-          .catch(() => false);
-
-        if (healthy) {
-          const { extractAndStoreEntities } = await import("~/lib/ingestion/entity-extraction");
-          const graphResult = await extractAndStoreEntities(
-            storedSections,
-            documentId,
-            BigInt(companyId),
-          );
-          console.log(
-            `[Processor] Step F done (${Date.now() - stepFStart}ms): ` +
-            `${graphResult.totalEntities} entities, ${graphResult.totalRelationships} relationships`
-          );
-        } else {
-          console.warn(`[Processor] Step F skipped: sidecar unhealthy (${Date.now() - stepFStart}ms)`);
-        }
-      } catch (error) {
-        // Don't fail the pipeline for entity extraction errors
-        console.warn(
-          `[Processor] Step F failed (${Date.now() - stepFStart}ms), continuing:`,
-          error instanceof Error ? error.message : error
-        );
-      }
-    }
-
-    // Build result
-    const stats = getTotalChunkSize(chunks);
-    const totalProcessingTime = Date.now() - pipelineStartTime;
-
-    const pipelineResult: PipelineResult = {
-      success: true,
-      jobId,
-      documentId,
-      chunks: vectorizedChunks,
-      metadata: {
-        totalChunks: vectorizedChunks.length,
-        textChunks: stats.textChunks,
-        tableChunks: stats.tableChunks,
-        totalPages: normalizationResult.pages.length,
-        provider: normalizationResult.provider,
-        processingTimeMs: normalizationResult.processingTimeMs,
-        embeddingTimeMs: totalProcessingTime - normalizationResult.processingTimeMs,
-      },
-    };
-
-    console.log(
-      `[Processor] ========== DONE job=${jobId}, docId=${documentId} (${totalProcessingTime}ms) ==========\n` +
-      `[Processor] Summary: ${vectorizedChunks.length} vectors (${stats.textChunks} text, ${stats.tableChunks} tables), ` +
-      `${normalizationResult.pages.length} pages, provider=${normalizationResult.provider}`
-    );
-    return pipelineResult;
-  } catch (error) {
-    const elapsed = Date.now() - pipelineStartTime;
-    console.error(
-      `[Processor] ========== FAILED job=${jobId}, docId=${documentId} (${elapsed}ms) ==========`,
-      error
-    );
-    await markJobFailed(jobId, error instanceof Error ? error : new Error(String(error)));
-    
-    return {
-      success: false,
-      jobId,
-      documentId,
-      chunks: [],
-      metadata: {
-        totalChunks: 0,
-        textChunks: 0,
-        tableChunks: 0,
-        totalPages: 0,
-        provider: "AZURE",
-        processingTimeMs: elapsed,
-        embeddingTimeMs: 0,
-      },
-      error: error instanceof Error ? error.message : String(error),
-    };
-  }
+  const { runDocIngestionTool } = await import("~/lib/tools");
+  return runDocIngestionTool({
+    ...eventData,
+    runtime: {
+      updateJobStatus: true,
+      markFailureInDb: true,
+    },
+  });
 }
 
 // ============================================================================
