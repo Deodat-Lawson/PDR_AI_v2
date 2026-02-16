@@ -3,7 +3,7 @@
  * Centralizes tool registration to keep graph setup simple.
  */
 
-import { ragSearchTool, executeRAGSearch } from "./rag-search";
+import { ragSearchTool, executeRAGSearch } from "~/lib/tools/rag/agentic";
 import { webResearchTool, performWebResearch } from "./web-research";
 import { flashcardTool, generateFlashcards } from "./UNUSED_flashcard-generator";
 import { quizTool, generateQuiz } from "./UNUSED_quiz-generator";

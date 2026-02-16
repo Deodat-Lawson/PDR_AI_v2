@@ -19,7 +19,7 @@ import {
     type SectionWithCost,
     type SectionPreview,
     type TokenBudgetOptions,
-} from "~/server/rag/retrievers";
+} from "~/lib/tools/rag/retrievers";
 import { getEmbeddings } from "./models";
 import type { SemanticType, PreviewType } from "~/server/db/schema";
 

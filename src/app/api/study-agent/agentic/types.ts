@@ -5,6 +5,9 @@
  */
 
 import type { BaseMessage } from "@langchain/core/messages";
+import type { RAGSearchInput, RAGSearchResult } from "~/lib/tools/rag/types";
+
+export type { RAGSearchInput, RAGSearchResult };
 
 // ============================================================================
 // Core Agent Types
@@ -42,14 +45,6 @@ export interface ToolResult {
   error?: string;
   toolName: string;
   executionTimeMs: number;
-}
-
-export interface RAGSearchResult {
-  content: string;
-  page: number;
-  documentId: string;
-  documentTitle: string;
-  relevanceScore: number;
 }
 
 export interface Flashcard {
@@ -214,12 +209,6 @@ export interface StudyAgentResponse {
 // ============================================================================
 // Tool Input Types
 // ============================================================================
-
-export interface RAGSearchInput {
-  query: string;
-  documentIds: string[];
-  topK?: number;
-}
 
 export interface FlashcardGenerationInput {
   topic: string;

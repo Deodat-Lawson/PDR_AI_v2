@@ -128,7 +128,7 @@ Create `.env` from `.env.example` and fill required values:
 - `INNGEST_EVENT_KEY`, as placeholder
 
 Optional integrations:
-
+- `NODE_ENV`=development (for development, otherwise assumed to be production)
 - `UPLOADTHING_TOKEN`
 - `TAVILY_API_KEY`
 - `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`
