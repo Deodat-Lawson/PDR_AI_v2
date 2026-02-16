@@ -35,6 +35,9 @@ const isAuthRedirectRoute = createRouteMatcher([
     '/signin',
 ]);
 
+const isEmployerPath = (pathname: string) => pathname.startsWith("/employer");
+const isEmployeePath = (pathname: string) => pathname.startsWith("/employee");
+
 // Lazy singleton for middleware (postgres.js works with standard PostgreSQL)
 let _middlewareDb: ReturnType<typeof drizzle<{ users: typeof users }>> | null = null;
 const getDb = () => {
@@ -131,6 +134,18 @@ export default clerkMiddleware(async (auth, req) => {
                         : '/employer/pending-approval';
                     if (pathname !== pendingPath) {
                         return NextResponse.redirect(new URL(pendingPath, req.url));
+                    }
+                } else if (isProtectedRoute(req)) {
+                    const isEmployerRole =
+                        existingUser.role === "employer" || existingUser.role === "owner";
+                    const isEmployeeRole = existingUser.role === "employee";
+
+                    // Enforce role-specific protected route spaces.
+                    if (isEmployerPath(pathname) && !isEmployerRole) {
+                        return NextResponse.redirect(new URL('/employee/documents', req.url));
+                    }
+                    if (isEmployeePath(pathname) && !isEmployeeRole) {
+                        return NextResponse.redirect(new URL('/employer/home', req.url));
                     }
                 } else if (isAuthRedirectRoute(req)) {
                     // Verified user on / or /signup – send to their dashboard
