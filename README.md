@@ -11,6 +11,86 @@ PDR AI is a Next.js platform for role-based document management, AI-assisted Q&A
 - Optional web-enriched analysis with Tavily.
 - Optional reliability/observability via Inngest and LangSmith.
 
+## 🏗️ Architecture
+
+PDR AI follows a three-layer modular architecture:
+
+```mermaid
+block-beta
+  columns 9
+
+  SLABEL["Services\nLayer"]:1
+  MKT["Marketing Engine\n─────────────\nTrend Analysis\nContent Generation\nWeb Scraping Jobs"]:2
+  LEG["Legal Services\n─────────────\nTemplate Library\nAuto-Fill & Clauses\nLegal Vault"]:2
+  ONB["Employee Onboarding\n─────────────\nOnboarding Agent\nQuizzes & Checks\nProgress Tracking"]:2
+  DOCR["Document Reasoning\n─────────────\nPage Index & TOC\nRLM Agent\nKnowledge Graph"]:2
+
+  space:9
+
+  TLABEL["Tools\nLayer"]:1
+  RAG["RAG Pipeline\n(BM25 + Vector)"]:2
+  WEB["Web Search\n(Tavily, Firecrawl)"]:2
+  REW["Doc Rewrite\n(Summarize, Refine)"]:2
+  TMPL["Template Engine\n(Form → PDF)"]:2
+  space:1
+  ING["Doc Ingestion\n(OCR, Chunk, Embed)"]:4
+  ENT["Entity Extraction\n(NER, Graph RAG)"]:4
+
+  space:9
+
+  PLABEL["Physical\nLayer"]:1
+  DB["PostgreSQL + pgvector\n─────────────\nEmbeddings Index\nDocument Structure\nKnowledge Graph\nDomain Tables"]:2
+  HOST["Hosting & Compute\n─────────────\nNext.js 15\nInngest Jobs\nAgent Hosting\nML Sidecar"]:2
+  EXT["External Services\n─────────────\nOCR Providers\nFile Storage (S3)\nClerk Auth + RBAC"]:2
+  KBS["Knowledge Bases\n─────────────\nCompany KB\nLegal Templates\nOnboarding Docs"]:2
+
+  %% Service → Tool edges
+  MKT --> RAG
+  MKT --> WEB
+  MKT --> REW
+  LEG --> RAG
+  LEG --> REW
+  LEG --> TMPL
+  ONB --> RAG
+  ONB --> REW
+  DOCR --> RAG
+  DOCR --> WEB
+  DOCR --> REW
+  DOCR --> ING
+  DOCR --> ENT
+
+  %% Tool → Physical edges
+  RAG --> DB
+  RAG --> KBS
+  WEB --> HOST
+  REW --> HOST
+  TMPL --> EXT
+  TMPL --> KBS
+  ING --> DB
+  ING --> EXT
+  ING --> HOST
+  ENT --> DB
+  ENT --> HOST
+
+  classDef layer fill:#1a1a2e,color:#eee,stroke:none
+  classDef svc fill:#4A90D9,color:#fff,stroke:#2C5F8A,stroke-width:1px
+  classDef tool fill:#F5A623,color:#fff,stroke:#C47D0E,stroke-width:1px
+  classDef phys fill:#27AE60,color:#fff,stroke:#1E8449,stroke-width:1px
+
+  class SLABEL,TLABEL,PLABEL layer
+  class MKT,LEG,ONB,DOCR svc
+  class RAG,WEB,REW,TMPL,ING,ENT tool
+  class DB,HOST,EXT,KBS phys
+```
+
+The platform is organized into:
+
+1. **Services Layer** - Vertical business modules (Marketing, Legal, Onboarding, Document Reasoning)
+2. **Tools Layer** - Reusable AI capabilities (RAG, Web Search, Document Processing, Entity Extraction)
+3. **Physical Layer** - Infrastructure (PostgreSQL + pgvector, Next.js hosting, External services, Knowledge bases)
+
+All services operate within domain-partitioned boundaries enforced by Clerk RBAC. RAG queries are scoped by `domain + company_id` to ensure data isolation.
+
 ## 🛠 Tech Stack
 
 - Next.js 15 + TypeScript
@@ -119,10 +199,10 @@ For host DB tools, use `localhost:5433`.
 
 ## 📚 Documentation
 
-- Deployment details (Docker, Vercel, VPS): `docs/deployment.md`
-- Feature workflows and architecture: `docs/feature-workflows.md`
-- Usage and API examples: `docs/usage-examples.md`
-- Observability and metrics: `docs/observability.md`
+- Deployment details (Docker, Vercel, VPS): [docs/deployment.md](docs/deployment.md)
+- Feature workflows and architecture: [docs/feature-workflows.md](docs/feature-workflow.md)
+- Usage and API examples: [docs/usage-examples.md](docs/usage-examples.md)
+- Observability and metrics: [docs/observability.md](docs/observability.md)
 - **Manual testing (dev, post-PR):** [docs/manual-testing-guide.md](docs/manual-testing-guide.md)
 
 ## 🔌 API Endpoints (high-level)
