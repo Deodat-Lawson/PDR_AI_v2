@@ -4,10 +4,6 @@ import { Brain, Zap, ArrowRight, Shield, Clock, Users, TrendingUp, Star, Search,
 import styles from '../styles/home.module.css';
 import { Navbar } from './_components/Navbar';
 
-import {
-    ClerkProvider,
-} from '@clerk/nextjs'
-
 
 interface FeatureCardProps {
     icon: ReactNode;
@@ -24,9 +20,8 @@ interface BenefitItemProps {
 
 export default function HomePage() {
     return (
-        <ClerkProvider>
-            <div className={styles['documind-container']}>
-                <Navbar />
+        <div className={styles['documind-container']}>
+            <Navbar />
 
                 <div className={styles['hero-section']}>
                     <div className={styles['hero-content']}>
@@ -245,8 +240,7 @@ export default function HomePage() {
                         </div>
                     </div>
                 </div>
-            </div>
-        </ClerkProvider>
+        </div>
     );
 }
 

@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import { db } from "../../../server/db/index";
-import { company, users } from "../../../server/db/schema";
+import { dbCore } from "../../../server/db/core";
+import { company, users } from "../../../server/db/schema/base";
 import { and, eq } from "drizzle-orm";
-import * as console from "console";
 import { auth } from '@clerk/nextjs/server'
 
 export async function POST() {
@@ -12,7 +11,7 @@ export async function POST() {
             return NextResponse.json({ error: "Invalid user." }, { status: 400 });
         }
 
-        const [userInfo] = await db
+        const [userInfo] = await dbCore
             .select()
             .from(users)
             .where(eq(users.userId, userId));
@@ -23,7 +22,7 @@ export async function POST() {
 
         const companyId = userInfo.companyId;
 
-        const [companyRecord] = await db
+        const [companyRecord] = await dbCore
             .select()
             .from(company)
             .where(and(eq(company.id, Number(companyId))));

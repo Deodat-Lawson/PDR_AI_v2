@@ -2,12 +2,23 @@
 
 import React, { useState, useCallback } from "react";
 import { Brain, Home } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import EmployerAuthCheck from "./EmployerAuthCheck";
 import UploadForm, { type AvailableProviders } from "./UploadForm";
-import CategoryManagement from "./CategoryManagement";
 import styles from "~/styles/Employer/Upload.module.css";
-import { ThemeToggle } from "~/app/_components/ThemeToggle";
+
+const CategoryManagement = dynamic(() => import("./CategoryManagement"), {
+    ssr: false,
+});
+
+const ThemeToggle = dynamic(
+    () =>
+        import("~/app/_components/ThemeToggle").then(
+            (module) => module.ThemeToggle
+        ),
+    { ssr: false }
+);
 
 interface Category {
     id: string;
@@ -26,6 +37,13 @@ interface CompanyData {
     useUploadThing: boolean;
 }
 
+interface UploadBootstrapResponse {
+    categories: Category[];
+    company: CompanyData | null;
+    isUploadThingConfigured: boolean;
+    availableProviders: AvailableProviders;
+}
+
 const Page: React.FC = () => {
     const router = useRouter();
 
@@ -39,89 +57,37 @@ const Page: React.FC = () => {
         landingAI: false,
     });
 
-    const fetchUploadThingConfig = useCallback(async () => {
+    const fetchUploadBootstrap = useCallback(async () => {
         try {
-            const res = await fetch("/api/config/uploadthing", {
+            const res = await fetch("/api/employer/upload/bootstrap", {
                 method: "GET",
                 headers: { "Content-Type": "application/json" },
             });
-            if (res.ok) {
-                const data = await res.json() as { configured: boolean };
-                setIsUploadThingConfigured(data.configured);
-                // If not configured, force database storage
-                if (!data.configured) {
-                    setUseUploadThing(false);
-                }
-            }
-        } catch (error) {
-            console.error("Error fetching UploadThing config:", error);
-            setIsUploadThingConfigured(false);
-        }
-    }, []);
 
-    const fetchCompanyData = useCallback(async () => {
-        try {
-            const res = await fetch("/api/fetchCompany", {
-                method: "GET",
-                headers: { "Content-Type": "application/json" },
-            });
-            if (res.ok) {
-                const data = await res.json() as CompanyData[];
-                if (data.length > 0 && data[0]) {
-                    setUseUploadThing(data[0].useUploadThing ?? true);
-                }
-            }
-        } catch (error) {
-            console.error("Error fetching company data:", error);
-        }
-    }, []);
-
-    const fetchCategories = useCallback(async () => {
-        try {
-            const res = await fetch("/api/Categories/GetCategories", {
-                method: "GET",
-                headers: { "Content-Type": "application/json" },
-            });
             if (!res.ok) {
-                throw new Error("Failed to fetch categories");
+                throw new Error("Failed to fetch upload bootstrap data");
             }
-            const rawData: unknown = await res.json();
-            if (Array.isArray(rawData)) {
-                const data = rawData as Category[];
-                setCategories(data);
-            } else {
-                console.error("Invalid categories data received");
-                setCategories([]);
-            }
-        } catch (error) {
-            console.error(error);
-        }
-    }, []);
 
-    const fetchOCRConfig = useCallback(async () => {
-        try {
-            const res = await fetch("/api/config/ocr", {
-                method: "GET",
-                headers: { "Content-Type": "application/json" },
-            });
-            if (res.ok) {
-                const data = await res.json() as AvailableProviders;
-                setAvailableProviders(data);
+            const data = (await res.json()) as UploadBootstrapResponse;
+            setCategories(data.categories);
+            setIsUploadThingConfigured(data.isUploadThingConfigured);
+            setAvailableProviders(data.availableProviders);
+
+            if (!data.isUploadThingConfigured) {
+                setUseUploadThing(false);
+                return;
             }
+
+            const companyUploadPref = data.company?.useUploadThing;
+            setUseUploadThing(companyUploadPref ?? true);
         } catch (error) {
-            console.error("Error fetching OCR config:", error);
+            console.error("Error fetching upload bootstrap data:", error);
         }
     }, []);
 
     const handleAuthSuccess = useCallback(async () => {
-        // Fetch categories, company data, UploadThing config, and OCR config on auth success
-        await Promise.all([
-            fetchCategories(), 
-            fetchCompanyData(), 
-            fetchUploadThingConfig(),
-            fetchOCRConfig()
-        ]);
-    }, [fetchCategories, fetchCompanyData, fetchUploadThingConfig, fetchOCRConfig]);
+        await fetchUploadBootstrap();
+    }, [fetchUploadBootstrap]);
 
     const handleToggleUploadMethod = useCallback(async (newValue: boolean) => {
         setIsUpdatingPreference(true);

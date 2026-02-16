@@ -1,15 +1,12 @@
 "use client";
 
 import React, { useEffect, useState, useCallback, useRef } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import LoadingPage from "~/app/_components/loading";
 import { Sidebar } from "./Sidebar";
 import { DocumentViewer } from "./DocumentViewer";
-import { ChatPanel } from "./ChatPanel";
-import { SimpleQueryPanel } from "./SimpleQueryPanel";
-import { DocumentSanityChecker } from "./DocumentSanityChecker";
-import { DocumentGenerator } from "./DocumentGenerator";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "~/app/employer/documents/components/ui/resizable";
 import { cn } from "~/lib/utils";
 import type { ViewMode, DocumentType, CategoryGroup, errorType, PredictiveAnalysisResponse } from "../types";
@@ -20,6 +17,26 @@ import { Button } from "~/app/employer/documents/components/ui/button";
 import type { ImperativePanelHandle } from "react-resizable-panels";
 
 import { RESPONSE_STYLES, type ResponseStyleId } from "~/lib/ai/styles";
+
+const ChatPanel = dynamic(
+  () => import("./ChatPanel").then((module) => module.ChatPanel),
+  { loading: () => <LoadingPage /> }
+);
+const SimpleQueryPanel = dynamic(
+  () => import("./SimpleQueryPanel").then((module) => module.SimpleQueryPanel),
+  { loading: () => <LoadingPage /> }
+);
+const DocumentSanityChecker = dynamic(
+  () =>
+    import("./DocumentSanityChecker").then(
+      (module) => module.DocumentSanityChecker
+    ),
+  { loading: () => <LoadingPage /> }
+);
+const DocumentGenerator = dynamic(
+  () => import("./DocumentGenerator").then((module) => module.DocumentGenerator),
+  { loading: () => <LoadingPage /> }
+);
 
 const STYLE_OPTIONS = Object.entries(RESPONSE_STYLES).reduce((acc, [key, config]) => {
   acc[key as ResponseStyleId] = config.label;
@@ -40,6 +57,7 @@ export function DocumentViewerShell({ userRole }: DocumentViewerShellProps) {
   const [selectedDoc, setSelectedDoc] = useState<DocumentType | null>(null);
   const [companyId, setCompanyId] = useState<number | null>(null);
   const [isRoleLoading, setIsRoleLoading] = useState(true);
+  const [isResolvingCompany, setIsResolvingCompany] = useState(false);
   
   // UI States
   const [searchTerm, setSearchTerm] = useState("");
@@ -111,6 +129,31 @@ export function DocumentViewerShell({ userRole }: DocumentViewerShellProps) {
     }
   }, [userId]);
 
+  const ensureCompanyContext = useCallback(async (): Promise<number | null> => {
+    if (companyId) return companyId;
+    if (isResolvingCompany) return null;
+    setIsResolvingCompany(true);
+    try {
+      const response = await fetch("/api/fetchUserInfo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      });
+      if (!response.ok) return null;
+      const data = (await response.json()) as { companyId?: number | string };
+      const resolvedCompanyId = data?.companyId ? Number(data.companyId) : null;
+      if (resolvedCompanyId) {
+        setCompanyId(resolvedCompanyId);
+      }
+      return resolvedCompanyId;
+    } catch (error) {
+      console.error("Error resolving company context:", error);
+      return null;
+    } finally {
+      setIsResolvingCompany(false);
+    }
+  }, [companyId, isResolvingCompany, userId]);
+
   // Role-based authentication
   useEffect(() => {
     if (!isLoaded) return;
@@ -122,38 +165,8 @@ export function DocumentViewerShell({ userRole }: DocumentViewerShellProps) {
     }
 
     if (userRole === 'employer') {
-      // Employer auth: check via fetchUserInfo for employer/owner role
-      const checkEmployerRole = async () => {
-        try {
-          const response = await fetch("/api/fetchUserInfo", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ userId }),
-          });
-
-          if (!response.ok) {
-            console.error("[Auth Debug] fetchUserInfo failed:", response.status);
-            router.push("/");
-            return;
-          }
-
-          const data = (await response.json()) as { role?: string; companyId?: string };
-          
-          if (data?.role !== "employer" && data?.role !== "owner") {
-            window.alert("Authentication failed! You are not an employer or owner.");
-            router.push("/");
-          }
-
-          if (data.companyId) setCompanyId(Number(data.companyId));
-        } catch (error) {
-          console.error("Error checking employer role:", error);
-          router.push("/");
-        } finally {
-          setIsRoleLoading(false);
-        }
-      };
-
-      void checkEmployerRole();
+      // Role/status gating is already enforced in middleware for /employer routes.
+      setIsRoleLoading(false);
     } else {
       // Employee auth: check via employeeAuth endpoint
       const checkEmployeeRole = async () => {
@@ -289,9 +302,13 @@ export function DocumentViewerShell({ userRole }: DocumentViewerShellProps) {
     if (!aiQuestion.trim()) return;
     
     if (searchScope === "document" && !selectedDoc) return;
-    if (searchScope === "company" && !companyId) {
-      setAiError("Company information not available.");
-      return;
+    let resolvedCompanyId = companyId;
+    if (searchScope === "company" && !resolvedCompanyId) {
+      resolvedCompanyId = await ensureCompanyContext();
+      if (!resolvedCompanyId) {
+        setAiError("Company information not available.");
+        return;
+      }
     }
 
     setAiError("");
@@ -307,7 +324,7 @@ export function DocumentViewerShell({ userRole }: DocumentViewerShellProps) {
         searchScope,
         style: aiStyle as ResponseStyleId,
         documentId: searchScope === "document" && selectedDoc ? selectedDoc.id : undefined,
-        companyId: searchScope === "company" ? companyId ?? undefined : undefined,
+        companyId: searchScope === "company" ? resolvedCompanyId ?? undefined : undefined,
       });
 
       if (!data) throw new Error("Failed to get AI response");
@@ -321,6 +338,21 @@ export function DocumentViewerShell({ userRole }: DocumentViewerShellProps) {
       setAiQuestion(currentQuestion);
     }
   };
+
+  const handleSearchScopeChange = useCallback((scope: "document" | "company") => {
+    if (scope === "company") {
+      void ensureCompanyContext().then((resolvedCompanyId) => {
+        if (resolvedCompanyId) {
+          setSearchScope("company");
+        } else {
+          setAiError("Company information not available.");
+          setSearchScope("document");
+        }
+      });
+      return;
+    }
+    setSearchScope("document");
+  }, [ensureCompanyContext]);
 
   const handleCreateChat = async () => {
     if (!userId) return null;
@@ -445,7 +477,7 @@ export function DocumentViewerShell({ userRole }: DocumentViewerShellProps) {
                       aiLoading={isAiLoading}
                       handleAiSearch={handleAiSearch}
                       searchScope={searchScope}
-                      setSearchScope={setSearchScope}
+                      setSearchScope={handleSearchScopeChange}
                       aiStyle={aiStyle}
                       setAiStyle={setAiStyle}
                       styleOptions={STYLE_OPTIONS}
@@ -468,7 +500,7 @@ export function DocumentViewerShell({ userRole }: DocumentViewerShellProps) {
                               aiPersona={aiPersona}
                               setAiPersona={setAiPersona}
                               searchScope={searchScope}
-                              setSearchScope={setSearchScope}
+                              setSearchScope={handleSearchScopeChange}
                               companyId={companyId}
                               setPdfPageNumber={setPdfPageNumber}
                               styleOptions={STYLE_OPTIONS}

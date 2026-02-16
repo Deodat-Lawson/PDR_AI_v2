@@ -104,14 +104,13 @@ export function ChatPanel({
                   Doc
                 </button>
                 <button
-                  onClick={() => companyId && setSearchScope('company')}
-                  disabled={!companyId}
+                  onClick={() => setSearchScope('company')}
                   className={cn(
                     "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all",
                     searchScope === 'company'
                       ? "bg-white dark:bg-slate-700 text-violet-600 dark:text-violet-400 shadow-sm"
                       : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300",
-                    !companyId && "opacity-40 cursor-not-allowed"
+                    !companyId && "opacity-80"
                   )}
                 >
                   <Building2 className="w-3 h-3" />

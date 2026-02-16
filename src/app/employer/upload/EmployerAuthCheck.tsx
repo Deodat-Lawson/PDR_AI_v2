@@ -29,16 +29,7 @@ const EmployerAuthCheck: React.FC<PropsWithChildren<EmployerAuthCheckProps>> = (
 
         const checkEmployerRole = async () => {
             try {
-                const response = await fetch("/api/employerAuth", {
-                    method: "GET",
-                });
-                if (!response.ok) {
-                    alert("Authentication failed! You are not an employer.");
-                    router.push("/");
-                    return;
-                }
-
-                // If everything is okay, fetch categories or do any post-auth success logic.
+                // Middleware already enforces role and status for /employer routes.
                 onAuthSuccess(userId);
             } catch (error) {
                 console.error("Error checking employer role:", error);

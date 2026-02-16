@@ -52,23 +52,12 @@ const HomeScreen = () => {
         // Check if the user's role is employer and fetch stats
         const initDashboard = async () => {
             try {
-                // Auth check
-                const authResponse = await fetch("/api/employerAuth", {
-                    method: "GET",
-                });
-                
-                if(authResponse.status === 300){
-                    router.push("/employee/pending-approval");
-                    return;
-                }
-                else if (!authResponse.ok) {
-                    window.alert("Authentication failed! You are not an employer.");
+                // Fetch stats after middleware-authenticated navigation.
+                const statsResponse = await fetch("/api/company/analysis-dashboard");
+                if (!statsResponse.ok) {
                     router.push("/");
                     return;
                 }
-
-                // Fetch stats
-                const statsResponse = await fetch("/api/company/analysis-dashboard");
                 const statsResult = (await statsResponse.json()) as AnalysisDashboardResponse;
                 
                 if (statsResult.success && statsResult.data) {
