@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import dynamic from "next/dynamic";
 import { 
   Send, 
   Sparkles, 
@@ -18,8 +19,16 @@ import { Button } from '~/app/employer/documents/components/ui/button';
 import { Textarea } from '~/app/employer/documents/components/ui/textarea';
 import { ScrollArea } from '~/app/employer/documents/components/ui/scroll-area';
 import { cn } from "~/lib/utils";
-import MarkdownMessage from '~/app/_components/MarkdownMessage';
 import type { DocumentType } from '../types';
+
+const MarkdownMessage = dynamic(
+  () => import("~/app/_components/MarkdownMessage"),
+  {
+    loading: () => (
+      <div className="text-sm text-muted-foreground">Rendering response...</div>
+    ),
+  }
+);
 
 interface SimpleQueryPanelProps {
   selectedDoc: DocumentType | null;
@@ -113,14 +122,13 @@ export function SimpleQueryPanel({
                   This Document
                 </button>
                 <button
-                  onClick={() => companyId && setSearchScope('company')}
-                  disabled={!companyId}
+                  onClick={() => setSearchScope('company')}
                   className={cn(
                     "flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200",
                     searchScope === 'company'
                       ? "bg-violet-600 text-white shadow-lg shadow-violet-500/25"
                       : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700",
-                    !companyId && "opacity-50 cursor-not-allowed"
+                    !companyId && "opacity-80"
                   )}
                 >
                   <Building2 className="w-3.5 h-3.5" />

@@ -4,6 +4,10 @@ import { users, document, documentViews, ChatHistory, agentAiChatbotMessage, age
 import { eq, and, sql, gte, desc, count, inArray, max } from "drizzle-orm";
 import { auth } from "@clerk/nextjs/server";
 
+const shouldLogPerf =
+    process.env.NODE_ENV === "development" &&
+    (process.env.DEBUG_PERF === "1" || process.env.DEBUG_PERF === "true");
+
 interface TrendDataPoint {
     date: string;
     count: number;
@@ -42,28 +46,35 @@ interface AnalysisDashboardResponse {
 }
 
 export async function GET() {
+    const requestStart = Date.now();
+    let aggregateMs: number | null = null;
+    let queryCountMs: number | null = null;
+    let outcome = "ok";
     try {
         const { userId } = await auth();
         if (!userId) {
+            outcome = "unauthorized";
             return NextResponse.json(
                 { success: false, error: "Unauthorized" },
                 { status: 401 }
             );
         }
 
-        // Update current user's lastActiveAt
-        await db
-            .update(users)
-            .set({ lastActiveAt: new Date() })
-            .where(eq(users.userId, userId));
-
-        // Get user info and verify they are employer/owner
-        const [userInfo] = await db
-            .select()
-            .from(users)
-            .where(eq(users.userId, userId));
+        // Update activity + fetch current user in parallel.
+        const [, userRows] = await Promise.all([
+            db
+                .update(users)
+                .set({ lastActiveAt: new Date() })
+                .where(eq(users.userId, userId)),
+            db
+                .select()
+                .from(users)
+                .where(eq(users.userId, userId)),
+        ]);
+        const [userInfo] = userRows;
 
         if (!userInfo) {
+            outcome = "not_found";
             return NextResponse.json(
                 { success: false, error: "User not found" },
                 { status: 404 }
@@ -71,6 +82,7 @@ export async function GET() {
         }
 
         if (userInfo.role !== "employer" && userInfo.role !== "owner") {
+            outcome = "forbidden";
             return NextResponse.json(
                 { success: false, error: "Unauthorized. Only employers and owners can access this data." },
                 { status: 403 }
@@ -78,22 +90,81 @@ export async function GET() {
         }
 
         const companyId = userInfo.companyId;
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-        // Get all employees for the company
-        const employeesData = await db
-            .select({
-                id: users.id,
-                name: users.name,
-                email: users.email,
-                role: users.role,
-                status: users.status,
-                lastActiveAt: users.lastActiveAt,
-                createdAt: users.createdAt,
-                userId: users.userId,
-            })
-            .from(users)
-            .where(eq(users.companyId, companyId))
-            .orderBy(desc(users.lastActiveAt));
+        // Fetch independent dashboard datasets in parallel.
+        const aggregateStart = Date.now();
+        const [
+            employeesData,
+            documentCountRows,
+            documentStatsData,
+            employeeTrendData,
+            documentViewsTrendData,
+        ] = await Promise.all([
+            db
+                .select({
+                    id: users.id,
+                    name: users.name,
+                    email: users.email,
+                    role: users.role,
+                    status: users.status,
+                    lastActiveAt: users.lastActiveAt,
+                    createdAt: users.createdAt,
+                    userId: users.userId,
+                })
+                .from(users)
+                .where(eq(users.companyId, companyId))
+                .orderBy(desc(users.lastActiveAt)),
+            db
+                .select({ count: count() })
+                .from(document)
+                .where(eq(document.companyId, companyId)),
+            db
+                .select({
+                    id: document.id,
+                    title: document.title,
+                    category: document.category,
+                    createdAt: document.createdAt,
+                    views: count(documentViews.id),
+                    lastViewedAt: max(documentViews.viewedAt),
+                })
+                .from(document)
+                .leftJoin(documentViews, eq(document.id, documentViews.documentId))
+                .where(eq(document.companyId, companyId))
+                .groupBy(document.id, document.title, document.category, document.createdAt)
+                .orderBy(desc(count(documentViews.id))),
+            db
+                .select({
+                    date: sql<string>`DATE(${users.createdAt})`.as("date"),
+                    count: count(),
+                })
+                .from(users)
+                .where(
+                    and(
+                        eq(users.companyId, companyId),
+                        gte(users.createdAt, thirtyDaysAgo)
+                    )
+                )
+                .groupBy(sql`DATE(${users.createdAt})`)
+                .orderBy(sql`DATE(${users.createdAt})`),
+            db
+                .select({
+                    date: sql<string>`DATE(${documentViews.viewedAt})`.as("date"),
+                    count: count(),
+                })
+                .from(documentViews)
+                .where(
+                    and(
+                        eq(documentViews.companyId, companyId),
+                        gte(documentViews.viewedAt, thirtyDaysAgo)
+                    )
+                )
+                .groupBy(sql`DATE(${documentViews.viewedAt})`)
+                .orderBy(sql`DATE(${documentViews.viewedAt})`),
+        ]);
+        aggregateMs = Date.now() - aggregateStart;
+        const [documentCount] = documentCountRows;
 
         // Get employee query counts from BOTH simple queries (ChatHistory) AND AI chat (agentAiChatbotMessage)
         const employeeUserIds = employeesData.map(e => e.userId);
@@ -101,32 +172,33 @@ export async function GET() {
         let queryCountsData: { userId: string; count: number }[] = [];
         
         if (employeeUserIds.length > 0) {
-            // 1. Get counts from legacy ChatHistory
-            const simpleQueryCounts = await db
-                .select({
-                    userId: ChatHistory.UserId,
-                    count: count(),
-                })
-                .from(ChatHistory)
-                .where(inArray(ChatHistory.UserId, employeeUserIds))
-                .groupBy(ChatHistory.UserId);
-
-            // 2. Get counts from AI Chat (messages where role='user')
-            // Join with chat table to get userId since message table doesn't have it directly
-            const aiChatCounts = await db
-                .select({
-                    userId: agentAiChatbotChat.userId,
-                    count: count(),
-                })
-                .from(agentAiChatbotMessage)
-                .innerJoin(agentAiChatbotChat, eq(agentAiChatbotMessage.chatId, agentAiChatbotChat.id))
-                .where(
-                    and(
-                        eq(agentAiChatbotMessage.role, "user"),
-                        inArray(agentAiChatbotChat.userId, employeeUserIds)
+            const queryCountStart = Date.now();
+            const [simpleQueryCounts, aiChatCounts] = await Promise.all([
+                db
+                    .select({
+                        userId: ChatHistory.UserId,
+                        count: count(),
+                    })
+                    .from(ChatHistory)
+                    .where(inArray(ChatHistory.UserId, employeeUserIds))
+                    .groupBy(ChatHistory.UserId),
+                // Join with chat table to get userId since message table doesn't have it directly.
+                db
+                    .select({
+                        userId: agentAiChatbotChat.userId,
+                        count: count(),
+                    })
+                    .from(agentAiChatbotMessage)
+                    .innerJoin(agentAiChatbotChat, eq(agentAiChatbotMessage.chatId, agentAiChatbotChat.id))
+                    .where(
+                        and(
+                            eq(agentAiChatbotMessage.role, "user"),
+                            inArray(agentAiChatbotChat.userId, employeeUserIds)
+                        )
                     )
-                )
-                .groupBy(agentAiChatbotChat.userId);
+                    .groupBy(agentAiChatbotChat.userId),
+            ]);
+            queryCountMs = Date.now() - queryCountStart;
 
             // 3. Merge counts
             const countsMap = new Map<string, number>();
@@ -148,64 +220,6 @@ export async function GET() {
         const queryCountsMap = new Map(
             queryCountsData.map(q => [q.userId, q.count])
         );
-
-        // Get total document count for the company
-        const [documentCount] = await db
-            .select({ count: count() })
-            .from(document)
-            .where(eq(document.companyId, companyId));
-
-        // Get per-document statistics
-        const documentStatsData = await db
-            .select({
-                id: document.id,
-                title: document.title,
-                category: document.category,
-                createdAt: document.createdAt,
-                views: count(documentViews.id),
-                lastViewedAt: max(documentViews.viewedAt),
-            })
-            .from(document)
-            .leftJoin(documentViews, eq(document.id, documentViews.documentId))
-            .where(eq(document.companyId, companyId))
-            .groupBy(document.id, document.title, document.category, document.createdAt)
-            .orderBy(desc(count(documentViews.id)));
-
-        // Calculate date 30 days ago for trend data
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-        // Employee trend: count employees created per day in last 30 days
-        const employeeTrendData = await db
-            .select({
-                date: sql<string>`DATE(${users.createdAt})`.as("date"),
-                count: count(),
-            })
-            .from(users)
-            .where(
-                and(
-                    eq(users.companyId, companyId),
-                    gte(users.createdAt, thirtyDaysAgo)
-                )
-            )
-            .groupBy(sql`DATE(${users.createdAt})`)
-            .orderBy(sql`DATE(${users.createdAt})`);
-
-        // Document views trend: count views per day in last 30 days
-        const documentViewsTrendData = await db
-            .select({
-                date: sql<string>`DATE(${documentViews.viewedAt})`.as("date"),
-                count: count(),
-            })
-            .from(documentViews)
-            .where(
-                and(
-                    eq(documentViews.companyId, companyId),
-                    gte(documentViews.viewedAt, thirtyDaysAgo)
-                )
-            )
-            .groupBy(sql`DATE(${documentViews.viewedAt})`)
-            .orderBy(sql`DATE(${documentViews.viewedAt})`);
 
         // Fill in missing dates for trends (to show continuous line chart)
         const fillTrendDates = (data: { date: string; count: number }[]): TrendDataPoint[] => {
@@ -292,10 +306,20 @@ export async function GET() {
 
         return NextResponse.json(response, { status: 200 });
     } catch (error: unknown) {
+        outcome = "error";
         console.error("Error fetching analysis dashboard data:", error);
         return NextResponse.json(
             { success: false, error: "Unable to fetch analysis dashboard data" },
             { status: 500 }
         );
+    } finally {
+        if (shouldLogPerf) {
+            const totalMs = Date.now() - requestStart;
+            const aggregateSegment = aggregateMs == null ? "n/a" : `${aggregateMs}ms`;
+            const queryCountSegment = queryCountMs == null ? "n/a" : `${queryCountMs}ms`;
+            console.info(
+                `[perf] analysis-dashboard total=${totalMs}ms aggregate=${aggregateSegment} queryCounts=${queryCountSegment} outcome=${outcome}`
+            );
+        }
     }
 }

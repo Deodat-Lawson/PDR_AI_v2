@@ -17,7 +17,7 @@ import {
     companyEnsembleSearch,
     type CompanySearchOptions,
     type SearchResult
-} from "~/server/rag";
+} from "~/lib/tools/rag";
 import { performTavilySearch } from "~/app/api/agents/documentQ&A/services/tavilySearch";
 import { getEmbeddings } from "~/app/api/agents/documentQ&A/services";
 

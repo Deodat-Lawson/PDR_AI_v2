@@ -1,4 +1,3 @@
-
 export {
   createOpenAIEmbeddings,
   createDocumentEnsembleRetriever,
@@ -7,5 +6,5 @@ export {
   documentEnsembleSearch,
   companyEnsembleSearch,
   multiDocEnsembleSearch,
-} from "./ensemble-search";
+} from "~/lib/tools/rag/search";
 
