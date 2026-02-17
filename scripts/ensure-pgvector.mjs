@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import postgres from "postgres";
 
 const url = process.env.DATABASE_URL;
