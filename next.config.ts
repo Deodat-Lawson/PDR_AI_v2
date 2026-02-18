@@ -65,9 +65,8 @@ const config: NextConfig = {
       // Exclude HuggingFace heavy files since we lazy load
       "node_modules/.pnpm/@huggingface+transformers@*/node_modules/@huggingface/transformers/dist/**/*.wasm",
       "node_modules/.pnpm/@huggingface+transformers@*/node_modules/@huggingface/transformers/models/**",
-      // Exclude pdfjs heavy files since we lazy load
+      // Exclude pdfjs heavy files since we lazy load (keep legacy build - used for Node.js/Inngest)
       "node_modules/.pnpm/pdfjs-dist@*/node_modules/pdfjs-dist/build/**/*.map",
-      "node_modules/.pnpm/pdfjs-dist@*/node_modules/pdfjs-dist/legacy/**",
       // Exclude pdf-parse test data (8MB)
       "node_modules/.pnpm/pdf-parse@*/node_modules/pdf-parse/test/**",
       "node_modules/pdf-parse/test/**",
@@ -79,16 +78,12 @@ const config: NextConfig = {
   serverExternalPackages: [
     "@huggingface/transformers",
     "pdf2pic",
-    "pdfjs-dist",
+    "pdfjs-serverless",
     "onnxruntime-web",
-    "onnxruntime-node",
     "sharp",
     "@img/sharp-libvips-linuxmusl-x64",
     "@img/sharp-libvips-linux-x64",
-    "pdf-parse",
     "pdf-lib",
-    "canvas",
-    "@napi-rs/canvas",
   ],
 };
 

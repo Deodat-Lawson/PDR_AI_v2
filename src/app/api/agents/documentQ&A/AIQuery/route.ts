@@ -22,6 +22,7 @@ import {
     getWebSearchInstruction,
     getChatModel,
     getEmbeddings,
+    extractRecommendedPages,
 } from "../services";
 import type { AIModelType } from "../services";
 import type { SYSTEM_PROMPTS } from "../services/prompts";
@@ -281,7 +282,7 @@ export async function POST(request: Request) {
             return NextResponse.json({
                 success: true,
                 summarizedAnswer,
-                recommendedPages: documents.map(doc => doc.metadata?.page).filter((page): page is number => page !== undefined),
+                recommendedPages: extractRecommendedPages(documents),
                 retrievalMethod,
                 processingTimeMs: totalTime,
                 chunksAnalyzed: documents.length,

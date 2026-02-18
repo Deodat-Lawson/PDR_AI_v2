@@ -23,6 +23,8 @@ import {
     getWebSearchInstruction,
     getChatModel,
     getEmbeddings,
+    buildReferences,
+    extractRecommendedPages,
 } from "../../services";
 import type { AIModelType } from "../../services";
 import type { SYSTEM_PROMPTS } from "../../services/prompts";
@@ -316,6 +318,9 @@ export async function POST(request: Request) {
             
             console.log(`✅ [AIChat] Built context with pages: ${documents.map(doc => doc.metadata?.page).join(', ')}`);
 
+            // Build references for document highlights and page navigation
+            const references = buildReferences(question, documents, 5);
+
             // Perform comprehensive web search if enabled
             const documentContext = documents.length > 0 
                 ? documents.map(doc => doc.pageContent).join('\n\n')
@@ -374,7 +379,7 @@ export async function POST(request: Request) {
                             documentTitle: doc.title,
                             question: question,
                             response: summarizedAnswer,
-                            pages: documents.map(doc => doc.metadata?.page).filter((page): page is number => page !== undefined),
+                            pages: extractRecommendedPages(documents),
                             queryType: "simple"
                         });
                     }
@@ -389,7 +394,8 @@ export async function POST(request: Request) {
             return NextResponse.json({
                 success: true,
                 summarizedAnswer,
-                recommendedPages: documents.map(doc => doc.metadata?.page).filter((page): page is number => page !== undefined),
+                recommendedPages: extractRecommendedPages(documents),
+                references: references.length > 0 ? references : undefined,
                 retrievalMethod,
                 processingTimeMs: totalTime,
                 chunksAnalyzed: documents.length,

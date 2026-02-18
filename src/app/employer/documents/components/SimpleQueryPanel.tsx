@@ -247,10 +247,7 @@ export function SimpleQueryPanel({
                 </div>
                 <div>
                   <p className="text-xs font-semibold text-red-700 dark:text-red-400 mb-0.5">
-                    Something went wrong
-                  </p>
-                  <p className="text-[11px] text-red-600/80 dark:text-red-400/70">
-                    {aiError}
+                    File is still processing... Please try again later.
                   </p>
                 </div>
               </div>
