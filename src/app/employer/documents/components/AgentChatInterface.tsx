@@ -16,7 +16,7 @@ import {
   X
 } from 'lucide-react';
 import { useAIChatbot, type Message } from '../hooks/useAIChatbot';
-import { useAIChat } from '../hooks/useAIChat';
+import { useAIChat, type SourceReference } from '../hooks/useAIChat';
 import { cn } from '~/lib/utils';
 
 const MarkdownMessage = dynamic(
@@ -39,6 +39,7 @@ interface AgentChatInterfaceProps {
   aiStyle?: string;
   aiPersona?: string;
   onPageClick?: (page: number) => void;
+  onReferencesResolved?: (references: SourceReference[]) => void;
   onCreateChat?: () => Promise<string | null>;
 }
 
@@ -53,6 +54,7 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
   aiStyle = 'concise',
   aiPersona = 'general',
   onPageClick,
+  onReferencesResolved,
   onCreateChat,
 }) => {
   const { getMessages, sendMessage, voteMessage, error } = useAIChatbot();
@@ -72,6 +74,25 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
       const loadAndCheckWelcome = async () => {
         const msgs = await getMessages(chatId);
         setMessages(msgs);
+        const latestReferencedMessage = [...msgs]
+          .reverse()
+          .find((msg) =>
+            msg.role === "assistant" &&
+            typeof msg.content === "object" &&
+            msg.content !== null &&
+            "references" in msg.content &&
+            Array.isArray(msg.content.references) &&
+            msg.content.references.length > 0
+          );
+        if (
+          latestReferencedMessage &&
+          typeof latestReferencedMessage.content === "object" &&
+          latestReferencedMessage.content !== null &&
+          "references" in latestReferencedMessage.content &&
+          Array.isArray(latestReferencedMessage.content.references)
+        ) {
+          onReferencesResolved?.(latestReferencedMessage.content.references);
+        }
         
         if (msgs.length === 0 && aiPersona === 'learning-coach') {
           sendMessage({
@@ -203,14 +224,28 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
         }
 
         const aiAnswer = aiData.summarizedAnswer ?? "I'm sorry, I couldn't generate a response right now. Could you try rephrasing your question?";
+        const references = aiData.references ?? [];
         const pages = aiData.recommendedPages ?? [];
         const webSources = aiData.webSources ?? [];
+        if (references.length > 0) {
+          onReferencesResolved?.(references);
+          const firstPage = references[0]?.page;
+          if (typeof firstPage === "number") {
+            onPageClick?.(firstPage);
+          }
+        } else if (pages.length > 0) {
+          const firstFallbackPage = pages[0];
+          if (typeof firstFallbackPage === "number") {
+            onPageClick?.(firstFallbackPage);
+          }
+        }
 
         const aiResponse = await sendMessage({
           chatId: activeChatId,
           role: 'assistant',
           content: { 
             text: aiAnswer,
+            references: references.length > 0 ? references : undefined,
             pages: pages,
             webSources: webSources.length > 0 ? webSources : undefined
           },
@@ -334,8 +369,34 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
                   
                   {msg.role === 'assistant' && typeof msg.content === 'object' && msg.content !== null && (
                     <>
-                      {/* Page References */}
-                      {'pages' in msg.content && Array.isArray(msg.content.pages) && msg.content.pages.length > 0 && (
+                      {/* Source References */}
+                      {'references' in msg.content && Array.isArray(msg.content.references) && msg.content.references.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700">
+                          <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                            Page References
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {msg.content.references.map((reference: SourceReference, idx: number) => (
+                              <button
+                                key={`${msg.id}-reference-${idx}`}
+                                onClick={() => {
+                                  onReferencesResolved?.([reference]);
+                                  if (typeof reference.page === "number") {
+                                    onPageClick?.(reference.page);
+                                  }
+                                }}
+                                className="inline-flex items-center bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 px-2.5 py-1 rounded-lg text-xs font-semibold hover:bg-violet-200 dark:hover:bg-violet-800/50 transition-all"
+                              >
+                                {reference.page ? `Page ${reference.page}` : "Highlight Source"}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Legacy page references fallback */}
+                      {(!('references' in msg.content) || !Array.isArray(msg.content.references) || msg.content.references.length === 0) &&
+                        'pages' in msg.content && Array.isArray(msg.content.pages) && msg.content.pages.length > 0 && (
                         <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700">
                           <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
                             Referenced Pages
@@ -459,122 +520,136 @@ export const AgentChatInterface: React.FC<AgentChatInterfaceProps> = ({
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="flex gap-2 items-end">
-          {/* Tools Button */}
-          <div className="relative flex-shrink-0" ref={toolsMenuRef}>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setShowToolsMenu(!showToolsMenu);
-              }}
-              className={cn(
-                "w-11 h-11 flex items-center justify-center rounded-xl transition-all border",
-                showToolsMenu || enableWebSearch
-                  ? "bg-violet-600 text-white border-violet-600 shadow-lg shadow-violet-500/25"
-                  : "bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-300"
-              )}
-              title="Tools"
-            >
-              <Plus className={cn("w-5 h-5 transition-transform", showToolsMenu && "rotate-45")} />
-            </button>
-            
-            {/* Tools Menu */}
-            {showToolsMenu && (
-              <div className="absolute bottom-full left-0 mb-2 w-64 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden z-50 animate-in slide-in-from-bottom-2 fade-in duration-200">
-                <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Tools</span>
-                  <button 
-                    onClick={() => setShowToolsMenu(false)}
-                    className="w-5 h-5 rounded flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
+        <form onSubmit={handleSubmit} className="w-full">
+          <div className="rounded-2xl border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-900 shadow-sm transition-colors focus-within:border-violet-400/70 dark:focus-within:border-violet-600/70 focus-within:ring-4 focus-within:ring-violet-500/10">
+            <div className="flex items-end gap-2 p-2 sm:p-3">
+              {/* Tools Button */}
+              <div className="relative flex-shrink-0" ref={toolsMenuRef}>
                 <button
                   type="button"
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    setEnableWebSearch(!enableWebSearch);
-                    setShowToolsMenu(false);
+                    setShowToolsMenu(!showToolsMenu);
                   }}
                   className={cn(
-                    "w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors",
-                    enableWebSearch && "bg-violet-50 dark:bg-violet-900/20"
+                    "w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-xl transition-all border",
+                    showToolsMenu || enableWebSearch
+                      ? "bg-violet-600 text-white border-violet-600 shadow-md shadow-violet-500/25"
+                      : "bg-slate-50 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-300"
                   )}
+                  title="Tools"
+                  aria-label="Open tools menu"
                 >
-                  <div className={cn(
-                    "w-8 h-8 rounded-lg flex items-center justify-center",
-                    enableWebSearch 
-                      ? "bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400" 
-                      : "bg-slate-100 dark:bg-slate-700 text-slate-500"
-                  )}>
-                    <Search className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1 text-left">
-                    <p className={cn(
-                      "text-sm font-semibold",
-                      enableWebSearch ? "text-violet-600 dark:text-violet-400" : "text-slate-700 dark:text-slate-300"
-                    )}>
-                      Web Search
-                    </p>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                      Search the web for more info
-                    </p>
-                  </div>
-                  {enableWebSearch && (
-                    <div className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />
-                  )}
+                  <Plus className={cn("w-5 h-5 transition-transform", showToolsMenu && "rotate-45")} />
                 </button>
+                
+                {/* Tools Menu */}
+                {showToolsMenu && (
+                  <div className="absolute bottom-full left-0 mb-3 w-64 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden z-50 animate-in slide-in-from-bottom-2 fade-in duration-200">
+                    <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Tools</span>
+                      <button 
+                        onClick={() => setShowToolsMenu(false)}
+                        className="w-5 h-5 rounded flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setEnableWebSearch(!enableWebSearch);
+                        setShowToolsMenu(false);
+                      }}
+                      className={cn(
+                        "w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors",
+                        enableWebSearch && "bg-violet-50 dark:bg-violet-900/20"
+                      )}
+                    >
+                      <div className={cn(
+                        "w-8 h-8 rounded-lg flex items-center justify-center",
+                        enableWebSearch 
+                          ? "bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400" 
+                          : "bg-slate-100 dark:bg-slate-700 text-slate-500"
+                      )}>
+                        <Search className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className={cn(
+                          "text-sm font-semibold",
+                          enableWebSearch ? "text-violet-600 dark:text-violet-400" : "text-slate-700 dark:text-slate-300"
+                        )}>
+                          Web Search
+                        </p>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                          Search the web for more info
+                        </p>
+                      </div>
+                      {enableWebSearch && (
+                        <div className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />
+                      )}
+                    </button>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
 
-          {/* Input Field */}
-          <div className="flex-1 relative">
-            {enableWebSearch && (
-              <div className="absolute -top-7 left-0 flex items-center gap-1.5 px-2 py-1 bg-violet-100 dark:bg-violet-900/30 rounded-md">
-                <Search className="w-3 h-3 text-violet-600 dark:text-violet-400" />
-                <span className="text-[10px] font-bold text-violet-600 dark:text-violet-400 uppercase tracking-wider">Web search on</span>
+              {/* Input Field */}
+              <div className="flex-1 min-w-0">
+                {enableWebSearch && (
+                  <div className="mb-2 inline-flex items-center gap-1.5 px-2 py-1 bg-violet-100 dark:bg-violet-900/30 rounded-md">
+                    <Search className="w-3 h-3 text-violet-600 dark:text-violet-400" />
+                    <span className="text-[10px] font-bold text-violet-600 dark:text-violet-400 uppercase tracking-wider">Web search on</span>
+                  </div>
+                )}
+                <textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    setInput(e.target.value);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      void handleSubmit(e);
+                    }
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  placeholder={`Ask about ${searchScope === 'document' ? (selectedDocTitle ?? 'your document') : 'all company documents'}...`}
+                  className="w-full bg-transparent text-slate-700 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 px-2 py-2.5 text-sm focus:outline-none resize-none min-h-[52px] max-h-[180px] leading-relaxed"
+                  rows={1}
+                  disabled={isSubmitting}
+                />
+                <div className="flex items-center justify-between px-2 pb-1">
+                  <span className="text-[11px] text-slate-400 dark:text-slate-500">
+                    Enter to send, Shift+Enter for new line
+                  </span>
+                  <span className="text-[11px] text-slate-400 dark:text-slate-500 hidden sm:inline">
+                    {searchScope === 'document' ? 'Document mode' : 'Company mode'}
+                  </span>
+                </div>
               </div>
-            )}
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => {
-                e.stopPropagation();
-                setInput(e.target.value);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  void handleSubmit(e);
-                }
-              }}
-              onClick={(e) => e.stopPropagation()}
-              placeholder={`Ask about ${searchScope === 'document' ? (selectedDocTitle ?? 'your document') : 'all company documents'}...`}
-              className="w-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:bg-white dark:focus:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-violet-300 dark:focus:border-violet-700 resize-none min-h-[52px] max-h-[180px] transition-all leading-relaxed"
-              rows={1}
-              disabled={isSubmitting}
-            />
-          </div>
 
-          {/* Send Button */}
-          <button
-            type="submit"
-            disabled={!input.trim() || isSubmitting}
-            className={cn(
-              "h-11 px-5 rounded-xl flex items-center gap-2 font-semibold text-sm transition-all",
-              !input.trim() || isSubmitting
-                ? "bg-slate-200 dark:bg-slate-700 text-slate-400 cursor-not-allowed"
-                : "bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700 shadow-lg shadow-violet-500/25 active:scale-95"
-            )}
-          >
-            <Send className="w-4 h-4" />
-            <span className="hidden sm:inline">Send</span>
-          </button>
+              {/* Send Button */}
+              <button
+                type="submit"
+                disabled={!input.trim() || isSubmitting}
+                className={cn(
+                  "h-10 sm:h-11 min-w-10 sm:min-w-11 px-3 sm:px-4 rounded-xl flex items-center justify-center gap-1.5 font-semibold text-sm transition-all",
+                  !input.trim() || isSubmitting
+                    ? "bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed border border-slate-200 dark:border-slate-700"
+                    : "bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700 shadow-md shadow-violet-500/25 active:scale-95"
+                )}
+                aria-label="Send message"
+              >
+                <Send className="w-4 h-4" />
+                <span className="hidden md:inline">Send</span>
+              </button>
+            </div>
+          </div>
         </form>
       </div>
     </div>

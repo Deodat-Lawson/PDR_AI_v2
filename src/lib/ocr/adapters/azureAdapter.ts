@@ -201,7 +201,8 @@ export class AzureDocumentIntelligenceAdapter implements OCRAdapter {
   }
 
   /**
-   * Submit document to Azure for analysis
+   * Submit document to Azure for analysis.
+   * Fetches document server-side and sends bytes; Azure cannot reach localhost/private URLs.
    */
   private async submitForAnalysis(
     documentUrl: string,
@@ -217,15 +218,24 @@ export class AzureDocumentIntelligenceAdapter implements OCRAdapter {
 
     const fullUrl = queryParams.toString() ? `${url}&${queryParams}` : url;
 
+    // Fetch document server-side and send as binary. Azure cannot reach localhost/private URLs.
+    const docResponse = await fetch(documentUrl);
+    if (!docResponse.ok) {
+      throw new Error(
+        `Failed to fetch document from ${documentUrl}: ${docResponse.status} ${docResponse.statusText}`
+      );
+    }
+    const buffer = await docResponse.arrayBuffer();
+    const contentType =
+      docResponse.headers.get("content-type") ?? "application/pdf";
+
     const response = await fetch(fullUrl, {
       method: "POST",
       headers: {
         "Ocp-Apim-Subscription-Key": this.apiKey,
-        "Content-Type": "application/json",
+        "Content-Type": contentType,
       },
-      body: JSON.stringify({
-        urlSource: documentUrl,
-      }),
+      body: buffer,
     });
 
     if (!response.ok) {

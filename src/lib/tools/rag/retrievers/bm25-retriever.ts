@@ -32,7 +32,7 @@ export async function getDocumentChunks(documentId: number): Promise<ChunkRow[]>
     return legacyRows.map(r => ({
       id: r.id,
       content: r.content,
-      page: r.page ?? 1,
+      page: r.page ?? 0,
       documentId: Number(r.documentId),
       documentTitle: undefined,
     }));
@@ -41,7 +41,7 @@ export async function getDocumentChunks(documentId: number): Promise<ChunkRow[]>
   return rows.map((r) => ({
     id: r.id,
     content: r.content,
-    page: r.page ?? 1,
+    page: r.page ?? 0,
     documentId: Number(r.documentId),
     documentTitle: undefined,
   }));
@@ -78,7 +78,7 @@ export async function getCompanyChunks(companyId: number): Promise<ChunkRow[]> {
     return legacyRows.map(r => ({
       id: r.id,
       content: r.content,
-      page: r.page ?? 1,
+      page: r.page ?? 0,
       documentId: Number(r.documentId),
       documentTitle: r.documentTitle ?? undefined,
     }));
@@ -87,7 +87,7 @@ export async function getCompanyChunks(companyId: number): Promise<ChunkRow[]> {
   return rows.map((r) => ({
     id: r.id,
     content: r.content,
-    page: r.page ?? 1,
+    page: r.page ?? 0,
     documentId: Number(r.documentId),
     documentTitle: r.documentTitle ?? undefined,
   }));
@@ -130,7 +130,7 @@ export async function getMultiDocChunks(documentIds: number[]): Promise<ChunkRow
     return legacyRows.map(r => ({
       id: r.id,
       content: r.content,
-      page: r.page ?? 1,
+      page: r.page ?? 0,
       documentId: Number(r.documentId),
       documentTitle: r.documentTitle ?? undefined,
     }));
@@ -139,7 +139,7 @@ export async function getMultiDocChunks(documentIds: number[]): Promise<ChunkRow
   return rows.map((r) => ({
     id: r.id,
     content: r.content,
-    page: r.page ?? 1,
+    page: r.page ?? 0,
     documentId: Number(r.documentId),
     documentTitle: r.documentTitle ?? undefined,
   }));
