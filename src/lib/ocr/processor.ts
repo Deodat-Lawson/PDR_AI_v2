@@ -72,15 +72,46 @@ export function isKnownOfficeDocument(filename: string): boolean {
 // Step A: Router - Determine document routing
 // ============================================================================
 
+const OCR_ONLY_PROVIDERS = ["AZURE", "LANDING_AI", "DATALAB"] as const;
+
+function isValidOCRProvider(p: string): p is (typeof OCR_ONLY_PROVIDERS)[number] {
+  return OCR_ONLY_PROVIDERS.includes(p as (typeof OCR_ONLY_PROVIDERS)[number]);
+}
+
 /**
  * Determine how to route the document for processing
  */
 export async function routeDocument(
   documentUrl: string,
-  options?: { forceOCR?: boolean }
+  options?: { forceOCR?: boolean; preferredProvider?: OCRProvider }
 ): Promise<RouterDecisionResult> {
   const { determineDocumentRouting } = await import("~/lib/ocr/complexity");
   const decision: RoutingDecision = await determineDocumentRouting(documentUrl);
+
+  // Honor frontend provider selection when set
+  const preferred = options?.preferredProvider;
+  if (preferred) {
+    if (preferred === "NATIVE_PDF") {
+      return {
+        isNativePDF: true,
+        pageCount: decision.pageCount,
+        selectedProvider: "NATIVE_PDF",
+        confidence: decision.confidence,
+        reason: `User selected native PDF extraction`,
+        visionLabel: decision.visionResult?.label,
+      };
+    }
+    if (isValidOCRProvider(preferred)) {
+      return {
+        isNativePDF: false,
+        pageCount: decision.pageCount,
+        selectedProvider: preferred,
+        confidence: decision.confidence,
+        reason: `User selected ${preferred} for OCR`,
+        visionLabel: decision.visionResult?.label,
+      };
+    }
+  }
 
   const isNativePDF = decision.provider === "NATIVE_PDF";
 
@@ -302,6 +333,26 @@ export async function storeDocument(
     `pages=${normalizationResult.pages.length}`
   );
 
+  // Ensure document exists before inserting (avoids opaque FK violation).
+  // Retry once after 2s to handle replication lag or timing races.
+  let [existingDoc] = await db
+    .select({ id: documentTable.id })
+    .from(documentTable)
+    .where(eq(documentTable.id, documentId));
+  if (!existingDoc) {
+    await new Promise((r) => setTimeout(r, 2000));
+    [existingDoc] = await db
+      .select({ id: documentTable.id })
+      .from(documentTable)
+      .where(eq(documentTable.id, documentId));
+  }
+  if (!existingDoc) {
+    throw new Error(
+      `Document ${documentId} does not exist. Cannot store chunks. ` +
+      `The document may have been deleted before the job completed.`
+    );
+  }
+
   // 1. Create root document structure
   console.log("[Storage] 1/5 Creating root document structure...");
   const rootStructure = await db.insert(documentStructure).values({
@@ -475,46 +526,51 @@ export async function processDocumentSync(
 // ============================================================================
 
 /**
- * Process native PDF using pdf-parse (Node.js native)
+ * Process native PDF with per-page text extraction.
+ * Uses pdfjs-serverless for Node.js/serverless (no DOMMatrix) - compatible with Inngest, Vercel, etc.
  */
 export async function processNativePDF(documentUrl: string): Promise<NormalizedDocument> {
   const startTime = Date.now();
 
-  // Dynamic import to avoid pdf-parse test file issues at module load time
-  const { default: pdfParse } = await import("pdf-parse");
+  const { getDocument } = await import("pdfjs-serverless");
 
   // 1. Fetch PDF data
   const response = await fetch(documentUrl);
   if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
   const arrayBuffer = await response.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
+  const uint8Array = new Uint8Array(arrayBuffer);
 
-  // 2. Parse PDF with page-level extraction
-  const data = await pdfParse(buffer, {
-    pagerender: async (pageData) => {
-      const textContent = await pageData.getTextContent();
-      const text = textContent.items.map((item) => item.str).join(' ');
-      return text;
-    }
+  // 2. Load document (pdfjs-serverless is built for serverless - no worker needed)
+  const loadingTask = getDocument({
+    data: uint8Array,
+    useSystemFonts: true,
   });
+  const pdfDoc = await loadingTask.promise;
+  const numPages = pdfDoc.numPages;
 
-  // 3. Build page structure
+  // 3. Extract text per page
   const pages: PageContent[] = [];
-  const totalPages = data.numpages;
+  for (let i = 1; i <= numPages; i++) {
+    const page = await pdfDoc.getPage(i);
+    const textContent = await page.getTextContent();
+    const text = textContent.items
+      .map((item) => ("str" in item ? item.str : ""))
+      .join(" ")
+      .trim();
 
-  // Split text by pages if available, otherwise create single page
-  if (data.text && data.text.trim().length > 0) {
     pages.push({
-      pageNumber: 1,
-      textBlocks: [data.text],
-      tables: []
+      pageNumber: i,
+      textBlocks: text.length > 0 ? [text] : [],
+      tables: [],
     });
   }
+
+  await pdfDoc.destroy();
 
   return {
     pages,
     metadata: {
-      totalPages,
+      totalPages: numPages,
       provider: "NATIVE_PDF",
       processingTimeMs: Date.now() - startTime,
       confidenceScore: 95,

@@ -148,6 +148,36 @@ export interface WebSearchInstructionParams {
 }
 
 // ============================================================================
+// Source Reference Types
+// ============================================================================
+
+/**
+ * A reference to a source excerpt (e.g. from RAG search) for citations and highlighting
+ */
+export interface SourceReference {
+  /** Page number (1-based) if applicable */
+  page?: number;
+  /** Snippet of text from the source */
+  snippet: string;
+  /** Matched keyword/phrase for highlighting */
+  matchText?: string;
+  /** Start index of match in snippet */
+  matchStart?: number;
+  /** End index of match in snippet */
+  matchEnd?: number;
+  /** Confidence score 0–1 */
+  confidence?: number;
+  /** Document ID if from a stored document */
+  documentId?: number;
+  /** Document title for display */
+  documentTitle?: string;
+  /** Chunk ID within document */
+  chunkId?: number;
+  /** Source identifier (e.g. URL) */
+  source?: string;
+}
+
+// ============================================================================
 // Search Scope Types
 // ============================================================================
 

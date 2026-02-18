@@ -1,7 +1,7 @@
 import { POST } from "~/app/api/fetchDocument/route";
 import { auth } from "@clerk/nextjs/server";
 import { validateRequestBody } from "~/lib/validation";
-import { db } from "~/server/db/index";
+import { dbCore } from "~/server/db/core";
 
 jest.mock("@clerk/nextjs/server", () => ({
   auth: jest.fn(),
@@ -11,8 +11,9 @@ jest.mock("~/lib/validation", () => ({
   validateRequestBody: jest.fn(),
 }));
 
-jest.mock("~/server/db/index", () => ({
-  db: {
+// Route uses dbCore from core, not db from index
+jest.mock("~/server/db/core", () => ({
+  dbCore: {
     select: jest.fn(),
   },
 }));
@@ -53,7 +54,7 @@ describe("POST /api/fetchDocument", () => {
         }),
       });
 
-    (db.select as jest.Mock) = mockSelect;
+    (dbCore.select as jest.Mock) = mockSelect;
 
     const request = new Request("http://localhost/api/fetchDocument", {
       method: "POST",
@@ -91,7 +92,7 @@ describe("POST /api/fetchDocument", () => {
         }),
       });
 
-    (db.select as jest.Mock) = mockSelect;
+    (dbCore.select as jest.Mock) = mockSelect;
 
     const request = new Request("http://localhost/api/fetchDocument", {
       method: "POST",
@@ -121,7 +122,7 @@ describe("POST /api/fetchDocument", () => {
         where: jest.fn().mockResolvedValue([]),
       }),
     });
-    (db.select as jest.Mock) = mockSelect;
+    (dbCore.select as jest.Mock) = mockSelect;
 
     const request = new Request("http://localhost/api/fetchDocument", {
       method: "POST",
@@ -199,7 +200,7 @@ describe("POST /api/fetchDocument", () => {
           where: jest.fn().mockRejectedValue(new Error("Database connection failed")),
         }),
       });
-      (db.select as jest.Mock) = mockSelect;
+      (dbCore.select as jest.Mock) = mockSelect;
 
       const request = new Request("http://localhost/api/fetchDocument", {
         method: "POST",
@@ -245,7 +246,7 @@ describe("POST /api/fetchDocument", () => {
           }),
         });
 
-      (db.select as jest.Mock) = mockSelect;
+      (dbCore.select as jest.Mock) = mockSelect;
 
       const request = new Request("http://localhost/api/fetchDocument", {
         method: "POST",
@@ -277,7 +278,7 @@ describe("POST /api/fetchDocument", () => {
         where: jest.fn().mockResolvedValue([]),
       }),
     });
-    (db.select as jest.Mock) = mockSelect;
+    (dbCore.select as jest.Mock) = mockSelect;
 
     const request = new Request("http://localhost/api/fetchDocument", {
       method: "POST",
@@ -320,7 +321,7 @@ describe("POST /api/fetchDocument", () => {
         }),
       });
 
-    (db.select as jest.Mock) = mockSelect;
+    (dbCore.select as jest.Mock) = mockSelect;
 
     const request = new Request("http://localhost/api/fetchDocument", {
       method: "POST",
@@ -365,7 +366,7 @@ describe("POST /api/fetchDocument", () => {
         }),
       });
 
-    (db.select as jest.Mock) = mockSelect;
+    (dbCore.select as jest.Mock) = mockSelect;
 
     const request = new Request("http://localhost/api/fetchDocument", {
       method: "POST",
@@ -409,7 +410,7 @@ describe("POST /api/fetchDocument", () => {
         }),
       });
 
-    (db.select as jest.Mock) = mockSelect;
+    (dbCore.select as jest.Mock) = mockSelect;
 
     const request = new Request("http://localhost/api/fetchDocument", {
       method: "POST",

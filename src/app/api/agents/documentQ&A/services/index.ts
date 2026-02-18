@@ -12,6 +12,7 @@
 // Functions
 export { normalizeModelContent } from "./normalizeModelContent";
 export { performWebSearch } from "./webSearch";
+export { buildReferences, extractRecommendedPages } from "./references";
 export { performTavilySearch } from "./tavilySearch";
 export { executeWebSearchAgent } from "./webSearchAgent";
 export { SYSTEM_PROMPTS, getSystemPrompt, getWebSearchInstruction } from "./prompts";
@@ -34,6 +35,8 @@ export type {
     AIModelType,
     // Response Style Types
     ResponseStyle,
+    // Source Reference Types
+    SourceReference,
     // Web Search Types
     WebSearchResult,
     WebSearchAgentInput,
