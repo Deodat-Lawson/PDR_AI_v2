@@ -44,6 +44,7 @@ interface DocumentGeneratorEditorProps {
   documentId?: number;
   onBack: () => void;
   onSave: (title: string, content: string, citations?: Citation[]) => void;
+  mode?: 'full' | 'rewrite';
 }
 
 export function DocumentGeneratorEditor({ 
@@ -52,8 +53,10 @@ export function DocumentGeneratorEditor({
   initialCitations = [],
   documentId: _documentId,
   onBack, 
-  onSave 
+  onSave,
+  mode = 'full',
 }: DocumentGeneratorEditorProps) {
+  const isRewriteMode = mode === 'rewrite';
   // Core state
   const [title, setTitle] = useState(initialTitle);
   const [content, setContent] = useState(initialContent);
@@ -77,20 +80,24 @@ export function DocumentGeneratorEditor({
   
   const contentRef = useRef<HTMLTextAreaElement>(null);
 
-  // Auto-save
-  const handleSave = useCallback(() => {
+  // Auto-save (supports async onSave e.g. for Rewrite tab saving to API)
+  const handleSave = useCallback(async () => {
     setIsSaving(true);
-    onSave(title, content, citations);
-    setLastSaved(new Date());
-    setIsSaving(false);
+    try {
+      await Promise.resolve(onSave(title, content, citations));
+      setLastSaved(new Date());
+    } finally {
+      setIsSaving(false);
+    }
   }, [onSave, title, content, citations]);
 
   useEffect(() => {
+    if (isRewriteMode) return; 
     const interval = setInterval(() => {
       void handleSave();
     }, 30000);
     return () => clearInterval(interval);
-  }, [handleSave]);
+  }, [handleSave, isRewriteMode]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -317,41 +324,49 @@ export function DocumentGeneratorEditor({
   return (
     <div className="flex flex-col h-full bg-background">
       <ResizablePanelGroup direction="horizontal" className="flex-1">
-        {/* Tool Palette - Collapsible */}
-        <ResizablePanel 
-          defaultSize={isToolPaletteCollapsed ? 4 : 15} 
-          minSize={isToolPaletteCollapsed ? 4 : 12} 
-          maxSize={isToolPaletteCollapsed ? 4 : 20}
-        >
-          <ToolPalette
-            activeTool={activeTool}
-            onToolSelect={handleToolSelect}
-            onAIAction={handleAIAction}
-            hasSelection={selectedText.length > 0}
-            isCollapsed={isToolPaletteCollapsed}
-            onToggleCollapse={() => setIsToolPaletteCollapsed(!isToolPaletteCollapsed)}
-          />
-        </ResizablePanel>
-        <ResizableHandle className="w-px bg-border" />
+        {}
+        {!isRewriteMode && (
+          <>
+            <ResizablePanel 
+              defaultSize={isToolPaletteCollapsed ? 4 : 15} 
+              minSize={isToolPaletteCollapsed ? 4 : 12} 
+              maxSize={isToolPaletteCollapsed ? 4 : 20}
+            >
+              <ToolPalette
+                activeTool={activeTool}
+                onToolSelect={handleToolSelect}
+                onAIAction={handleAIAction}
+                hasSelection={selectedText.length > 0}
+                isCollapsed={isToolPaletteCollapsed}
+                onToggleCollapse={() => setIsToolPaletteCollapsed(!isToolPaletteCollapsed)}
+              />
+            </ResizablePanel>
+            <ResizableHandle className="w-px bg-border" />
+          </>
+        )}
 
         {/* Main Editor */}
-        <ResizablePanel defaultSize={activeTool ? 50 : 55} minSize={40}>
+        <ResizablePanel defaultSize={activeTool && !isRewriteMode ? 50 : isRewriteMode ? 65 : 55} minSize={40}>
           <div className="flex flex-col h-full bg-background">
             {/* Toolbar */}
             <div className="flex-shrink-0 border-b border-border">
               {/* Top Bar */}
               <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-background">
                 <div className="flex items-center gap-3">
-                  <Button variant="ghost" size="sm" onClick={onBack} className="text-muted-foreground hover:text-foreground">
-                    <ArrowLeft className="w-4 h-4 mr-2" />
-                    Back
-                  </Button>
-                  <div className="h-6 w-px bg-border" />
+                  {!isRewriteMode && (
+                    <>
+                      <Button variant="ghost" size="sm" onClick={onBack} className="text-muted-foreground hover:text-foreground">
+                        <ArrowLeft className="w-4 h-4 mr-2" />
+                        Back
+                      </Button>
+                      <div className="h-6 w-px bg-border" />
+                    </>
+                  )}
                   <Input
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     className="border-0 focus-visible:ring-0 font-medium text-lg px-2 bg-transparent text-foreground max-w-[300px]"
-                    placeholder="Untitled Document"
+                    placeholder={isRewriteMode ? "Add a title (optional)" : "Untitled Document"}
                   />
                 </div>
                 <div className="flex items-center gap-2">
@@ -373,7 +388,7 @@ export function DocumentGeneratorEditor({
                     ) : (
                       <Save className="w-4 h-4 mr-2" />
                     )}
-                    Save
+                    {isRewriteMode ? "Save to Documents" : "Save"}
                   </Button>
                 </div>
               </div>
@@ -424,7 +439,7 @@ export function DocumentGeneratorEditor({
                     onChange={(e) => setContent(e.target.value)}
                     onSelect={handleTextSelection}
                     className="w-full min-h-[900px] border-0 focus-visible:ring-0 resize-none text-base leading-relaxed bg-transparent text-foreground"
-                    placeholder="Start writing or use the AI tools to help you..."
+                    placeholder={isRewriteMode ? "Paste or type text here, then select and use the AI panel to rewrite..." : "Start writing or use the AI tools to help you..."}
                     style={{ fontFamily: 'Georgia, serif' }}
                   />
                 </div>
@@ -435,9 +450,9 @@ export function DocumentGeneratorEditor({
 
         <ResizableHandle className="w-px bg-border" />
 
-        {/* Tool Panel or AI Assistant */}
-        <ResizablePanel defaultSize={activeTool && activeTool !== 'ai-generate' ? 30 : 30} minSize={25} maxSize={40}>
-          {activeTool && activeTool !== 'ai-generate' ? (
+        {/* Tool Panel or AI Assistant - in rewrite mode always show AI Assistant */}
+        <ResizablePanel defaultSize={activeTool && activeTool !== 'ai-generate' && !isRewriteMode ? 30 : isRewriteMode ? 35 : 30} minSize={25} maxSize={45}>
+          {activeTool && activeTool !== 'ai-generate' && !isRewriteMode ? (
             renderToolPanel()
           ) : (
             <div className="bg-background border-l border-border flex flex-col h-full">
@@ -448,7 +463,9 @@ export function DocumentGeneratorEditor({
                   <h3 className="font-semibold text-foreground">AI Assistant</h3>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {selectedText ? 'Selected text - Ask AI to edit it' : 'Ask AI to add content'}
+                  {isRewriteMode
+                    ? (selectedText ? 'Selected text - Ask AI to rewrite it' : 'Paste or type text, then select and ask AI to rewrite')
+                    : (selectedText ? 'Selected text - Ask AI to edit it' : 'Ask AI to add content')}
                 </p>
               </div>
 
