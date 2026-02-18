@@ -1,4 +1,7 @@
 import { useState, useCallback } from 'react';
+import type { SourceReference } from '~/app/api/agents/documentQ&A/services';
+
+export type { SourceReference };
 
 export interface AIChatRequest {
   documentId?: number;
@@ -28,6 +31,7 @@ export interface AIChatResponse {
   success: boolean;
   summarizedAnswer?: string;
   recommendedPages?: number[];
+  references?: SourceReference[];
   retrievalMethod?: string;
   processingTimeMs?: number;
   chunksAnalyzed?: number;

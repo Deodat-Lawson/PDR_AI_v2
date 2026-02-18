@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import type { SourceReference } from '~/app/api/agents/documentQ&A/services';
 
 interface Chat {
   id: string;
@@ -16,6 +17,7 @@ interface Chat {
 export interface MessageContent {
   text?: string;
   pages?: number[];
+  references?: SourceReference[];
   webSources?: Array<{ title: string; url: string; snippet: string }>;
 }
 
