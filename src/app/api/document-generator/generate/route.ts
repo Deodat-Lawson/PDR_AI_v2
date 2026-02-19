@@ -195,6 +195,31 @@ export async function POST(request: Request) {
                 if (prompt) {
                     userPrompt += `\n\nAdditional instructions: ${prompt}`;
                 }
+
+                // Writing first pass
+                const firstPass = await chat.call([
+                    new SystemMessage(systemPrompt),
+                    new HumanMessage(userPrompt),
+                ]);
+                
+                // Normalizing
+                const firstDraft = normalizeModelContent(firstPass.content);
+
+                // Refining through second pass
+                const secondPass = await chat.call([
+                    new SystemMessage(systemPrompt),
+                    new HumanMessage(`Here is a rewritten version of the original text:
+
+"${firstDraft}"
+
+Now refine it further:
+- Improve sentence flow and rhythm
+- Remove any redundancy or filler phrases
+- Ensure it reads naturally, not like it was AI-generated
+- Preserve all factual information, names, numbers, and technical terms
+- Do not change the meaning or add new information`),
+                ]);
+
                 break;
 
             case "summarize":
