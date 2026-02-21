@@ -17,6 +17,7 @@ import { Button } from "~/app/employer/documents/components/ui/button";
 import type { ImperativePanelHandle } from "react-resizable-panels";
 
 import { RESPONSE_STYLES, type ResponseStyleId } from "~/lib/ai/styles";
+import type { AIModelType } from "~/app/api/agents/documentQ&A/services/types";
 
 const ChatPanel = dynamic(
   () => import("./ChatPanel").then((module) => module.ChatPanel),
@@ -81,6 +82,7 @@ export function DocumentViewerShell({ userRole }: DocumentViewerShellProps) {
   const { createChat, getChat } = useAIChatbot();
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [aiPersona, setAiPersona] = useState<string>('general');
+  const [aiModel, setAiModel] = useState<AIModelType>("gpt-5.2");
 
   // Handle chat selection and auto-document binding
   useEffect(() => {
@@ -323,6 +325,7 @@ export function DocumentViewerShell({ userRole }: DocumentViewerShellProps) {
         question: currentQuestion,
         searchScope,
         style: aiStyle as ResponseStyleId,
+        aiModel,
         documentId: searchScope === "document" && selectedDoc ? selectedDoc.id : undefined,
         companyId: searchScope === "company" ? resolvedCompanyId ?? undefined : undefined,
       });
@@ -480,6 +483,8 @@ export function DocumentViewerShell({ userRole }: DocumentViewerShellProps) {
                       setSearchScope={handleSearchScopeChange}
                       aiStyle={aiStyle}
                       setAiStyle={setAiStyle}
+                      aiModel={aiModel}
+                      setAiModel={setAiModel}
                       styleOptions={STYLE_OPTIONS}
                       referencePages={referencePages}
                       setPdfPageNumber={setPdfPageNumber}
@@ -499,6 +504,8 @@ export function DocumentViewerShell({ userRole }: DocumentViewerShellProps) {
                               setAiStyle={setAiStyle}
                               aiPersona={aiPersona}
                               setAiPersona={setAiPersona}
+                              aiModel={aiModel}
+                              setAiModel={setAiModel}
                               searchScope={searchScope}
                               setSearchScope={handleSearchScopeChange}
                               companyId={companyId}
