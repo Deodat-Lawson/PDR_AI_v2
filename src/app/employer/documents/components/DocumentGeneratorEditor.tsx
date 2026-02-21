@@ -484,15 +484,11 @@ export function DocumentGeneratorEditor({
               {/* Top Bar */}
               <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-background">
                 <div className="flex items-center gap-3">
-                  {!isRewriteMode && (
-                    <>
-                      <Button variant="ghost" size="sm" onClick={onBack} className="text-muted-foreground hover:text-foreground">
-                        <ArrowLeft className="w-4 h-4 mr-2" />
-                        Back
-                      </Button>
-                      <div className="h-6 w-px bg-border" />
-                    </>
-                  )}
+                  <Button variant="ghost" size="sm" onClick={onBack} className="text-muted-foreground hover:text-foreground">
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Back
+                  </Button>
+                  <div className="h-6 w-px bg-border" />
                   <Input
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
