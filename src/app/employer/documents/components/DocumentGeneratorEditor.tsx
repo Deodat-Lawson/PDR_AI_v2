@@ -31,11 +31,43 @@ import {
   OutlinePanel,
   GrammarPanel,
   ExportDialog,
+  InlineRewriteDiff,
   type ToolType,
   type AIAction,
   type Citation,
   type OutlineItem,
 } from "./generator";
+
+/** Extract sentence or paragraph at cursor when there is no selection (cursor rewrite). */
+function extractTextAtCursor(text: string, cursorPos: number): { text: string; start: number; end: number } {
+  if (text.length === 0) return { text: "", start: 0, end: 0 };
+  const len = text.length;
+  let start = cursorPos;
+  let end = cursorPos;
+  while (start > 0) {
+    const c = text[start - 1] ?? "";
+    const prev = text[start - 2] ?? "";
+    if (c === "\n" && start > 1 && prev === "\n") break;
+    if ([".", "!", "?"].includes(c) && (start <= 1 || /[\s\n]/.test(prev))) break;
+    start--;
+  }
+  while (end < len) {
+    const c = text[end] ?? "";
+    const next = text[end + 1] ?? "";
+    if (c === "\n" && end + 1 < len && next === "\n") break;
+    if ([".", "!", "?"].includes(c)) {
+      end++;
+      break;
+    }
+    end++;
+  }
+  const raw = text.slice(start, end);
+  const trimmed = raw.trim();
+  if (!trimmed) return { text: "", start: cursorPos, end: cursorPos };
+  const leadSpace = raw.length - raw.trimStart().length;
+  const trailSpace = raw.trimEnd().length;
+  return { text: trimmed, start: start + leadSpace, end: start + trailSpace };
+}
 
 interface DocumentGeneratorEditorProps {
   initialTitle: string;
@@ -77,7 +109,19 @@ export function DocumentGeneratorEditor({
   const [selectionStart, setSelectionStart] = useState(0);
   const [selectionEnd, setSelectionEnd] = useState(0);
   const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant', content: string }>>([]);
-  
+
+  /** Rewrite preview: show diff, user must Accept or Reject. */
+  const [rewritePreview, setRewritePreview] = useState<{
+    originalText: string;
+    proposedText: string;
+    selectionStart: number;
+    selectionEnd: number;
+    prompt: string;
+  } | null>(null);
+
+  /** Undo stack for content (used so Accept is one undo step). */
+  const contentHistoryRef = useRef<string[]>([]);
+
   const contentRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-save (supports async onSave e.g. for Rewrite tab saving to API)
@@ -99,80 +143,118 @@ export function DocumentGeneratorEditor({
     return () => clearInterval(interval);
   }, [handleSave, isRewriteMode]);
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts (including undo)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+      if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) {
+        const history = contentHistoryRef.current;
+        if (history.length > 0 && contentRef.current === document.activeElement) {
+          e.preventDefault();
+          const prev = history.pop()!;
+          setContent(prev);
+        }
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
         e.preventDefault();
         void handleSave();
       }
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
-        setActiveTool('ai-generate');
+        setActiveTool("ai-generate");
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleSave]);
 
   // Handle AI content generation
   const handleAIAction = async (action: AIAction, customPrompt?: string) => {
     setIsProcessing(true);
     const prompt = customPrompt ?? aiPrompt;
-    
+
+    let textToRewrite: string;
+    let rewriteStart: number;
+    let rewriteEnd: number;
+
+    if (selectedText) {
+      textToRewrite = selectedText;
+      rewriteStart = selectionStart;
+      rewriteEnd = selectionEnd;
+    } else {
+      const cursorPos = contentRef.current?.selectionStart ?? content.length;
+      const extracted = extractTextAtCursor(content, cursorPos);
+      textToRewrite = extracted.text;
+      rewriteStart = extracted.start;
+      rewriteEnd = extracted.end;
+    }
+
     if (prompt) {
-      setChatMessages(prev => [...prev, { role: 'user', content: prompt }]);
-      setAiPrompt('');
+      setChatMessages((prev) => [...prev, { role: "user", content: prompt }]);
+      setAiPrompt("");
     }
 
     try {
-      const response = await fetch('/api/document-generator/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/document-generator/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action,
-          content: selectedText || content.slice(-500),
+          content: textToRewrite || content.slice(-500),
           prompt,
           context: {
             documentTitle: title,
             fullContent: content.slice(0, 3000),
             cursorPosition: selectionEnd,
           },
-          options: {
-            tone: 'professional',
-            length: 'medium',
-          },
+          options: { tone: "professional", length: "medium" },
         }),
       });
 
-      const data = await response.json() as { success: boolean; generatedContent?: string };
-      
+      const data = (await response.json()) as { success: boolean; generatedContent?: string };
+
       if (data.success && data.generatedContent) {
         const generatedContent = data.generatedContent;
-        
-        if (selectedText && (action === 'expand' || action === 'rewrite' || action === 'summarize' || action === 'change_tone')) {
-          // Replace selected text
-          const newContent = content.substring(0, selectionStart) + generatedContent + content.substring(selectionEnd);
+
+        if (action === "rewrite" && textToRewrite.trim()) {
+          setRewritePreview({
+            originalText: textToRewrite,
+            proposedText: generatedContent,
+            selectionStart: rewriteStart,
+            selectionEnd: rewriteEnd,
+            prompt: prompt ?? "",
+          });
+          setChatMessages((prev) => [
+            ...prev,
+            { role: "assistant", content: "When you're ready—check the preview above your document and click Accept to apply or Reject to discard. No rush!" },
+          ]);
+          return;
+        }
+
+        if (selectedText && (action === "expand" || action === "summarize" || action === "change_tone")) {
+          const newContent =
+            content.substring(0, selectionStart) + generatedContent + content.substring(selectionEnd);
           setContent(newContent);
         } else {
-          // Append to content
-          setContent(prev => prev + '\n\n' + generatedContent);
+          setContent((prev) => prev + "\n\n" + generatedContent);
         }
-        
-        setChatMessages(prev => [...prev, { 
-          role: 'assistant', 
-          content: `I've ${action === 'generate_section' ? 'generated a new section' : action === 'continue' ? 'continued writing' : `${action}ed the text`}. The changes have been applied to your document.`
-        }]);
+
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: `I've ${action === "generate_section" ? "generated a new section" : action === "continue" ? "continued writing" : `${action}ed the text`}. The changes have been applied to your document.`,
+          },
+        ]);
       }
     } catch (error) {
-      console.error('AI generation error:', error);
-      setChatMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: 'Sorry, there was an error generating content. Please try again.'
-      }]);
+      console.error("AI generation error:", error);
+      setChatMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "Sorry, there was an error generating content. Please try again." },
+      ]);
     } finally {
       setIsProcessing(false);
-      setSelectedText('');
+      if (action !== "rewrite") setSelectedText("");
     }
   };
 
@@ -183,6 +265,56 @@ export function DocumentGeneratorEditor({
     const action: AIAction = selectedText ? 'rewrite' : 'continue';
     await handleAIAction(action, aiPrompt);
   };
+
+  const handleContentChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setRewritePreview(null); 
+    setContent(e.target.value);
+  }, []);
+
+  const handleRewriteAccept = useCallback(() => {
+    if (!rewritePreview) return;
+    contentHistoryRef.current.push(content);
+    const newContent =
+      content.slice(0, rewritePreview.selectionStart) +
+      rewritePreview.proposedText +
+      content.slice(rewritePreview.selectionEnd);
+    setContent(newContent);
+    setRewritePreview(null);
+    setSelectedText("");
+    setChatMessages((prev) => [
+      ...prev,
+      { role: "assistant", content: "Rewrite applied. Use Cmd+Z to undo." },
+    ]);
+  }, [rewritePreview, content]);
+
+  const handleRewriteReject = useCallback(() => {
+    setRewritePreview(null);
+  }, []);
+
+  const [isRetryingRewrite, setIsRetryingRewrite] = useState(false);
+  const handleRewriteTryAgain = useCallback(async () => {
+    if (!rewritePreview) return;
+    setIsRetryingRewrite(true);
+    try {
+      const response = await fetch("/api/document-generator/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "rewrite",
+          content: rewritePreview.originalText,
+          prompt: rewritePreview.prompt,
+          context: { documentTitle: title, fullContent: content.slice(0, 3000) },
+          options: { tone: "professional", length: "medium" },
+        }),
+      });
+      const data = (await response.json()) as { success: boolean; generatedContent?: string };
+      if (data.success && data.generatedContent) {
+        setRewritePreview((p) => (p ? { ...p, proposedText: data.generatedContent! } : null));
+      }
+    } finally {
+      setIsRetryingRewrite(false);
+    }
+  }, [rewritePreview, title, content]);
 
   // Handle text selection
   const handleTextSelection = () => {
@@ -324,7 +456,6 @@ export function DocumentGeneratorEditor({
   return (
     <div className="flex flex-col h-full bg-background">
       <ResizablePanelGroup direction="horizontal" className="flex-1">
-        {}
         {!isRewriteMode && (
           <>
             <ResizablePanel 
@@ -429,19 +560,37 @@ export function DocumentGeneratorEditor({
               </div>
             </div>
 
-            {/* Editor Content */}
+            {/* Editor Content - when rewrite preview active, show before|diff|after inline in document */}
             <div className="flex-1 bg-muted/30 overflow-y-auto custom-scrollbar">
               <div className="py-8 px-4">
-                <div className="max-w-[816px] mx-auto bg-card shadow-xl min-h-[1056px] px-24 py-20 border border-border/50">
-                  <Textarea
-                    ref={contentRef}
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                    onSelect={handleTextSelection}
-                    className="w-full min-h-[900px] border-0 focus-visible:ring-0 resize-none text-base leading-relaxed bg-transparent text-foreground"
-                    placeholder={isRewriteMode ? "Paste or type text here, then select and use the AI panel to rewrite..." : "Start writing or use the AI tools to help you..."}
-                    style={{ fontFamily: 'Georgia, serif' }}
-                  />
+                <div
+                  className="max-w-[816px] mx-auto bg-card shadow-xl min-h-[1056px] px-24 py-20 border border-border/50 text-base leading-relaxed text-foreground"
+                  style={{ fontFamily: "Georgia, serif" }}
+                >
+                  {rewritePreview ? (
+                    <div className="whitespace-pre-wrap">
+                      {content.slice(0, rewritePreview.selectionStart)}
+                      <InlineRewriteDiff
+                        originalText={rewritePreview.originalText}
+                        proposedText={rewritePreview.proposedText}
+                        onAccept={handleRewriteAccept}
+                        onReject={handleRewriteReject}
+                        onTryAgain={handleRewriteTryAgain}
+                        isRetrying={isRetryingRewrite}
+                      />
+                      {content.slice(rewritePreview.selectionEnd)}
+                    </div>
+                  ) : (
+                    <Textarea
+                      ref={contentRef}
+                      value={content}
+                      onChange={handleContentChange}
+                      onSelect={handleTextSelection}
+                      className="w-full min-h-[900px] border-0 focus-visible:ring-0 resize-none text-base leading-relaxed bg-transparent text-foreground"
+                      placeholder={isRewriteMode ? "Paste or type text here, then select and use the AI panel to rewrite..." : "Start writing or use the AI tools to help you..."}
+                      style={{ fontFamily: "Georgia, serif" }}
+                    />
+                  )}
                 </div>
               </div>
             </div>
@@ -472,7 +621,7 @@ export function DocumentGeneratorEditor({
               {/* Chat Messages */}
               <div className="flex-1 p-4 overflow-y-auto custom-scrollbar">
                 <div className="space-y-4">
-                  {chatMessages.length === 0 && (
+                  {chatMessages.length === 0 && !rewritePreview && (
                     <div className="space-y-3">
                       <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
                         <p className="text-sm font-medium mb-2 flex items-center gap-2 text-foreground">

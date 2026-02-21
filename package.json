@@ -73,6 +73,7 @@
     "clsx": "*",
     "cmdk": "^1.1.1",
     "dayjs": "^1.11.18",
+    "diff": "^8.0.3",
     "dotenv": "^17.3.1",
     "drizzle-orm": "^0.45.1",
     "duck-duck-scrape": "^2.2.7",
