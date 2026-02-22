@@ -249,7 +249,8 @@ export async function runDocIngestionTool(
     );
 
     let vectorizedChunks: VectorizedChunk[];
-    if (sidecarUrl && chunks.length > 0) {
+    const useSidecarEmbed = sidecarUrl && process.env.SIDECAR_EMBED === "true";
+    if (useSidecarEmbed && chunks.length > 0) {
       vectorizedChunks = await vectorizeWithSidecar(
         chunks,
         sidecarUrl,
