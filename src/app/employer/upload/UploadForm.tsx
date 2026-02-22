@@ -116,7 +116,12 @@ const UploadForm: React.FC<UploadFormProps> = ({
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
 
+    const hasAnyOCR = availableProviders.azure || availableProviders.landingAI || availableProviders.datalab;
+
     const processingMethods = [
+        ...(hasAnyOCR
+            ? [{ value: "auto", label: "Auto", description: "Automatically select the best method based on document analysis." }]
+            : []),
         { value: "standard", label: "Standard", description: "No OCR. Use for text-based PDFs." },
         ...(availableProviders.azure
             ? [{ value: "azure", label: "Azure OCR", description: "Azure Document Intelligence OCR" }]
@@ -347,7 +352,9 @@ const UploadForm: React.FC<UploadFormProps> = ({
         updateDocument(doc.id, { progress: 60 });
 
         const preferredProvider =
-            doc.processingMethod === "standard" ? undefined : doc.processingMethod.toUpperCase();
+            doc.processingMethod === "auto" ? undefined
+            : doc.processingMethod === "standard" ? "NATIVE_PDF"
+            : doc.processingMethod.toUpperCase();
 
         const response = await fetch("/api/uploadDocument", {
             method: "POST",
