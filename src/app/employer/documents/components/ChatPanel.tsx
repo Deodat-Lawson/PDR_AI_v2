@@ -39,6 +39,7 @@ interface ChatPanelProps {
   setAiPersona: (p: string) => void;
   aiModel: AIModelType;
   setAiModel: (m: AIModelType) => void;
+  modelAvailability?: Partial<Record<AIModelType, boolean>>;
   searchScope: 'document' | 'company';
   setSearchScope: (s: 'document' | 'company') => void;
   companyId: number | null;
@@ -87,6 +88,7 @@ export function ChatPanel({
   setAiPersona,
   aiModel,
   setAiModel,
+  modelAvailability = {},
   searchScope,
   setSearchScope,
   companyId,
@@ -164,9 +166,10 @@ export function ChatPanel({
                     <SelectItem
                       key={model.key}
                       value={model.key}
+                      disabled={modelAvailability[model.key] === false}
                       className="text-xs"
                     >
-                      {model.label}
+                      {model.label}{modelAvailability[model.key] === false ? " (Unavailable)" : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>

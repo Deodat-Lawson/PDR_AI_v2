@@ -55,6 +55,7 @@ interface SimpleQueryPanelProps {
   setAiStyle: (s: string) => void;
   aiModel: AIModelType;
   setAiModel: (m: AIModelType) => void;
+  modelAvailability?: Partial<Record<AIModelType, boolean>>;
   styleOptions: Record<string, string>;
   referencePages: number[];
   setPdfPageNumber: (p: number) => void;
@@ -97,6 +98,7 @@ export function SimpleQueryPanel({
   setAiStyle,
   aiModel,
   setAiModel,
+  modelAvailability = {},
   styleOptions,
   referencePages: _referencePages,
   setPdfPageNumber: _setPdfPageNumber,
@@ -204,8 +206,12 @@ export function SimpleQueryPanel({
               </SelectTrigger>
               <SelectContent>
                 {modelConfig.map((model) => (
-                  <SelectItem key={model.key} value={model.key}>
-                    {model.label}
+                  <SelectItem
+                    key={model.key}
+                    value={model.key}
+                    disabled={modelAvailability[model.key] === false}
+                  >
+                    {model.label}{modelAvailability[model.key] === false ? " (Unavailable)" : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
