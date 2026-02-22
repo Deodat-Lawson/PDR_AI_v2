@@ -12,6 +12,9 @@ import { z } from "zod";
 import { db } from "~/server/db";
 import { users, ocrJobs, document } from "~/server/db/schema";
 import { triggerDocumentProcessing, parseProvider } from "~/lib/ocr/trigger";
+import { isOfficePreviewCandidate } from "~/lib/preview-pdf/office";
+import { isPreviewPdfEnabledForCompany } from "~/lib/preview-pdf/feature-flag";
+import { triggerPreviewPdfGeneration } from "~/lib/preview-pdf/trigger";
 import { validateRequestBody } from "~/lib/validation";
 import { withRateLimit } from "~/lib/rate-limit-middleware";
 import { RateLimitPresets } from "~/lib/rate-limiter";
@@ -144,6 +147,60 @@ export async function POST(request: Request) {
       }
 
       console.log(`[UploadDocument] Document created: id=${newDocument.id}, triggering pipeline...`);
+
+      const shouldGeneratePreviewPdf = isOfficePreviewCandidate({
+        mimeType,
+        filename: documentName,
+      });
+      const previewFeatureEnabled = isPreviewPdfEnabledForCompany(companyId);
+
+      if (shouldGeneratePreviewPdf && previewFeatureEnabled) {
+        const pendingAt = new Date();
+        await db
+          .update(document)
+          .set({
+            previewPdfStatus: "pending",
+            previewPdfError: null,
+            previewPdfUpdatedAt: pendingAt,
+            updatedAt: pendingAt,
+          })
+          .where(eq(document.id, newDocument.id));
+
+        try {
+          const { eventIds } = await triggerPreviewPdfGeneration({
+            documentId: newDocument.id,
+            userId,
+            documentUrl,
+            documentName,
+            mimeType,
+          });
+          console.log(
+            `[UploadDocument] Preview conversion queued: docId=${newDocument.id}, eventIds=${eventIds.length}`
+          );
+        } catch (previewError) {
+          const failedAt = new Date();
+          await db
+            .update(document)
+            .set({
+              previewPdfStatus: "failed",
+              previewPdfError:
+                previewError instanceof Error
+                  ? previewError.message.slice(0, 1000)
+                  : "Failed to queue preview conversion",
+              previewPdfUpdatedAt: failedAt,
+              updatedAt: failedAt,
+            })
+            .where(eq(document.id, newDocument.id));
+          console.error(
+            `[UploadDocument] Failed to queue preview conversion for docId=${newDocument.id}:`,
+            previewError
+          );
+        }
+      } else if (shouldGeneratePreviewPdf && !previewFeatureEnabled) {
+        console.log(
+          `[UploadDocument] Preview conversion skipped by feature flag for company=${companyId}, docId=${newDocument.id}`
+        );
+      }
 
       // Use absolute URL for processing pipeline (it needs to fetch the file)
       const { jobId, eventIds } = await triggerDocumentProcessing(

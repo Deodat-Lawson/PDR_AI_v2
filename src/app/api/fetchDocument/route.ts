@@ -109,6 +109,8 @@ export async function POST(request: Request) {
                 id: Number(doc.id),
                 companyId: Number(doc.companyId),
                 ...(mimeType && { mimeType }),
+                ...(doc.previewPdfUrl && { previewPdfUrl: doc.previewPdfUrl }),
+                ...(doc.previewPdfStatus && { previewPdfStatus: doc.previewPdfStatus }),
             };
         });
 

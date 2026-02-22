@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from "../../../server/db/index";
-import { document, ChatHistory, documentReferenceResolution, documentSections, documentStructure, documentMetadata, documentPreviews, workspaceResults, users } from "../../../server/db/schema";
+import { document, ChatHistory, documentReferenceResolution, documentSections, documentStructure, documentMetadata, documentPreviews, workspaceResults, users, fileUploads } from "../../../server/db/schema";
 import { eq } from "drizzle-orm";
 import { validateRequestBody, DeleteDocumentSchema } from "~/lib/validation";
 import { auth } from "@clerk/nextjs/server";
@@ -39,12 +39,28 @@ export async function DELETE(request: Request) {
 
         const { docId } = validation.data;
         const documentId = Number(docId);
+        const previewFileRegex = /\/api\/files\/(\d+)/;
 
         if (isNaN(documentId) || documentId <= 0) {
             return NextResponse.json({
                 success: false,
                 error: "Invalid document ID format"
             }, { status: 400 });
+        }
+
+        const [existingDoc] = await db
+            .select({
+                id: document.id,
+                previewPdfUrl: document.previewPdfUrl,
+            })
+            .from(document)
+            .where(eq(document.id, documentId));
+
+        if (!existingDoc) {
+            return NextResponse.json({
+                success: false,
+                error: "Document not found"
+            }, { status: 404 });
         }
 
         // Delete related data in proper order to maintain referential integrity
@@ -63,6 +79,15 @@ export async function DELETE(request: Request) {
 
         // Finally delete the document itself
         await db.delete(document).where(eq(document.id, documentId));
+
+        // Best-effort cleanup for generated preview files stored in file_uploads.
+        const previewMatch = existingDoc.previewPdfUrl ? previewFileRegex.exec(existingDoc.previewPdfUrl) : null;
+        if (previewMatch?.[1]) {
+            const previewFileId = Number(previewMatch[1]);
+            if (!isNaN(previewFileId)) {
+                await db.delete(fileUploads).where(eq(fileUploads.id, previewFileId));
+            }
+        }
 
         return NextResponse.json({ 
             success: true, 

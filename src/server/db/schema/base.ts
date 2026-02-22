@@ -111,6 +111,14 @@ export const document = pgTable(
         ocrProvider: varchar("ocr_provider", { length: 50 }),
         ocrConfidenceScore: integer("ocr_confidence_score"),
         ocrCostCents: integer("ocr_cost_cents"),
+        // Preview PDF derivative fields
+        previewPdfUrl: varchar("preview_pdf_url", { length: 1024 }),
+        previewPdfStatus: varchar("preview_pdf_status", {
+            length: 20,
+            enum: ["pending", "processing", "ready", "failed"],
+        }),
+        previewPdfError: text("preview_pdf_error"),
+        previewPdfUpdatedAt: timestamp("preview_pdf_updated_at", { withTimezone: true }),
         createdAt: timestamp("created_at", { withTimezone: true })
             .default(sql`CURRENT_TIMESTAMP`)
             .notNull(),
