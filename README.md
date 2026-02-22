@@ -2,7 +2,7 @@
 
 PDR AI is a Next.js platform for role-based document management, AI-assisted Q&A, and predictive document analysis. It combines document upload, optional OCR, embeddings, and retrieval to help teams find gaps and act faster.
 
-## ✨ Core Features
+##  Core Features
 
 - Clerk-based Employer/Employee authentication with role-aware middleware.
 - Document upload pipeline with optional OCR for scanned PDFs.
@@ -11,7 +11,7 @@ PDR AI is a Next.js platform for role-based document management, AI-assisted Q&A
 - Optional web-enriched analysis with Tavily.
 - Optional reliability/observability via Inngest and LangSmith.
 
-## 🏗️ Architecture
+##  Architecture
 
 PDR AI follows a three-layer modular architecture:
 
@@ -91,7 +91,7 @@ The platform is organized into:
 
 All services operate within domain-partitioned boundaries enforced by Clerk RBAC. RAG queries are scoped by `domain + company_id` to ensure data isolation.
 
-## 🛠 Tech Stack
+##  Tech Stack
 
 - Next.js 15 + TypeScript
 - PostgreSQL + Drizzle ORM + pgvector
@@ -100,7 +100,7 @@ All services operate within domain-partitioned boundaries enforced by Clerk RBAC
 - UploadThing + optional OCR providers
 - Tailwind CSS
 
-## 📋 Prerequisites
+## Prerequisites
 
 - Node.js 18+
 - pnpm
