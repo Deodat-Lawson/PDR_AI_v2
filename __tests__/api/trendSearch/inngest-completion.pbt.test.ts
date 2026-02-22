@@ -1,5 +1,5 @@
 /**
- * Property-based tests for AI Trend Search Engine persistence helpers.
+ * Property-based tests for AI Trend Search Engine Inngest completion flow.
  * Feature: ai-trend-search-engine
  */
 
@@ -9,7 +9,24 @@ jest.mock("~/server/db", () => ({
     db: {},
 }));
 
+jest.mock("~/server/trend-search/run", () => ({
+    runTrendSearch: jest.fn(),
+}));
+
+jest.mock("~/server/trend-search/db", () => {
+    const actual = jest.requireActual("~/server/trend-search/db");
+
+    return {
+        ...actual,
+        updateJobStatus: jest.fn(actual.updateJobStatus),
+        updateJobResults: jest.fn(actual.updateJobResults),
+    };
+});
+
 import { createTrendSearchJobHelpers } from "~/server/trend-search/db";
+import * as trendSearchDb from "~/server/trend-search/db";
+import { trendSearchJob } from "~/server/inngest/functions/trendSearch";
+import { runTrendSearch } from "~/server/trend-search/run";
 import type {
     SearchCategory,
     SearchResult,
@@ -32,6 +49,8 @@ type StoredRow = {
     completedAt: Date | null;
     updatedAt: Date | null;
 };
+
+type TrendSearchHelpers = ReturnType<typeof createTrendSearchJobHelpers>;
 
 function cloneRow(row: StoredRow): StoredRow {
     return {
@@ -116,6 +135,31 @@ function createInMemoryTrendSearchStore() {
     };
 }
 
+type StepRunner = {
+    run<T>(name: string, fn: () => Promise<T>): Promise<T>;
+};
+
+function createStepRunner(stepNames: string[]): StepRunner {
+    return {
+        async run<T>(name: string, fn: () => Promise<T>) {
+            stepNames.push(name);
+            return await fn();
+        },
+    };
+}
+
+type TrendSearchFnWithHandler = {
+    fn: (input: { event: { data: unknown }; step: StepRunner }) => Promise<unknown>;
+};
+
+async function invokeTrendSearchJob(eventData: Record<string, unknown>, stepNames: string[]) {
+    const fn = (trendSearchJob as unknown as TrendSearchFnWithHandler).fn;
+    return await fn({
+        event: { data: eventData },
+        step: createStepRunner(stepNames),
+    });
+}
+
 // ─── Arbitraries ─────────────────────────────────────────────────────────────
 
 const validCategories = SearchCategoryEnum.options;
@@ -142,23 +186,47 @@ const searchResultArb = fc.record({
 
 const searchResultsArb = fc.array(searchResultArb, { minLength: 0, maxLength: 12 });
 
-const isoDateArb = fc.date().map((d) => d.toISOString());
+describe("Property 11: Successful pipeline sets completed status", () => {
+    let activeHelpers: TrendSearchHelpers | null = null;
 
-const trendSearchOutputArb = fc.record({
-    results: searchResultsArb,
-    metadata: fc.record({
-        query: validQueryArb,
-        companyContext: validCompanyContextArb,
-        categories: categoriesArb,
-        createdAt: isoDateArb,
-    }),
-}) as fc.Arbitrary<TrendSearchOutput>;
+    beforeEach(() => {
+        activeHelpers = null;
 
-// ─── Property 9: Persistence round-trip ─────────────────────────────────────
-// Validates: Requirements 5.1, 5.2, 5.3
+        const updateJobStatusMock = trendSearchDb.updateJobStatus as jest.MockedFunction<
+            typeof trendSearchDb.updateJobStatus
+        >;
+        const updateJobResultsMock = trendSearchDb.updateJobResults as jest.MockedFunction<
+            typeof trendSearchDb.updateJobResults
+        >;
+        const runTrendSearchMock = runTrendSearch as jest.MockedFunction<typeof runTrendSearch>;
 
-describe("Property 9: Persistence round-trip", () => {
-    it("persists via createJob + updateJobResults and retrieves equivalent query/context/categories/results", async () => {
+        updateJobStatusMock.mockReset();
+        updateJobResultsMock.mockReset();
+        runTrendSearchMock.mockReset();
+
+        updateJobStatusMock.mockImplementation(async (...args) => {
+            if (!activeHelpers) {
+                throw new Error("Test helper store not initialized");
+            }
+            return await activeHelpers.updateJobStatus(...args);
+        });
+
+        updateJobResultsMock.mockImplementation(async (...args) => {
+            if (!activeHelpers) {
+                throw new Error("Test helper store not initialized");
+            }
+            return await activeHelpers.updateJobResults(...args);
+        });
+    });
+
+    afterEach(() => {
+        activeHelpers = null;
+        jest.clearAllMocks();
+    });
+
+    // ─── Property 11: Successful pipeline sets completed status ─────────────
+    // Validates: Requirements 6.4
+    it('mocking a successful pipeline run marks the job "completed" and sets completedAt', async () => {
         await fc.assert(
             fc.asyncProperty(
                 fc.uuid(),
@@ -167,9 +235,20 @@ describe("Property 9: Persistence round-trip", () => {
                 validQueryArb,
                 validCompanyContextArb,
                 fc.option(categoriesArb, { nil: undefined }),
-                trendSearchOutputArb,
-                async (jobId, companyId, userId, query, companyContext, initialCategories, output) => {
+                searchResultsArb,
+                categoriesArb,
+                async (
+                    jobId,
+                    companyId,
+                    userId,
+                    query,
+                    companyContext,
+                    initialCategories,
+                    results,
+                    outputCategories
+                ) => {
                     const helpers = createTrendSearchJobHelpers(createInMemoryTrendSearchStore());
+                    activeHelpers = helpers;
 
                     await helpers.createJob({
                         id: jobId,
@@ -180,89 +259,52 @@ describe("Property 9: Persistence round-trip", () => {
                         categories: initialCategories,
                     });
 
-                    // Simulate the persistence step in the pipeline.
-                    await helpers.updateJobResults(jobId, companyId, {
-                        ...output,
+                    const output: TrendSearchOutput = {
+                        results,
                         metadata: {
-                            ...output.metadata,
                             query,
                             companyContext,
+                            categories: outputCategories,
+                            createdAt: new Date().toISOString(),
                         },
+                    };
+
+                    const runTrendSearchMock = runTrendSearch as jest.MockedFunction<typeof runTrendSearch>;
+                    runTrendSearchMock.mockImplementationOnce(async (_input, options) => {
+                        await options?.onStageChange?.("synthesizing");
+                        return output;
                     });
 
-                    const persisted = await helpers.getJobById(jobId, companyId);
+                    const stepNames: string[] = [];
+                    await invokeTrendSearchJob(
+                        {
+                            jobId,
+                            companyId: companyId.toString(),
+                            userId,
+                            query,
+                            companyContext,
+                            ...(initialCategories ? { categories: initialCategories } : {}),
+                        },
+                        stepNames
+                    );
 
+                    const persisted = await helpers.getJobById(jobId, companyId);
                     expect(persisted).not.toBeNull();
                     if (!persisted) return;
 
-                    expect(persisted.input.query).toBe(query);
-                    expect(persisted.input.companyContext).toBe(companyContext);
-                    expect(persisted.input.categories).toEqual(output.metadata.categories);
+                    expect(stepNames).toEqual(["run-pipeline", "persist"]);
+                    expect(persisted.status).toBe("completed");
+                    expect(persisted.completedAt).not.toBeNull();
+                    expect(persisted.completedAt instanceof Date).toBe(true);
+                    expect(persisted.errorMessage).toBeNull();
 
+                    // The Inngest wrapper owns persistence and completion transition.
                     expect(persisted.output).not.toBeNull();
-                    expect(persisted.output?.results).toEqual(output.results);
-                    expect(persisted.output?.metadata.query).toBe(query);
-                    expect(persisted.output?.metadata.companyContext).toBe(companyContext);
-                    expect(persisted.output?.metadata.categories).toEqual(output.metadata.categories);
-                    expect(typeof persisted.output?.metadata.createdAt).toBe("string");
+                    expect(persisted.output?.results).toEqual(results);
+                    expect(persisted.output?.metadata.categories).toEqual(outputCategories);
                 }
             ),
-            { numRuns: 100 }
-        );
-    });
-});
-
-// ─── Property 10: Company data isolation ────────────────────────────────────
-// Validates: Requirements 5.4
-
-describe("Property 10: Company data isolation", () => {
-    it("getJobsByCompanyId for company A never returns jobs created for company B", async () => {
-        await fc.assert(
-            fc.asyncProperty(
-                fc.bigInt({ min: 1n, max: 5_000n }),
-                fc.bigInt({ min: 5_001n, max: 10_000n }),
-                fc.uniqueArray(fc.uuid(), { minLength: 1, maxLength: 8 }),
-                fc.uniqueArray(fc.uuid(), { minLength: 1, maxLength: 8 }),
-                validQueryArb,
-                validCompanyContextArb,
-                async (companyA, companyB, idsA, idsB, baseQuery, baseContext) => {
-                    const helpers = createTrendSearchJobHelpers(createInMemoryTrendSearchStore());
-
-                    for (const id of idsA) {
-                        await helpers.createJob({
-                            id: `a-${id}`,
-                            companyId: companyA,
-                            userId: `user-a-${id}`,
-                            query: `${baseQuery} ${id}`,
-                            companyContext: baseContext,
-                            categories: ["business"],
-                        });
-                    }
-
-                    for (const id of idsB) {
-                        await helpers.createJob({
-                            id: `b-${id}`,
-                            companyId: companyB,
-                            userId: `user-b-${id}`,
-                            query: `${baseQuery} ${id}`,
-                            companyContext: baseContext,
-                            categories: ["tech"],
-                        });
-                    }
-
-                    const jobsForA = await helpers.getJobsByCompanyId(companyA, {
-                        limit: idsA.length + idsB.length + 10,
-                        offset: 0,
-                    });
-
-                    expect(jobsForA).toHaveLength(idsA.length);
-                    expect(jobsForA.every((job) => job.companyId === companyA)).toBe(true);
-                    expect(jobsForA.some((job) => idsB.includes(job.id.replace(/^b-/, "")))).toBe(
-                        false
-                    );
-                }
-            ),
-            { numRuns: 100 }
+            { numRuns: 50 }
         );
     });
 });
