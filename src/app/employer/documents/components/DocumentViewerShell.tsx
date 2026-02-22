@@ -220,6 +220,33 @@ export function DocumentViewerShell({ userRole }: DocumentViewerShellProps) {
     void fetchDocuments();
   }, [userId, isRoleLoading, fetchDocuments]);
 
+  // Keep selected document in sync with refreshed metadata (e.g. preview status/url).
+  useEffect(() => {
+    if (!selectedDoc) return;
+    const latest = documents.find((doc) => doc.id === selectedDoc.id);
+    if (!latest) {
+      setSelectedDoc(null);
+      return;
+    }
+    if (latest !== selectedDoc) {
+      setSelectedDoc(latest);
+    }
+  }, [documents, selectedDoc]);
+
+  // Poll while preview PDF conversions are pending/processing.
+  useEffect(() => {
+    const hasPendingPreview = documents.some(
+      (doc) => doc.previewPdfStatus === "pending" || doc.previewPdfStatus === "processing"
+    );
+    if (!hasPendingPreview) return;
+
+    const interval = setInterval(() => {
+      void fetchDocuments();
+    }, 10_000);
+
+    return () => clearInterval(interval);
+  }, [documents, fetchDocuments]);
+
   // Actions
   const toggleCategory = (categoryName: string) => {
     setOpenCategories(prev => {

@@ -20,7 +20,8 @@
     "format:write": "prettier --write \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
     "postinstall": "node scripts/copy-vad-assets.mjs",
-    "inngest:dev": "pnpm dlx inngest-cli@latest dev -u http://localhost:3000/api/inngest"
+    "inngest:dev": "pnpm dlx inngest-cli@latest dev -u http://localhost:3000/api/inngest",
+    "preview:backfill": "tsx src/scripts/backfill-preview-pdfs.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.31.9",

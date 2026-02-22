@@ -153,8 +153,40 @@ export function DocumentViewer({
   const displayType = getDocumentDisplayType(document);
   const DisplayIcon = DISPLAY_TYPE_ICONS[displayType];
   const getPdfSrcWithPage = (url: string, page: number) => `${url}#page=${page}`;
+  const isOfficeDisplayType = displayType === "docx" || displayType === "pptx" || displayType === "xlsx";
+  const previewStatus = document.previewPdfStatus;
+  const shouldUseGeneratedPdf = Boolean(
+    isOfficeDisplayType &&
+    previewStatus === "ready" &&
+    document.previewPdfUrl
+  );
+  const isPreviewPending =
+    isOfficeDisplayType &&
+    (previewStatus === "pending" || previewStatus === "processing");
 
   const renderContent = () => {
+    if (shouldUseGeneratedPdf) {
+      return (
+        <IframeWithState
+          iframeKey={`${document.id}-${pdfPageNumber}-preview`}
+          src={getPdfSrcWithPage(document.previewPdfUrl!, pdfPageNumber)}
+          title={`${document.title} (preview)`}
+        />
+      );
+    }
+
+    if (isPreviewPending) {
+      return (
+        <div className="h-full w-full flex flex-col items-center justify-center gap-3 bg-muted/10 text-center px-8">
+          <Loader2 className="w-8 h-8 text-purple-500 animate-spin" />
+          <p className="text-sm font-semibold text-foreground">Generating PDF preview...</p>
+          <p className="text-xs text-muted-foreground">
+            Your original file is still being converted for browser-native viewing.
+          </p>
+        </div>
+      );
+    }
+
     switch (displayType) {
       case "pdf":
         return (
@@ -211,7 +243,7 @@ export function DocumentViewer({
                   {document.category}
                 </span>
                 <span className="px-1.5 py-0.5 bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 text-[10px] rounded font-medium">
-                  {DISPLAY_TYPE_LABELS[displayType]}
+                  {shouldUseGeneratedPdf ? "PDF Preview" : DISPLAY_TYPE_LABELS[displayType]}
                 </span>
               </div>
             </div>

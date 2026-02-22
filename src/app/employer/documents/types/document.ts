@@ -18,6 +18,10 @@ export interface DocumentType {
   url: string;
   /** MIME type when available (from API); otherwise inferred from URL/title */
   mimeType?: string;
+  /** URL to generated PDF preview for Office docs */
+  previewPdfUrl?: string;
+  /** Status of generated PDF preview */
+  previewPdfStatus?: "pending" | "processing" | "ready" | "failed";
 }
 
 /** Infer display type from document for viewer rendering */
