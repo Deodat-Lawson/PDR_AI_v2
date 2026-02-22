@@ -11,10 +11,7 @@ import { z } from "zod";
 
 import { db } from "~/server/db";
 import { users, ocrJobs } from "~/server/db/schema";
-import {
-  processDocumentUpload,
-  type StorageType,
-} from "~/server/services/document-upload";
+import { processDocumentUpload } from "~/server/services/document-upload";
 import { validateRequestBody } from "~/lib/validation";
 import { withRateLimit } from "~/lib/rate-limit-middleware";
 import { RateLimitPresets } from "~/lib/rate-limiter";

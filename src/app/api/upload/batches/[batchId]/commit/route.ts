@@ -25,9 +25,12 @@ const CommitSchema = z.object({
 
 const MAX_CONCURRENCY = 3;
 
-export async function POST(request: Request, context: { params: { batchId: string } }) {
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ batchId: string }> }
+) {
   return withRateLimit(request, RateLimitPresets.strict, async () => {
-    const batchId = context.params?.batchId;
+    const { batchId } = await params;
     if (!batchId) {
       return NextResponse.json({ error: "Batch ID is required" }, { status: 400 });
     }

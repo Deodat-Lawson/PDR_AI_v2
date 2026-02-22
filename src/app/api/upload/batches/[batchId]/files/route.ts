@@ -33,9 +33,12 @@ const RegisterFilesSchema = z.object({
     .min(1, "At least one file must be registered"),
 });
 
-export async function POST(request: Request, context: { params: { batchId: string } }) {
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ batchId: string }> }
+) {
   return withRateLimit(request, RateLimitPresets.standard, async () => {
-    const batchId = context.params?.batchId;
+    const { batchId } = await params;
     if (!batchId) {
       return NextResponse.json({ error: "Batch ID is required" }, { status: 400 });
     }
