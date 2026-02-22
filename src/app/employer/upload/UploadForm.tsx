@@ -364,7 +364,12 @@ const UploadForm: React.FC<UploadFormProps> = ({
             }),
         });
 
-        if (!response.ok) throw new Error(`Document registration failed for ${doc.title}`);
+        if (!response.ok) {
+            const text = await response.text().catch(() => "");
+            throw new Error(
+                `Document registration failed for ${doc.title} (HTTP ${response.status}) ${text}`
+            );
+        }
         updateDocument(doc.id, { status: "success", progress: 100 });
     };
 

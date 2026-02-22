@@ -18,25 +18,42 @@
 import type { JobDispatcher, DispatchResult } from "./types";
 import type { ProcessDocumentEventData } from "~/lib/ocr/types";
 
+type TriggerSdkModule = {
+  trigger: (id: string, payload: unknown) => Promise<{ id: string }>;
+};
+
+let cachedSdk: TriggerSdkModule | null = null;
+
+function loadTriggerSdk(): TriggerSdkModule {
+  if (cachedSdk) return cachedSdk;
+
+  const runner = process.env.JOB_RUNNER?.toLowerCase().trim();
+  if (runner !== "trigger-dev") {
+    throw new Error(
+      "TriggerDevDispatcher loaded while JOB_RUNNER is not set to trigger-dev.",
+    );
+  }
+
+  const moduleName = "@trigger.dev/sdk/v3";
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
+    cachedSdk = require(moduleName) as TriggerSdkModule;
+  } catch {
+    throw new Error(
+      "Trigger.dev SDK not installed. Run: pnpm add @trigger.dev/sdk\n" +
+      "Then configure your project at https://trigger.dev/docs",
+    );
+  }
+
+  return cachedSdk;
+}
+
 export class TriggerDevDispatcher implements JobDispatcher {
   readonly name = "Trigger.dev";
 
   async dispatch(data: ProcessDocumentEventData): Promise<DispatchResult> {
-    // Dynamic import so @trigger.dev/sdk is only loaded when this adapter is used.
-    // This avoids requiring the dependency for Inngest-only users.
-    let tasks: { trigger: (id: string, payload: unknown) => Promise<{ id: string }> };
-
-    try {
-      // Optional dependency: only resolved when JOB_RUNNER=trigger-dev. Install: pnpm add @trigger.dev/sdk
-      // @ts-expect-error - @trigger.dev/sdk is optional; types unavailable when not installed
-      tasks = await import("@trigger.dev/sdk/v3") as typeof tasks;
-    } catch {
-      throw new Error(
-        "Trigger.dev SDK not installed. Run: pnpm add @trigger.dev/sdk\n" +
-        "Then configure your project at https://trigger.dev/docs",
-      );
-    }
-
+    const tasks = loadTriggerSdk();
     const handle = await tasks.trigger("process-document", data);
 
     console.log(
