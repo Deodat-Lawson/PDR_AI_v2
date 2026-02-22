@@ -5,12 +5,22 @@ const TAVILY_SEARCH_URL = "https://api.tavily.com/search";
 const MAX_RESULTS_PER_QUERY = 10;
 const MAX_RETRIES = 2;
 
-/** Response shape from Tavily /search API (subset we use) */
+/** Normalize URL for deduplication; falls back to trim if invalid. */
+function normalizeUrl(url: string): string {
+    try {
+        return new URL(url).href;
+    } catch {
+        return url.trim();
+    }
+}
+
+/** Response shape from Tavily /search API (subset we use). Note: published_date is not in the current Tavily spec; we accept it if present. */
 interface TavilyResultItem {
     title?: string;
     url?: string;
     content?: string;
     score?: number;
+    published_date?: string;
 }
 
 interface TavilySearchResponse {
@@ -57,12 +67,15 @@ async function callTavily(query: string): Promise<RawSearchResult[]> {
             title: item.title ?? "Untitled",
             content: item.content ?? "",
             score: typeof item.score === "number" ? item.score : 0,
+            ...(item.published_date != null && { publishedDate: item.published_date }),
         }));
 }
 
 /**
- * Executes Tavily search for each planned sub-query with retries, then merges and
- * deduplicates results by URL.
+ * Executes sub-queries against Tavily and returns combined, deduplicated raw results for synthesis.
+ *
+ * @param subQueries - Planned queries from the query planner.
+ * @returns Combined RawSearchResult[] (deduplicated by URL).
  */
 export async function executeSearch(
     subQueries: PlannedQuery[],
@@ -105,7 +118,7 @@ export async function executeSearch(
         }
 
         for (const r of results) {
-            const normalizedUrl = r.url.trim();
+            const normalizedUrl = normalizeUrl(r.url);
             if (normalizedUrl && !seenUrls.has(normalizedUrl)) {
                 seenUrls.add(normalizedUrl);
                 combined.push(r);
