@@ -9,6 +9,10 @@ import {
   Scale,
   Sparkles,
   ArrowRight,
+  Briefcase,
+  Shield,
+  UserCheck,
+  Gavel,
 } from 'lucide-react';
 import { TEMPLATE_REGISTRY, type TemplateField } from "@launchstack/features/legal-templates";
 import { legalTheme as s } from './LegalGeneratorTheme';
@@ -39,22 +43,42 @@ interface DocumentGeneratorHomeProps {
 }
 
 const STAGE_MAP: Record<string, string> = {
-  nda: 'Formation & Founders',
-  founders_agreement: 'Formation & Founders',
-  ip_assignment: 'Formation & Founders',
-  service_agreement: 'Business Operations',
-  contractor_agreement: 'Business Operations',
+  nda: 'Confidentiality',
+  founders_agreement: 'Formation',
+  ip_assignment: 'Formation',
+  service_agreement: 'Commercial',
+  contractor_agreement: 'Commercial',
   safe: 'Fundraising',
   advisory_agreement: 'Fundraising',
-  employment_contract: 'Hiring & Onboarding',
-  employee_nda: 'Hiring & Onboarding',
-  invention_assignment: 'Hiring & Onboarding',
-  at_will_employment: 'Hiring & Onboarding',
-  non_compete: 'Hiring & Onboarding',
-  privacy_policy: 'Compliance',
-  terms_of_service: 'Compliance',
+  employment_contract: 'Employment',
+  employee_nda: 'Employment',
+  invention_assignment: 'Employment',
+  at_will_employment: 'Employment',
+  non_compete: 'Employment',
+  privacy_policy: 'Product',
+  terms_of_service: 'Product',
   termination_letter: 'Offboarding',
   severance_agreement: 'Offboarding',
+};
+
+const STAGE_ORDER = [
+  'Confidentiality',
+  'Formation',
+  'Commercial',
+  'Fundraising',
+  'Employment',
+  'Product',
+  'Offboarding',
+];
+
+const STAGE_ICONS: Record<string, React.ReactNode> = {
+  Confidentiality: <Shield className="h-4 w-4" />,
+  Formation: <Briefcase className="h-4 w-4" />,
+  Commercial: <Briefcase className="h-4 w-4" />,
+  Fundraising: <Briefcase className="h-4 w-4" />,
+  Employment: <UserCheck className="h-4 w-4" />,
+  Product: <Shield className="h-4 w-4" />,
+  Offboarding: <Gavel className="h-4 w-4" />,
 };
 
 const templates: DocumentTemplate[] = Object.values(TEMPLATE_REGISTRY).map((t) => ({
@@ -66,15 +90,6 @@ const templates: DocumentTemplate[] = Object.values(TEMPLATE_REGISTRY).map((t) =
   isLegal: true,
   fields: t.fields,
 }));
-
-const STAGE_ORDER = [
-  'Formation & Founders',
-  'Business Operations',
-  'Fundraising',
-  'Hiring & Onboarding',
-  'Compliance',
-  'Offboarding',
-];
 
 export function DocumentGeneratorHome({
   onNewDocument,
@@ -109,6 +124,12 @@ export function DocumentGeneratorHome({
         })).filter((g) => g.items.length > 0)
       : [{ stage: selectedCategory, items: filteredTemplates }];
 
+  const totalTemplates = templates.length;
+  const categoryCounts: Record<string, number> = {};
+  for (const tpl of templates) {
+    categoryCounts[tpl.category] = (categoryCounts[tpl.category] ?? 0) + 1;
+  }
+
   return (
     <div className="flex h-full flex-col">
       {/* Hero header */}
@@ -120,19 +141,17 @@ export function DocumentGeneratorHome({
                 <div className={s.brandMark}>
                   <Scale className="h-[18px] w-[18px]" />
                 </div>
-                <span className={`${s.eyebrow} ${s.eyebrowPlain}`}>
-                  Legal Documents
+                <span className={s.monoEyebrow}>
+                  Drift · Legal
                 </span>
               </div>
-              <h1 className={s.title}>
-                Draft your next{' '}
-                <span className={s.highlight}>
-                  <span className={s.serif}>agreement</span>
-                </span>
+              <h1 className={s.libHeroHeading}>
+                Generate a <em>legal</em> document
               </h1>
-              <p className={s.sub} style={{ maxWidth: 560 }}>
-                Pick a template or describe what you need. The assistant will
-                pre-fill fields and open a polished document ready to export.
+              <p className={s.libHeroSub}>
+                Pick a template — Drift fills it from your company knowledge and
+                the counterparty. Or describe what you need and the assistant
+                will recommend the right one.
               </p>
             </div>
 
@@ -190,17 +209,24 @@ export function DocumentGeneratorHome({
 
           {viewMode === 'new' && (
             <div className="flex gap-2 overflow-x-auto pb-1">
-              {categories.map((category) => (
-                <button
-                  key={category}
-                  onClick={() => setSelectedCategory(category)}
-                  className={`${s.chipBtn} ${
-                    selectedCategory === category ? s.chipBtnActive : ''
-                  }`}
-                >
-                  {category === 'all' ? 'All templates' : category}
-                </button>
-              ))}
+              {categories.map((category) => {
+                const count =
+                  category === 'all'
+                    ? totalTemplates
+                    : (categoryCounts[category] ?? 0);
+                return (
+                  <button
+                    key={category}
+                    onClick={() => setSelectedCategory(category)}
+                    className={`${s.chipBtn} ${
+                      selectedCategory === category ? s.chipBtnActive : ''
+                    }`}
+                  >
+                    {category === 'all' ? 'All' : category}
+                    <span style={{ color: 'var(--ink-4)', marginLeft: 4 }}>{count}</span>
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
@@ -231,7 +257,7 @@ export function DocumentGeneratorHome({
                       </h3>
                       <p style={{ fontSize: 14, color: 'var(--ink-2)', lineHeight: 1.55 }}>
                         Describe your situation — the assistant recommends a
-                        template and pre-fills fields from chat.
+                        template and pre-fills fields from chat as you answer.
                       </p>
                     </div>
                   </div>
@@ -262,29 +288,37 @@ export function DocumentGeneratorHome({
                 </div>
               </div>
 
+              {/* Recent in workspace — only when there's at least one */}
+              {generatedDocuments.length > 0 && selectedCategory === 'all' && !searchQuery && (
+                <section className={s.libSection}>
+                  <div className={s.libSectionHead}>
+                    <h2 className={s.libSectionTitle}>Recent in your workspace</h2>
+                    <span className={s.libSectionMono}>
+                      {Math.min(3, generatedDocuments.length)} of {generatedDocuments.length}
+                    </span>
+                  </div>
+                  <div className={s.libGrid}>
+                    {generatedDocuments.slice(0, 3).map((doc) => (
+                      <RecentTile key={doc.id} doc={doc} onOpen={onOpenDocument} />
+                    ))}
+                  </div>
+                </section>
+              )}
+
               {groupedTemplates.length === 0 && (
                 <EmptyTemplates query={searchQuery} />
               )}
 
+              {/* Templates */}
               {groupedTemplates.map(({ stage, items }) => (
-                <section key={stage} className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <h2
-                      style={{
-                        margin: 0,
-                        fontSize: 18,
-                        fontWeight: 600,
-                        color: 'var(--ink)',
-                        letterSpacing: '-0.01em',
-                      }}
-                    >
-                      {stage}
-                    </h2>
-                    <span className={s.pillChip}>{items.length}</span>
+                <section key={stage} className={s.libSection}>
+                  <div className={s.libSectionHead}>
+                    <h2 className={s.libSectionTitle}>{stage}</h2>
+                    <span className={s.libSectionMono}>{items.length} {items.length === 1 ? 'template' : 'templates'}</span>
                   </div>
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  <div className={s.libGrid}>
                     {items.map((template) => (
-                      <TemplateCard
+                      <TemplateTile
                         key={template.id}
                         template={template}
                         onSelect={onNewDocument}
@@ -295,9 +329,9 @@ export function DocumentGeneratorHome({
               ))}
             </div>
           ) : filteredDocuments.length > 0 ? (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className={s.libGrid}>
               {filteredDocuments.map((doc) => (
-                <DocumentRow key={doc.id} doc={doc} onOpen={onOpenDocument} />
+                <RecentTile key={doc.id} doc={doc} onOpen={onOpenDocument} />
               ))}
             </div>
           ) : (
@@ -309,125 +343,63 @@ export function DocumentGeneratorHome({
   );
 }
 
-// ─── Template card ──────────────────────────────────────────────────────────
+// ─── Template tile (Drift redesign-flows.css rd-tile pattern) ────────────────
 
-function TemplateCard({
+function TemplateTile({
   template,
   onSelect,
 }: {
   template: DocumentTemplate;
   onSelect: (t: DocumentTemplate) => void;
 }) {
+  const fieldCount = template.fields?.length ?? 0;
+  const requiredCount = template.fields?.filter((f) => f.required).length ?? 0;
+  const icon = STAGE_ICONS[template.category] ?? <FileText className="h-4 w-4" />;
   return (
-    <button
-      type="button"
-      className={s.card}
-      onClick={() => onSelect(template)}
-    >
-      <div className={s.cardPreview}>
-        <span className={s.cardBadge}>
-          <Scale className="h-2.5 w-2.5" />
-          DOCX
-        </span>
-        <div className={s.miniPaper}>
-          <div className={`${s.miniLine} ${s.miniLineDark}`} style={{ width: '55%', height: 8 }} />
-          <hr
-            style={{
-              border: 'none',
-              height: 1,
-              background: 'var(--line)',
-              margin: '2px 0',
-            }}
-          />
-          <div className={`${s.miniLine}`} style={{ width: '30%', height: 5 }} />
-          <div className={`${s.miniLine}`} style={{ width: '92%' }} />
-          <div className={`${s.miniLine} ${s.miniLineAccent}`} style={{ width: '72%' }} />
-          <div className={`${s.miniLine}`} style={{ width: '88%' }} />
-          <div className={`${s.miniLine}`} style={{ width: '30%', height: 5 }} />
-          <div className={`${s.miniLine}`} style={{ width: '85%' }} />
-          <div className={`${s.miniLine} ${s.miniLineAccent}`} style={{ width: '60%' }} />
-        </div>
-      </div>
-      <div className={s.cardBody}>
-        <h3>{template.name}</h3>
-        <p>{template.description}</p>
-      </div>
-      <div className={s.cardFooter}>
-        <span
-          className={`${s.btn} ${s.btnAccent} ${s.btnSm}`}
-          style={{ width: '100%' }}
-        >
-          <Scale className="h-3.5 w-3.5" />
-          Generate document
-        </span>
+    <button type="button" className={s.libTile} onClick={() => onSelect(template)}>
+      <div className={s.libTileIcon}>{icon}</div>
+      <div className={s.libTileTitle}>{template.name}</div>
+      <p className={s.libTileSub}>
+        {template.category} · {fieldCount} fields
+        {requiredCount > 0 && requiredCount < fieldCount ? ` · ${requiredCount} required` : ''}
+      </p>
+      <div className={s.libTileMeta}>
+        <span>DOCX</span>
+        <span>Open →</span>
       </div>
     </button>
   );
 }
 
-// ─── Document row (my documents) ────────────────────────────────────────────
+// ─── Recent doc tile (matches the same Drift tile style) ─────────────────────
 
-function DocumentRow({
+function RecentTile({
   doc,
   onOpen,
 }: {
   doc: GeneratedDocument;
   onOpen: (doc: GeneratedDocument) => void;
 }) {
-  const preview = doc.content.replace(/<[^>]*>/g, '').slice(0, 150);
   return (
-    <button type="button" className={s.docRow} onClick={() => onOpen(doc)}>
-      <div className="flex items-start gap-3">
-        <div className={s.brandMarkSm}>
-          <FileText className="h-[14px] w-[14px]" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <h3
-            style={{
-              margin: 0,
-              fontSize: 15,
-              fontWeight: 600,
-              color: 'var(--ink)',
-              letterSpacing: '-0.01em',
-            }}
-            className="truncate"
-          >
-            {doc.title}
-          </h3>
-          <p style={{ margin: 0, fontSize: 12, color: 'var(--ink-3)' }}>
-            {doc.template} · Last edited {doc.lastEdited}
-          </p>
-        </div>
+    <button type="button" className={s.libTile} onClick={() => onOpen(doc)}>
+      <div className={s.libTileIcon}>
+        <FileText className="h-4 w-4" />
       </div>
-      <p
-        style={{
-          margin: 0,
-          fontSize: 13,
-          color: 'var(--ink-2)',
-          lineHeight: 1.5,
-          display: '-webkit-box',
-          WebkitLineClamp: 3,
-          WebkitBoxOrient: 'vertical',
-          overflow: 'hidden',
-        }}
-      >
-        {preview}
-        {preview.length >= 150 ? '…' : ''}
+      <div className={s.libTileTitle} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {doc.title}
+      </div>
+      <p className={s.libTileSub}>
+        {doc.template} · edited {doc.lastEdited}
       </p>
-      <div className="mt-auto">
-        <span
-          className={`${s.btn} ${s.btnOutline} ${s.btnSm}`}
-          style={{ width: '100%' }}
-        >
-          Open document
-          <ArrowRight className="h-3.5 w-3.5" />
-        </span>
+      <div className={s.libTileMeta}>
+        <span>DRAFT</span>
+        <span>Open →</span>
       </div>
     </button>
   );
 }
 
-// ─── Empty states ───────────────────────────────────────────────────────────
+// ─── Empty states ────────────────────────────────────────────────────────────
 
 function EmptyTemplates({ query }: { query: string }) {
   return (
