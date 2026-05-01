@@ -1,18 +1,18 @@
 /**
  * Shared OCR configuration. Captures the OcrConfig slice that adapters,
  * the complexity router, and the VLM enrichment path all need. Registered
- * by createEngine (indirectly — apps/web/src/server/engine.ts calls
- * configureOcr alongside configureOcrRouter).
+ * by the hosting app via configureOcr(config.ocr).
  */
 
 import type { OcrConfig } from "../config/types";
+import { createSlot } from "../internal/slot";
 
-let _config: OcrConfig | null = null;
+const configSlot = createSlot<OcrConfig>("ocr/config");
 
 export function configureOcr(config: OcrConfig): void {
-  _config = config;
+  configSlot.set(config);
 }
 
 export function getOcrConfig(): OcrConfig {
-  return _config ?? {};
+  return configSlot.get() ?? {};
 }

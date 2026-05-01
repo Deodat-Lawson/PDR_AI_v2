@@ -1,290 +1,399 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
-    Building2,
-    Globe,
-    MapPin,
-    Calendar,
-    Users,
-    Briefcase,
-    ExternalLink,
+  Building2,
+  Globe,
+  MapPin,
+  Calendar,
+  Users,
+  Briefcase,
+  FileText,
+  Pencil,
+  Plus,
 } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardContent } from "~/app/employer/documents/components/ui/card";
-import { ConfidenceBadge } from "./ConfidenceBadge";
-import { VisibilityBadge } from "./VisibilityBadge";
-import { PriorityBadge } from "./PriorityBadge";
-import type { CompanyInfo, MetadataFact } from "@launchstack/features/company-metadata";
+import { legalTheme as s } from "~/app/employer/documents/components/LegalGeneratorTheme";
+import m from "./metadata.module.css";
+import type {
+  CompanyInfo,
+  MetadataFact,
+} from "@launchstack/features/company-metadata";
 
-type AnyMetadataFact = MetadataFact<string> | MetadataFact<number> | MetadataFact<unknown>;
+type AnyMetadataFact =
+  | MetadataFact<string>
+  | MetadataFact<number>
+  | MetadataFact<unknown>;
 
 interface CompanyInfoCardProps {
-    company: CompanyInfo;
-    isEditMode?: boolean;
-    onFieldSave?: (field: string, value: string) => Promise<void>;
+  company: CompanyInfo;
+  onFieldSave?: (field: string, value: string) => Promise<void>;
 }
 
-interface FieldDisplayProps {
-    label: string;
-    fact: AnyMetadataFact | undefined;
-    icon: React.ComponentType<{ className?: string }>;
-    isLink?: boolean;
-    fieldKey: string;
-    isEditMode?: boolean;
-    onFieldSave?: (field: string, value: string) => Promise<void>;
+interface FieldRow {
+  key: keyof CompanyInfo;
+  label: string;
+  icon: React.ComponentType<{ width?: number; height?: number; className?: string }>;
+  isLink?: boolean;
+  multiline?: boolean;
+  placeholder?: string;
+  hint?: string;
+  fullWidth?: boolean;
 }
 
-/** Inline editor strip: input + Save/Reset buttons. Used inside both FieldDisplay and the description section. */
+const FIELDS: FieldRow[] = [
+  {
+    key: "name",
+    label: "Company name",
+    icon: Building2,
+    placeholder: "e.g. Northwind Labs, Inc.",
+  },
+  {
+    key: "industry",
+    label: "Industry",
+    icon: Briefcase,
+    placeholder: "e.g. Developer tools · AI infrastructure",
+  },
+  {
+    key: "headquarters",
+    label: "Headquarters",
+    icon: MapPin,
+    placeholder: "e.g. Brooklyn, NY · Remote-first",
+  },
+  {
+    key: "founded_year",
+    label: "Founded year",
+    icon: Calendar,
+    placeholder: "e.g. 2023",
+    hint: "Couldn't find this in your uploads. Add it manually.",
+  },
+  {
+    key: "size",
+    label: "Company size",
+    icon: Users,
+    placeholder: "e.g. 5–10 employees",
+    hint: "Try uploading a team handbook or org chart, then re-extract.",
+  },
+  {
+    key: "website",
+    label: "Website",
+    icon: Globe,
+    isLink: true,
+    placeholder: "https://example.com",
+  },
+  {
+    key: "description",
+    label: "Description",
+    icon: FileText,
+    multiline: true,
+    fullWidth: true,
+    placeholder: "What the company does, in a sentence or two.",
+  },
+];
+
+function confidenceBucket(confidence: number): "high" | "med" | "low" {
+  if (confidence >= 0.75) return "high";
+  if (confidence >= 0.45) return "med";
+  return "low";
+}
+
+function ConfBar({ confidence }: { confidence: number }) {
+  const bucket = confidenceBucket(confidence);
+  const filled = bucket === "high" ? 4 : bucket === "med" ? 3 : 2;
+  const cls =
+    bucket === "high" ? m.confBarHigh : bucket === "med" ? m.confBarMed : m.confBarLow;
+  const label =
+    bucket === "high" ? "High confidence" : bucket === "med" ? "Medium confidence" : "Low confidence";
+  return (
+    <span className={`${m.confBar} ${cls}`} title={label} aria-label={label}>
+      {[0, 1, 2, 3].map((i) => (
+        <i key={i} className={i < filled ? "on" : undefined} />
+      ))}
+    </span>
+  );
+}
+
+function VisibilityPill({ visibility }: { visibility: AnyMetadataFact["visibility"] }) {
+  const label =
+    visibility === "private" || visibility === "internal"
+      ? "Private"
+      : visibility === "partner"
+      ? "Partner"
+      : "Public";
+  const cls = label === "Public" ? m.badgePublic : m.badgePrivate;
+  return (
+    <span className={`${m.badge} ${cls}`}>
+      <span className="dot" />
+      {label}
+    </span>
+  );
+}
+
+function SourceChip({ fact }: { fact: AnyMetadataFact }) {
+  if (fact.priority === "manual_override") {
+    return (
+      <span className={`${m.src} ${m.srcManual}`}>
+        <Pencil width={10} height={10} />
+        Edited by you
+      </span>
+    );
+  }
+  const first = fact.sources?.[0];
+  if (!first) return null;
+  const extra = (fact.sources?.length ?? 0) - 1;
+  return (
+    <span className={m.src} title={first.doc_name}>
+      <FileText width={10} height={10} />
+      {first.doc_name}
+      {extra > 0 && (
+        <span style={{ color: "var(--ink-4)", marginLeft: 2 }}>+{extra}</span>
+      )}
+    </span>
+  );
+}
+
+interface InlineEditorProps {
+  initialValue: string;
+  multiline?: boolean;
+  placeholder?: string;
+  hint?: string;
+  saving: boolean;
+  error: string | null;
+  onCancel: () => void;
+  onSave: (next: string) => void;
+}
+
 function InlineEditor({
-    fieldKey,
-    initialValue,
-    multiline,
-    onFieldSave,
-    onReset,
-}: {
-    fieldKey: string;
-    initialValue: string;
-    multiline?: boolean;
-    onFieldSave: (field: string, value: string) => Promise<void>;
-    onReset: () => void;
-}) {
-    const [value, setValue] = useState(initialValue);
-    const [saving, setSaving] = useState(false);
-    const [localError, setLocalError] = useState<string | null>(null);
+  initialValue,
+  multiline,
+  placeholder,
+  hint,
+  saving,
+  error,
+  onCancel,
+  onSave,
+}: InlineEditorProps) {
+  const [value, setValue] = useState(initialValue);
+  const ref = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
 
-    // Keep value in sync if parent resets (isEditMode toggled off → on)
-    useEffect(() => {
-        setValue(initialValue);
-        setLocalError(null);
-    }, [initialValue]);
+  useEffect(() => {
+    setValue(initialValue);
+  }, [initialValue]);
 
-    const handleSave = async () => {
-        if (value.trim() === initialValue) return;
-        setSaving(true);
-        setLocalError(null);
-        try {
-            await onFieldSave(fieldKey, value.trim());
-        } catch {
-            setLocalError("Failed to save. Try again.");
-        } finally {
-            setSaving(false);
-        }
-    };
+  useEffect(() => {
+    ref.current?.focus();
+    if (ref.current && "select" in ref.current) {
+      try {
+        ref.current.select();
+      } catch {
+        /* noop */
+      }
+    }
+  }, []);
 
-    return (
-        <div className="space-y-2">
-            {multiline ? (
-                <textarea
-                    className="w-full px-2 py-1 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
-                    rows={3}
-                    value={value}
-                    onChange={(e) => setValue(e.target.value)}
-                    disabled={saving}
-                />
+  const submit = () => onSave(value.trim());
+
+  const onKey = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      onCancel();
+    } else if (e.key === "Enter" && !multiline && !e.shiftKey) {
+      e.preventDefault();
+      submit();
+    } else if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      submit();
+    }
+  };
+
+  return (
+    <div className={m.editor}>
+      {multiline ? (
+        <textarea
+          ref={(el) => {
+            ref.current = el;
+          }}
+          className={s.textarea}
+          rows={3}
+          value={value}
+          placeholder={placeholder}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={onKey}
+          disabled={saving}
+        />
+      ) : (
+        <input
+          ref={(el) => {
+            ref.current = el;
+          }}
+          className={s.input}
+          value={value}
+          placeholder={placeholder}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={onKey}
+          disabled={saving}
+        />
+      )}
+      {error && <p className={m.editorError}>{error}</p>}
+      <div className={m.editorRow}>
+        {hint && <span className={m.editorHint}>{hint}</span>}
+        <button
+          type="button"
+          className={`${s.btn} ${s.btnOutline} ${s.btnSm}`}
+          onClick={onCancel}
+          disabled={saving}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          className={`${s.btn} ${s.btnAccent} ${s.btnSm}`}
+          onClick={submit}
+          disabled={saving || value.trim() === initialValue.trim()}
+        >
+          {saving ? "Saving…" : "Save"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+interface FieldProps {
+  row: FieldRow;
+  fact: AnyMetadataFact | undefined;
+  onFieldSave?: (field: string, value: string) => Promise<void>;
+}
+
+function Field({ row, fact, onFieldSave }: FieldProps) {
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const Icon = row.icon;
+  const value = fact ? String(fact.value) : "";
+  const isMissing = !fact || value === "";
+
+  const startEdit = () => {
+    if (!onFieldSave) return;
+    setError(null);
+    setEditing(true);
+  };
+  const cancelEdit = () => {
+    setEditing(false);
+    setError(null);
+  };
+  const handleSave = async (next: string) => {
+    if (!onFieldSave) return;
+    if (next === value) {
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      await onFieldSave(`company.${String(row.key)}`, next);
+      setEditing(false);
+    } catch {
+      setError("Failed to save. Try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const fieldClass = [
+    m.field,
+    row.fullWidth ? m.fieldFull : "",
+    editing ? m.fieldEditing : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <div className={fieldClass}>
+      <div className={`${m.fieldIcon} ${isMissing ? m.fieldIconWarn : ""}`}>
+        <Icon width={14} height={14} />
+      </div>
+      <div className={m.fieldBody}>
+        <div className={m.fieldLabel}>
+          {row.label}
+          {isMissing && <span className={m.fieldLabelMissing}>· missing</span>}
+        </div>
+        {editing ? (
+          <InlineEditor
+            initialValue={value}
+            multiline={row.multiline}
+            placeholder={row.placeholder}
+            hint={isMissing ? row.hint : undefined}
+            saving={saving}
+            error={error}
+            onCancel={cancelEdit}
+            onSave={(next) => void handleSave(next)}
+          />
+        ) : (
+          <>
+            {isMissing ? (
+              <div className={`${m.fieldValue} ${m.fieldEmpty}`}>
+                — Not yet extracted
+              </div>
+            ) : row.multiline ? (
+              <div className={`${m.fieldValue} ${m.fieldValueBlock}`}>
+                {value}
+              </div>
+            ) : row.isLink && value.startsWith("http") ? (
+              <div className={m.fieldValue}>
+                <a href={value} target="_blank" rel="noopener noreferrer">
+                  {value}
+                </a>
+              </div>
             ) : (
-                <input
-                    className="w-full px-2 py-1 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    value={value}
-                    onChange={(e) => setValue(e.target.value)}
-                    disabled={saving}
-                />
+              <div className={m.fieldValue}>{value}</div>
             )}
-            {localError && <p className="text-xs text-destructive">{localError}</p>}
-            <div className="flex gap-2">
-                <button
-                    onClick={() => void handleSave()}
-                    disabled={saving || value.trim() === initialValue}
-                    className="px-2 py-1 text-xs font-semibold bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50 transition-colors"
-                >
-                    {saving ? "Saving..." : "Save"}
-                </button>
-                <button
-                    onClick={() => { setValue(initialValue); setLocalError(null); onReset(); }}
-                    disabled={saving}
-                    className="px-2 py-1 text-xs font-semibold border border-border rounded hover:bg-muted transition-colors"
-                >
-                    Reset
-                </button>
+            <div className={m.fieldMeta}>
+              {fact && <ConfBar confidence={fact.confidence} />}
+              {fact && <VisibilityPill visibility={fact.visibility} />}
+              {fact ? (
+                <SourceChip fact={fact} />
+              ) : row.hint ? (
+                <span style={{ fontSize: 11, color: "var(--ink-3)" }}>
+                  {row.hint}
+                </span>
+              ) : null}
             </div>
-        </div>
-    );
+          </>
+        )}
+      </div>
+      <button
+        type="button"
+        className={m.fieldEdit}
+        onClick={() => (editing ? cancelEdit() : startEdit())}
+        title={
+          editing
+            ? "Cancel"
+            : isMissing
+            ? `Add ${row.label.toLowerCase()}`
+            : `Edit ${row.label.toLowerCase()}`
+        }
+        aria-label={editing ? "Cancel edit" : `Edit ${row.label}`}
+      >
+        {isMissing && !editing ? (
+          <Plus width={12} height={12} />
+        ) : (
+          <Pencil width={12} height={12} />
+        )}
+      </button>
+    </div>
+  );
 }
 
-function FieldDisplay({ label, fact, icon: Icon, isLink, fieldKey, isEditMode, onFieldSave }: FieldDisplayProps) {
-    const [editKey, setEditKey] = useState(0); // bump to reset InlineEditor
-    const currentValue = fact ? String(fact.value) : "";
-
-    // When edit mode is toggled off, bump key so InlineEditor resets on next open
-    useEffect(() => {
-        if (!isEditMode) setEditKey((k) => k + 1);
-    }, [isEditMode]);
-
-    if (!fact && !isEditMode) return null;
-
-    return (
-        <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-            <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg shrink-0">
-                <Icon className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                        {label}
-                    </span>
-                    {fact && <VisibilityBadge visibility={fact.visibility} />}
-                    {fact && <ConfidenceBadge confidence={fact.confidence} />}
-                    {fact && <PriorityBadge priority={fact.priority} />}
-                </div>
-                {isEditMode && onFieldSave ? (
-                    <InlineEditor
-                        key={editKey}
-                        fieldKey={fieldKey}
-                        initialValue={currentValue}
-                        onFieldSave={onFieldSave}
-                        onReset={() => undefined}
-                    />
-                ) : fact ? (
-                    <>
-                        {isLink && currentValue.startsWith("http") ? (
-                            <a
-                                href={currentValue}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-foreground font-medium hover:text-purple-600 transition-colors flex items-center gap-1 group"
-                            >
-                                <span className="truncate">{currentValue}</span>
-                                <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                            </a>
-                        ) : (
-                            <p className="text-foreground font-medium">{currentValue}</p>
-                        )}
-                        {fact.priority === "manual_override" ? (
-                            <p className="text-xs text-violet-600 dark:text-violet-400 font-semibold mt-1">
-                                Manual edit
-                            </p>
-                        ) : (fact.sources?.length ?? 0) > 0 ? (
-                            <p className="text-xs text-muted-foreground mt-1">
-                                Source: {fact.sources[0]?.doc_name ?? "Unknown"}
-                                {fact.sources.length > 1 && ` +${fact.sources.length - 1} more`}
-                            </p>
-                        ) : null}
-                    </>
-                ) : null}
-            </div>
-        </div>
-    );
-}
-
-export function CompanyInfoCard({ company, isEditMode, onFieldSave }: CompanyInfoCardProps) {
-    const [descEditKey, setDescEditKey] = useState(0);
-
-    useEffect(() => {
-        if (!isEditMode) setDescEditKey((k) => k + 1);
-    }, [isEditMode]);
-
-    const descValue = company.description ? String(company.description.value) : "";
-
-    return (
-        <Card className="border-none shadow-sm">
-            <CardHeader className="border-b border-border pb-4">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-purple-600 rounded-lg">
-                        <Building2 className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                        <CardTitle className="text-lg font-bold">AI-Extracted Company Info</CardTitle>
-                        <p className="text-sm text-muted-foreground">
-                            Facts discovered by AI from your uploaded documents
-                        </p>
-                    </div>
-                </div>
-            </CardHeader>
-            <CardContent className="pt-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FieldDisplay
-                        label="Company Name"
-                        fact={company.name}
-                        icon={Building2}
-                        fieldKey="company.name"
-                        isEditMode={isEditMode}
-                        onFieldSave={onFieldSave}
-                    />
-                    <FieldDisplay
-                        label="Industry"
-                        fact={company.industry}
-                        icon={Briefcase}
-                        fieldKey="company.industry"
-                        isEditMode={isEditMode}
-                        onFieldSave={onFieldSave}
-                    />
-                    <FieldDisplay
-                        label="Headquarters"
-                        fact={company.headquarters}
-                        icon={MapPin}
-                        fieldKey="company.headquarters"
-                        isEditMode={isEditMode}
-                        onFieldSave={onFieldSave}
-                    />
-                    <FieldDisplay
-                        label="Founded"
-                        fact={company.founded_year}
-                        icon={Calendar}
-                        fieldKey="company.founded_year"
-                        isEditMode={isEditMode}
-                        onFieldSave={onFieldSave}
-                    />
-                    <FieldDisplay
-                        label="Company Size"
-                        fact={company.size}
-                        icon={Users}
-                        fieldKey="company.size"
-                        isEditMode={isEditMode}
-                        onFieldSave={onFieldSave}
-                    />
-                    <FieldDisplay
-                        label="Website"
-                        fact={company.website}
-                        icon={Globe}
-                        isLink
-                        fieldKey="company.website"
-                        isEditMode={isEditMode}
-                        onFieldSave={onFieldSave}
-                    />
-                </div>
-
-                {(company.description ?? isEditMode) && (
-                    <div className="mt-6 p-4 rounded-lg bg-muted/50">
-                        <div className="flex items-center gap-2 mb-2 flex-wrap">
-                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                                Description
-                            </span>
-                            {company.description && (
-                                <>
-                                    <VisibilityBadge visibility={company.description.visibility} />
-                                    <ConfidenceBadge confidence={company.description.confidence} />
-                                    <PriorityBadge priority={company.description.priority} />
-                                </>
-                            )}
-                        </div>
-                        {isEditMode && onFieldSave ? (
-                            <InlineEditor
-                                key={descEditKey}
-                                fieldKey="company.description"
-                                initialValue={descValue}
-                                multiline
-                                onFieldSave={onFieldSave}
-                                onReset={() => undefined}
-                            />
-                        ) : (
-                            company.description && (
-                                <p className="text-foreground leading-relaxed">
-                                    {descValue}
-                                </p>
-                            )
-                        )}
-                    </div>
-                )}
-            </CardContent>
-        </Card>
-    );
+export function CompanyInfoCard({ company, onFieldSave }: CompanyInfoCardProps) {
+  return (
+    <div className={m.fieldGrid}>
+      {FIELDS.map((row) => (
+        <Field
+          key={String(row.key)}
+          row={row}
+          fact={company[row.key]}
+          onFieldSave={onFieldSave}
+        />
+      ))}
+    </div>
+  );
 }

@@ -17,6 +17,7 @@ import { predictiveAnalysisJob } from "~/server/inngest/functions/predictiveAnal
 import { reindexCompanyEmbeddingsJob } from "~/server/inngest/functions/reindexCompanyEmbeddings";
 import { modifyDocument } from "~/server/inngest/functions/modifyDocument";
 import { crawlWebsite } from "~/server/inngest/functions/crawlWebsite";
+import { rehydrateNoteAnchorsJob } from "~/server/inngest/functions/rehydrateNoteAnchors";
 
 // Register all Inngest functions
 const handler = serve({
@@ -30,9 +31,15 @@ const handler = serve({
     reindexCompanyEmbeddingsJob,
     modifyDocument,
     crawlWebsite,
+    rehydrateNoteAnchorsJob,
   ],
 });
 
 export const GET = handler.GET;
 export const POST = handler.POST;
 export const PUT = handler.PUT;
+
+// Long-running Inngest steps (embeddings, OCR, RAG) can take minutes.
+// Requires Vercel Pro — on Hobby the effective cap is 60s, which limits
+// how much work each step can do.
+export const maxDuration = 300;

@@ -7,9 +7,11 @@ import {
   ProviderDefaultModels,
   ProviderModelMap,
   isModelAllowedForProvider,
+  supportsThinking,
   type AIModelType,
   type LLMProvider,
 } from "./types";
+import { createSlot } from "../internal/slot";
 
 /**
  * Chat-model factory.
@@ -34,18 +36,18 @@ export interface ChatModelsConfig {
   ollama?: { baseUrl: string; model?: string };
 }
 
-let _config: ChatModelsConfig | null = null;
+const configSlot = createSlot<ChatModelsConfig>("llm/chatModels");
 
 /**
  * Register chat-model config. apps/web/src/server/engine.ts calls this
  * during getEngine() initialization with the relevant slice of CoreConfig.
  */
 export function configureChatModels(config: ChatModelsConfig): void {
-  _config = config;
+  configSlot.set(config);
 }
 
 function getConfig(): ChatModelsConfig {
-  return _config ?? {};
+  return configSlot.get() ?? {};
 }
 
 /** Exposed so sibling modules (openai-client) can read the same captured config. */
@@ -112,13 +114,28 @@ export function getOllamaBaseUrl(): string {
   return url;
 }
 
+/**
+ * Budget (in tokens) the Anthropic / Gemini extended-thinking APIs use when
+ * thinking is toggled on. Chosen to add real deliberation depth without
+ * blowing out latency or cost. Low enough that we can ship it without a
+ * per-request budget knob.
+ */
+const EXTENDED_THINKING_BUDGET = 8000;
+
 export function getChatModelForProvider(opts: {
   provider: LLMProvider;
   model?: AIModelType;
   temperature?: number;
   timeoutMs?: number;
+  /**
+   * When true AND the selected model supports it, enable the provider's
+   * extended-thinking / reasoning-effort parameter. No-op on unsupported
+   * models — the Think toggle in the composer is already disabled for them
+   * (see supportsThinking in ./types).
+   */
+  thinking?: boolean;
 }): BaseChatModel {
-  const { provider, temperature, timeoutMs } = opts;
+  const { provider, temperature, timeoutMs, thinking } = opts;
   const modelName = coerceModel(provider, opts.model);
   const c = getConfig();
 
@@ -130,6 +147,8 @@ export function getChatModelForProvider(opts: {
       );
     }
   }
+
+  const thinkingEnabled = Boolean(thinking) && supportsThinking(modelName as AIModelType);
 
   switch (provider) {
     case "ollama":
@@ -143,7 +162,20 @@ export function getChatModelForProvider(opts: {
       return new ChatAnthropic({
         anthropicApiKey: c.anthropic?.apiKey,
         modelName,
-        temperature: temperature ?? 0.7,
+        // Extended thinking is incompatible with a custom temperature on
+        // Anthropic — the API requires temperature=1 when thinking is on.
+        temperature: thinkingEnabled ? 1 : (temperature ?? 0.7),
+        ...(thinkingEnabled
+          ? {
+              thinking: {
+                type: "enabled" as const,
+                budget_tokens: EXTENDED_THINKING_BUDGET,
+              },
+              // Thinking tokens count against maxTokens, so raise the cap
+              // above the budget to leave room for the actual answer.
+              maxTokens: EXTENDED_THINKING_BUDGET + 4096,
+            }
+          : {}),
       });
 
     case "google":
@@ -151,6 +183,13 @@ export function getChatModelForProvider(opts: {
         apiKey: c.google?.apiKey,
         model: modelName,
         temperature: temperature ?? 0.7,
+        ...(thinkingEnabled
+          ? {
+              thinkingConfig: {
+                thinkingBudget: EXTENDED_THINKING_BUDGET,
+              },
+            }
+          : {}),
       });
 
     case "openai":
@@ -160,6 +199,9 @@ export function getChatModelForProvider(opts: {
         apiKey: c.openai?.apiKey ?? c.aiApiKey,
         modelName,
         ...(useTemp ? { temperature: temperature ?? 0.7 } : {}),
+        ...(thinkingEnabled
+          ? { modelKwargs: { reasoning_effort: "high" as const } }
+          : {}),
         timeout: timeoutMs ?? 600_000,
         // Route to custom provider when AI_BASE_URL is set
         ...(c.aiBaseUrl ? { configuration: { baseURL: c.aiBaseUrl } } : {}),

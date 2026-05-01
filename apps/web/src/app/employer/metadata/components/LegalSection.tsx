@@ -1,111 +1,134 @@
 "use client";
 
 import React from "react";
-import { Scale, Calendar, Users as UsersIcon } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardContent } from "~/app/employer/documents/components/ui/card";
-import { ConfidenceBadge } from "./ConfidenceBadge";
-import { VisibilityBadge } from "./VisibilityBadge";
-import { PriorityBadge } from "./PriorityBadge";
+import { FileText, Pencil } from "lucide-react";
+import m from "./metadata.module.css";
 import type { LegalEntry } from "@launchstack/features/company-metadata";
 
 interface LegalSectionProps {
-    legal: LegalEntry[];
+  legal: LegalEntry[];
+}
+
+function confBucket(confidence: number): "high" | "med" | "low" {
+  if (confidence >= 0.75) return "high";
+  if (confidence >= 0.45) return "med";
+  return "low";
+}
+
+function ConfBar({ confidence }: { confidence: number }) {
+  const bucket = confBucket(confidence);
+  const filled = bucket === "high" ? 4 : bucket === "med" ? 3 : 2;
+  const cls =
+    bucket === "high" ? m.confBarHigh : bucket === "med" ? m.confBarMed : m.confBarLow;
+  return (
+    <span className={`${m.confBar} ${cls}`}>
+      {[0, 1, 2, 3].map((i) => (
+        <i key={i} className={i < filled ? "on" : undefined} />
+      ))}
+    </span>
+  );
+}
+
+function inferJurisdiction(name: string): string | null {
+  const upper = name.toUpperCase();
+  const match = upper.match(/\b(US-[A-Z]{2}|UK|US|EU|CA|SG|DE|FR|JP|IN|AU)\b/);
+  return match ? match[0] : null;
 }
 
 export function LegalSection({ legal }: LegalSectionProps) {
-    return (
-        <Card className="border-none shadow-sm">
-            <CardHeader className="border-b border-border pb-4">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-rose-600 rounded-lg">
-                        <Scale className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                        <CardTitle className="text-lg font-bold">Legal Documents</CardTitle>
-                        <p className="text-sm text-muted-foreground">
-                            {legal.length} {legal.length === 1 ? "document" : "documents"} identified
-                        </p>
-                    </div>
-                </div>
-            </CardHeader>
-            <CardContent className="pt-6">
-                <div className="space-y-4">
-                    {legal.map((entry, index) => (
-                        <LegalCard key={index} entry={entry} />
-                    ))}
-                </div>
-            </CardContent>
-        </Card>
-    );
+  if (legal.length === 0) return null;
+
+  return (
+    <div style={{ overflowX: "auto" }}>
+      <table className={m.legalTable}>
+        <thead>
+          <tr>
+            <th>Entity</th>
+            <th>Type</th>
+            <th>Effective</th>
+            <th>Confidence</th>
+            <th>Source</th>
+            <th aria-label="Actions" />
+          </tr>
+        </thead>
+        <tbody>
+          {legal.map((entry, idx) => (
+            <LegalRow key={idx} entry={entry} />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
-function LegalCard({ entry }: { entry: LegalEntry }) {
-    const typeValue = entry.type ? String(entry.type.value) : null;
-    const statusValue = entry.status ? String(entry.status.value).toLowerCase() : null;
+function LegalRow({ entry }: { entry: LegalEntry }) {
+  const name = String(entry.name.value);
+  const juris = inferJurisdiction(name);
+  const type = entry.type ? String(entry.type.value) : "—";
+  const summary = entry.summary ? String(entry.summary.value) : "";
+  const effective = entry.effective_date
+    ? String(entry.effective_date.value)
+    : null;
+  const expiry = entry.expiry_date ? String(entry.expiry_date.value) : null;
+  const status = entry.status ? String(entry.status.value).toLowerCase() : null;
+  const source = entry.name.sources[0]?.doc_name;
+  const isManual = entry.name.priority === "manual_override";
 
-    const statusColor = statusValue === "active"
-        ? "text-green-600 bg-green-100 dark:bg-green-900/30"
-        : statusValue === "expired"
-            ? "text-red-600 bg-red-100 dark:bg-red-900/30"
-            : "text-amber-600 bg-amber-100 dark:bg-amber-900/30";
-
-    return (
-        <div className="p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-            <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap mb-2">
-                    <h4 className="font-semibold text-foreground">
-                        {String(entry.name.value)}
-                    </h4>
-                    {typeValue && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400">
-                            {typeValue.replace(/_/g, " ")}
-                        </span>
-                    )}
-                    {statusValue && (
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${statusColor}`}>
-                            {statusValue.charAt(0).toUpperCase() + statusValue.slice(1)}
-                        </span>
-                    )}
-                    <VisibilityBadge visibility={entry.name.visibility} />
-                    <PriorityBadge priority={entry.name.priority} />
-                </div>
-
-                {entry.summary && (
-                    <p className="text-sm text-muted-foreground leading-relaxed mb-2">
-                        {String(entry.summary.value)}
-                    </p>
-                )}
-
-                <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-                    {entry.effective_date && (
-                        <span className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
-                            Effective: {String(entry.effective_date.value)}
-                        </span>
-                    )}
-                    {entry.expiry_date && (
-                        <span className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
-                            Expires: {String(entry.expiry_date.value)}
-                        </span>
-                    )}
-                    {entry.parties && (
-                        <span className="flex items-center gap-1">
-                            <UsersIcon className="w-3 h-3" />
-                            {String(entry.parties.value)}
-                        </span>
-                    )}
-                </div>
-
-                <div className="flex items-center gap-2 mt-3">
-                    <ConfidenceBadge confidence={entry.name.confidence} />
-                    {entry.name.sources.length > 0 && (
-                        <span className="text-[10px] text-muted-foreground">
-                            from {entry.name.sources[0]?.doc_name ?? "document"}
-                        </span>
-                    )}
-                </div>
-            </div>
+  return (
+    <tr>
+      <td>
+        <div className={m.legalName}>
+          <span>{name}</span>
+          {juris && <span className={m.legalJuris}>{juris}</span>}
         </div>
-    );
+        {summary && <div className={m.legalSub}>{summary}</div>}
+        {!summary && effective && (
+          <div className={m.legalSub}>Effective {effective}</div>
+        )}
+      </td>
+      <td>{type !== "—" ? type.replace(/_/g, " ") : <span style={{ color: "var(--ink-4)" }}>—</span>}</td>
+      <td>
+        {effective ? (
+          <span className={m.legalId}>{effective}</span>
+        ) : (
+          <span style={{ color: "var(--ink-4)" }}>—</span>
+        )}
+        {expiry && (
+          <div className={m.legalSub}>
+            Expires {expiry}
+            {status && ` · ${status}`}
+          </div>
+        )}
+      </td>
+      <td>
+        <ConfBar confidence={entry.name.confidence} />
+      </td>
+      <td>
+        {isManual ? (
+          <span className={`${m.src} ${m.srcManual}`}>
+            <Pencil width={10} height={10} />
+            Edited by you
+          </span>
+        ) : source ? (
+          <span className={m.src} title={source}>
+            <FileText width={10} height={10} />
+            {source}
+          </span>
+        ) : (
+          <span style={{ color: "var(--ink-4)", fontSize: 12 }}>—</span>
+        )}
+      </td>
+      <td style={{ width: 36 }}>
+        <button
+          type="button"
+          className={m.fieldEdit}
+          style={{ opacity: 1 }}
+          aria-label={`Edit ${name}`}
+          title="Edit"
+        >
+          <Pencil width={12} height={12} />
+        </button>
+      </td>
+    </tr>
+  );
 }

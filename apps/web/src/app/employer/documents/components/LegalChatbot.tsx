@@ -4,7 +4,6 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import {
   ArrowLeft,
   Send,
-  Loader2,
   Scale,
   FileText,
   CheckCircle2,
@@ -12,20 +11,14 @@ import {
   RotateCcw,
   RefreshCw,
   AlertCircle,
-  PanelRightOpen,
-  PanelRightClose,
-  Circle,
+  Sparkles,
+  Eye,
+  Settings,
+  Link as LinkIcon,
 } from "lucide-react";
-import { Button } from "~/app/employer/documents/components/ui/button";
-import { Card } from "~/app/employer/documents/components/ui/card";
-import {
-  HoverCard,
-  HoverCardTrigger,
-  HoverCardContent,
-} from "~/app/employer/documents/components/ui/hover-card";
-import { cn } from "~/lib/utils";
 import { TEMPLATE_REGISTRY } from "@launchstack/features/legal-templates";
 import MarkdownMessage from "~/app/_components/MarkdownMessage";
+import { legalTheme as s } from "./LegalGeneratorTheme";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -59,7 +52,6 @@ interface ChatMessage {
 
 interface LegalChatbotProps {
   onBack: () => void;
-  /** Next step: template field form (registry validation) → then document editor. */
   onContinueToTemplateForm: (
     templateId: string,
     prefilled: Record<string, string>,
@@ -67,11 +59,11 @@ interface LegalChatbotProps {
   initialMessage?: string;
 }
 
-// ─── Field carry-over helper ───────────────────────────────────────────────────
+// ─── Field carry-over ──────────────────────────────────────────────────────────
 
 function carryOverFields(
   extractedFields: Record<string, string>,
-  newTemplateId: string
+  newTemplateId: string,
 ): Record<string, string> {
   const newTemplate = TEMPLATE_REGISTRY[newTemplateId];
   if (!newTemplate) return extractedFields;
@@ -85,143 +77,23 @@ function carryOverFields(
   return carried;
 }
 
-// ─── Expandable Field List ─────────────────────────────────────────────────────
+// ─── Source tag for the field summary table ────────────────────────────────────
 
-function ExpandableFieldList({
-  templateId,
-  previewCount,
-}: {
-  templateId: string;
-  previewCount: number;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const registryTemplate = TEMPLATE_REGISTRY[templateId];
-  if (!registryTemplate) return null;
-
-  const requiredFields = registryTemplate.fields.filter((f) => f.required);
-  const previewLabels = requiredFields.slice(0, previewCount).map((f) => f.label);
-  const remaining = requiredFields.length - previewCount;
-
-  return (
-    <p className="text-xs text-muted-foreground">
-      <span className="font-medium text-foreground">Fields: </span>
-      {previewLabels.join(", ")}
-      {remaining > 0 && (
-        <>
-          {expanded ? (
-            <>, {requiredFields.slice(previewCount).map((f) => f.label).join(", ")}</>
-          ) : (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setExpanded(true);
-              }}
-              className="ml-1 text-primary hover:text-primary/80 hover:underline cursor-pointer"
-            >
-              +{remaining} more
-            </button>
-          )}
-          {expanded && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setExpanded(false);
-              }}
-              className="ml-1 text-primary hover:text-primary/80 hover:underline cursor-pointer"
-            >
-              show less
-            </button>
-          )}
-        </>
-      )}
-    </p>
-  );
+function sourceTag(
+  key: string,
+  hasValue: boolean,
+  companyDefaults: Record<string, string>,
+  isCurrent: boolean,
+): { txt: string; ai?: boolean } {
+  if (!hasValue) return { txt: isCurrent ? "Asking" : "Awaiting" };
+  if (companyDefaults[key]) return { txt: "Company" };
+  if (key === "effective_date" || key === "signature_date" || key.endsWith("_date")) {
+    return { txt: "AI Assist", ai: true };
+  }
+  return { txt: "You" };
 }
 
-// ─── Template Mini Card ────────────────────────────────────────────────────────
-
-function TemplateMiniCard({
-  template,
-  onSelect,
-}: {
-  template: RecommendedTemplate;
-  onSelect: (templateId: string) => void;
-}) {
-  const registryTemplate = TEMPLATE_REGISTRY[template.templateId];
-  const requiredFields = registryTemplate?.fields.filter((f) => f.required) ?? [];
-  const previewLabels = requiredFields.slice(0, 5).map((f) => f.label);
-  const [expanded, setExpanded] = useState(false);
-
-  return (
-    <HoverCard openDelay={200} closeDelay={100}>
-      <HoverCardTrigger asChild>
-        <button
-          onClick={() => onSelect(template.templateId)}
-          onTouchStart={() => setExpanded((p) => !p)}
-          className={cn(
-            "flex items-start gap-3 p-3 rounded-lg border border-border",
-            "hover:border-ring hover:shadow-md transition-all",
-            "bg-card text-left w-full cursor-pointer group"
-          )}
-        >
-          <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 rounded shrink-0 mt-0.5">
-            <FileText className="w-4 h-4 text-blue-600" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="font-medium text-sm text-foreground truncate">
-              {template.name}
-            </div>
-            <div className="text-xs text-muted-foreground mt-0.5">
-              {template.requiredFieldCount} required fields
-            </div>
-            {expanded && (
-              <div className="mt-2 pt-2 border-t border-border md:hidden">
-                <p className="text-xs text-muted-foreground mb-1">
-                  {template.description}
-                </p>
-                {previewLabels.length > 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    <span className="font-medium text-foreground">Fields: </span>
-                    {previewLabels.join(", ")}
-                    {requiredFields.length > 5
-                      ? `, +${requiredFields.length - 5} more`
-                      : ""}
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-          <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 mt-1 opacity-0 group-hover:opacity-100 transition-opacity" />
-        </button>
-      </HoverCardTrigger>
-      <HoverCardContent side="right" className="w-80 hidden md:block">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Scale className="w-4 h-4 text-blue-600" />
-            <span className="font-semibold text-sm">{template.name}</span>
-          </div>
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            {template.description}
-          </p>
-          {registryTemplate && (
-            <div className="pt-1 border-t border-border">
-              <p className="text-xs font-medium text-foreground mb-1">
-                Required fields:
-              </p>
-              <ExpandableFieldList templateId={template.templateId} previewCount={5} />
-            </div>
-          )}
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <span>{template.fieldCount} fields total</span>
-            <span>{template.requiredFieldCount} required</span>
-          </div>
-        </div>
-      </HoverCardContent>
-    </HoverCard>
-  );
-}
-
-// ─── Template Confirmation Card ────────────────────────────────────────────────
+// ─── Confirm / No-match / Ready cards (compact) ────────────────────────────────
 
 function TemplateConfirmCard({
   template,
@@ -233,64 +105,56 @@ function TemplateConfirmCard({
   onPickDifferent: () => void;
 }) {
   return (
-    <Card className="p-4 border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20">
-      <div className="flex items-start gap-3 mb-2">
-        <div className="p-1.5 bg-blue-100 dark:bg-blue-900/40 rounded-lg">
-          <Scale className="w-4 h-4 text-blue-600" />
+    <div className={s.banner} style={{ padding: 14 }}>
+      <div className="mb-2 flex items-start gap-3">
+        <div className={s.brandMarkSm}>
+          <Scale className="h-[13px] w-[13px]" />
         </div>
-        <div className="flex-1 min-w-0">
-          <h4 className="font-semibold text-sm text-foreground">{template.name}</h4>
-          <p className="text-xs text-muted-foreground mt-0.5">
+        <div className="min-w-0 flex-1">
+          <h4 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>
+            {template.name}
+          </h4>
+          <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--ink-3)", lineHeight: 1.5 }}>
             {template.description}
           </p>
         </div>
       </div>
-      <div className="flex items-center gap-3 text-xs text-muted-foreground mb-1.5">
+      <div style={{ display: "flex", gap: 12, fontSize: 11, color: "var(--ink-3)", marginBottom: 10 }}>
         <span>{template.fieldCount} fields</span>
         <span>{template.requiredFieldCount} required</span>
       </div>
-      <div className="mb-2.5">
-        <ExpandableFieldList templateId={template.templateId} previewCount={6} />
+      <div className="flex flex-wrap gap-2">
+        <button className={`${s.btn} ${s.btnAccent} ${s.btnSm}`} onClick={onConfirm}>
+          <CheckCircle2 className="h-4 w-4" />
+          Use this template
+        </button>
+        <button className={`${s.btn} ${s.btnOutline} ${s.btnSm}`} onClick={onPickDifferent}>
+          Pick another
+        </button>
       </div>
-      <div className="flex gap-2 flex-wrap">
-        <Button
-          size="sm"
-          className="bg-blue-600 hover:bg-blue-700 text-white"
-          onClick={onConfirm}
-        >
-          <CheckCircle2 className="w-4 h-4 mr-1.5" />
-          Proceed with this template
-        </Button>
-        <Button size="sm" variant="outline" onClick={onPickDifferent}>
-          Pick a different one
-        </Button>
-      </div>
-    </Card>
+    </div>
   );
 }
-
-// ─── No Match Card ─────────────────────────────────────────────────────────────
 
 function NoMatchCard({ onStartOver }: { onStartOver: () => void }) {
   return (
-    <Card className="p-4 border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20">
-      <div className="flex items-center gap-2 mb-2">
-        <AlertCircle className="w-5 h-5 text-amber-600" />
-        <h4 className="font-semibold text-foreground">No exact match found</h4>
+    <div className={`${s.banner} ${s.bannerWarn}`} style={{ padding: 14 }}>
+      <div className="mb-2 flex items-center gap-2">
+        <AlertCircle className="h-4 w-4" style={{ color: "var(--warn)" }} />
+        <h4 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>
+          No exact match
+        </h4>
       </div>
-      <p className="text-sm text-muted-foreground mb-3">
-        None of our templates are a perfect fit. Try describing your needs
-        differently, or browse the template library manually.
+      <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--ink-2)", lineHeight: 1.55 }}>
+        None of our templates are a perfect fit. Try describing differently, or browse the library.
       </p>
-      <Button size="sm" variant="outline" onClick={onStartOver}>
-        <RotateCcw className="w-4 h-4 mr-1.5" />
+      <button className={`${s.btn} ${s.btnOutline} ${s.btnSm}`} onClick={onStartOver}>
+        <RotateCcw className="h-3 w-3" />
         Start over
-      </Button>
-    </Card>
+      </button>
+    </div>
   );
 }
-
-// ─── Generate Action Card ──────────────────────────────────────────────────────
 
 function GenerateActionCard({
   templateName,
@@ -303,136 +167,77 @@ function GenerateActionCard({
 }) {
   const fieldCount = Object.keys(extractedFields).length;
   return (
-    <Card className="p-4 border border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/20">
-      <div className="flex items-center gap-2 mb-2">
-        <CheckCircle2 className="w-5 h-5 text-green-600" />
-        <h4 className="font-semibold text-foreground">Ready for the field form</h4>
+    <div className={`${s.banner} ${s.bannerSuccess}`} style={{ padding: 14 }}>
+      <div className="mb-2 flex items-center gap-2">
+        <CheckCircle2 className="h-4 w-4" style={{ color: "var(--success)" }} />
+        <h4 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>
+          Ready for the field form
+        </h4>
       </div>
-      <p className="text-sm text-muted-foreground mb-3">
-        {templateName} &middot; {fieldCount} fields collected from chat. Next,
-        confirm and complete fields on the template form (required checks), then
-        your document opens for editing.
+      <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--ink-2)", lineHeight: 1.55 }}>
+        <strong>{templateName}</strong> · {fieldCount} fields collected. Review on the next screen, then your document opens for editing.
       </p>
-      <Button
-        className="bg-blue-600 hover:bg-blue-700 text-white"
-        onClick={onContinue}
-      >
-        <ChevronRight className="w-4 h-4 mr-1.5" />
+      <button className={`${s.btn} ${s.btnAccent} ${s.btnSm}`} onClick={onContinue}>
+        <ChevronRight className="h-3 w-3" />
         Continue to template fields
-      </Button>
-    </Card>
+      </button>
+    </div>
   );
 }
 
-// ─── Error Message with Retry ──────────────────────────────────────────────────
-
-function ErrorBubble({
-  content,
-  onRetry,
-}: {
-  content: string;
-  onRetry: () => void;
-}) {
+function ErrorBubble({ content, onRetry }: { content: string; onRetry: () => void }) {
   return (
     <div className="space-y-2">
-      <div className="rounded-2xl rounded-bl-md px-4 py-2.5 text-sm leading-relaxed bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800">
+      <div
+        style={{
+          borderRadius: 14,
+          borderBottomLeftRadius: 4,
+          padding: "10px 14px",
+          fontSize: 14,
+          lineHeight: 1.55,
+          background: "var(--danger-soft)",
+          color: "var(--danger)",
+          border: "1px solid oklch(from var(--danger) l c h / 0.3)",
+        }}
+      >
         {content}
       </div>
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={onRetry}
-        className="text-xs"
-      >
-        <RefreshCw className="w-3 h-3 mr-1.5" />
+      <button className={`${s.btn} ${s.btnOutline} ${s.btnSm}`} onClick={onRetry}>
+        <RefreshCw className="h-3 w-3" />
         Retry
-      </Button>
+      </button>
     </div>
   );
 }
 
-// ─── Fields Sidebar ────────────────────────────────────────────────────────────
+// ─── Recommended template tile (in chat) ───────────────────────────────────────
 
-function FieldsSidebar({
-  templateId,
-  accumulatedFields,
-  extractedFields,
+function TemplateTile({
+  template,
+  onSelect,
 }: {
-  templateId: string;
-  accumulatedFields: Record<string, string>;
-  extractedFields: Record<string, string>;
+  template: RecommendedTemplate;
+  onSelect: (templateId: string) => void;
 }) {
-  const template = TEMPLATE_REGISTRY[templateId];
-  if (!template) return null;
-
-  const merged = { ...accumulatedFields, ...extractedFields };
-  const requiredFields = template.fields.filter((f) => f.required);
-  const filledCount = requiredFields.filter((f) => merged[f.key]).length;
-
   return (
-    <div className="flex flex-col h-full">
-      <div className="p-3 border-b border-border">
-        <h3 className="font-semibold text-sm text-foreground truncate">
-          {template.name}
-        </h3>
-        <div className="flex items-center gap-2 mt-1.5">
-          <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-            <div
-              className="h-full bg-blue-600 rounded-full transition-all duration-300"
-              style={{
-                width: `${requiredFields.length > 0 ? (filledCount / requiredFields.length) * 100 : 0}%`,
-              }}
-            />
-          </div>
-          <span className="text-xs text-muted-foreground whitespace-nowrap">
-            {filledCount}/{requiredFields.length}
-          </span>
-        </div>
+    <button
+      onClick={() => onSelect(template.templateId)}
+      className={s.tplRow}
+      style={{ padding: 10 }}
+    >
+      <div className={s.tplRowIcon}>
+        <FileText className="h-[13px] w-[13px]" />
       </div>
-      <div className="flex-1 overflow-y-auto p-3 space-y-1">
-        {template.fields.map((field) => {
-          const value = merged[field.key];
-          const isFilled = Boolean(value);
-          return (
-            <div
-              key={field.key}
-              className={cn(
-                "flex items-start gap-2 py-1.5 px-2 rounded-md text-xs",
-                isFilled
-                  ? "bg-green-50 dark:bg-green-950/20"
-                  : "bg-transparent"
-              )}
-            >
-              {isFilled ? (
-                <CheckCircle2 className="w-3.5 h-3.5 text-green-600 shrink-0 mt-0.5" />
-              ) : (
-                <Circle className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0 mt-0.5" />
-              )}
-              <div className="flex-1 min-w-0">
-                <span className={cn(
-                  "font-medium",
-                  isFilled ? "text-foreground" : "text-muted-foreground"
-                )}>
-                  {field.label}
-                </span>
-                {!field.required && (
-                  <span className="text-muted-foreground/50 ml-1">(optional)</span>
-                )}
-                {isFilled && (
-                  <p className="text-muted-foreground truncate mt-0.5">
-                    {String(value).replace(/_/g, " ")}
-                  </p>
-                )}
-              </div>
-            </div>
-          );
-        })}
+      <div style={{ minWidth: 0 }}>
+        <div className={s.tplRowName}>{template.name}</div>
+        <div className={s.tplRowCat}>{template.requiredFieldCount} required · {Math.round(template.confidence * 100)}% match</div>
       </div>
-    </div>
+      <ChevronRight className="h-4 w-4 flex-shrink-0" style={{ color: "var(--ink-3)" }} />
+    </button>
   );
 }
 
-// ─── Main Chatbot Component ────────────────────────────────────────────────────
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export function LegalChatbot({
   onBack,
@@ -446,8 +251,7 @@ export function LegalChatbot({
   const [currentResponse, setCurrentResponse] = useState<ChatResponse | null>(null);
   const [accumulatedFields, setAccumulatedFields] = useState<Record<string, string>>({});
   const [confirmedTemplateId, setConfirmedTemplateId] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const feedRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const hasSentInitial = useRef(false);
   const hasShownIntro = useRef(false);
@@ -457,16 +261,12 @@ export function LegalChatbot({
     currentResponseRef.current = currentResponse;
   }, [currentResponse]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, pendingConfirm]);
+    if (feedRef.current) feedRef.current.scrollTop = feedRef.current.scrollHeight;
+  }, [messages, pendingConfirm, isLoading]);
 
-  // Track the active template from either client confirmation or LLM response
-  const activeTemplateId = confirmedTemplateId ?? currentResponse?.selectedTemplateId ?? null;
+  const activeTemplateId =
+    confirmedTemplateId ?? currentResponse?.selectedTemplateId ?? null;
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -484,9 +284,8 @@ export function LegalChatbot({
           .filter((m) => !m.isError)
           .map((m) => ({
             role: m.role,
-            content: m.role === "assistant" && m.parsed
-              ? JSON.stringify(m.parsed)
-              : m.content,
+            content:
+              m.role === "assistant" && m.parsed ? JSON.stringify(m.parsed) : m.content,
           }));
 
         const response = await fetch("/api/document-generator/legal-chat", {
@@ -519,13 +318,17 @@ export function LegalChatbot({
         if (data.success && data.data) {
           const parsed = data.data;
 
-          // Show company intro on first successful response
-          if (!hasShownIntro.current && parsed.companyDefaults && Object.keys(parsed.companyDefaults).length > 0) {
+          if (
+            !hasShownIntro.current &&
+            parsed.companyDefaults &&
+            Object.keys(parsed.companyDefaults).length > 0
+          ) {
             hasShownIntro.current = true;
             const defaults = parsed.companyDefaults;
             const parts: string[] = [];
             if (defaults.company_name) parts.push(`**${defaults.company_name}**`);
-            if (defaults.company_address) parts.push(`based in **${defaults.company_address}**`);
+            if (defaults.company_address)
+              parts.push(`based in **${defaults.company_address}**`);
             if (parts.length > 0) {
               const introContent = `I see your company is ${parts.join(", ")}. I'll pre-fill those details automatically.`;
               setMessages((prev) => [
@@ -535,7 +338,6 @@ export function LegalChatbot({
             }
           }
 
-          // Detect if the LLM is asking about a select field
           const assistantMessage: ChatMessage = {
             role: "assistant",
             content: parsed.message,
@@ -544,9 +346,10 @@ export function LegalChatbot({
           setMessages((prev) => [...prev, assistantMessage]);
           setCurrentResponse(parsed);
 
-          // Update accumulated fields (coerce all values to strings — the LLM
-          // may return numbers for numeric fields which would break the Zod schema)
-          if (parsed.extractedFields && Object.keys(parsed.extractedFields).length > 0) {
+          if (
+            parsed.extractedFields &&
+            Object.keys(parsed.extractedFields).length > 0
+          ) {
             const stringified: Record<string, string> = {};
             for (const [k, v] of Object.entries(parsed.extractedFields)) {
               stringified[k] = String(v);
@@ -565,7 +368,6 @@ export function LegalChatbot({
             });
           }
 
-          // Auto-show confirm card for single high-confidence match
           if (
             parsed.phase === "recommending" &&
             parsed.recommendedTemplates.length === 1 &&
@@ -596,16 +398,15 @@ export function LegalChatbot({
         setIsLoading(false);
       }
     },
-    [messages, isLoading, accumulatedFields]
+    [messages, isLoading, accumulatedFields],
   );
 
-  // Send initial message if provided (only runs once via ref guard)
   useEffect(() => {
     if (initialMessage && !hasSentInitial.current) {
       hasSentInitial.current = true;
       void sendMessage(initialMessage);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- sendMessage changes every render; ref guard prevents double-send
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ref guard prevents double-send
   }, [initialMessage]);
 
   const handleRetry = (errorIndex: number) => {
@@ -619,13 +420,13 @@ export function LegalChatbot({
 
   const handleSelectTemplate = (templateId: string) => {
     let rec = currentResponse?.recommendedTemplates.find(
-      (t) => t.templateId === templateId
+      (t) => t.templateId === templateId,
     );
     if (!rec) {
       for (const msg of messages) {
         if (msg.parsed?.recommendedTemplates) {
           const found = msg.parsed.recommendedTemplates.find(
-            (t) => t.templateId === templateId
+            (t) => t.templateId === templateId,
           );
           if (found) {
             rec = found;
@@ -644,10 +445,9 @@ export function LegalChatbot({
     const carried = carryOverFields(accumulatedFields, pendingConfirm.templateId);
     setAccumulatedFields(carried);
     setConfirmedTemplateId(pendingConfirm.templateId);
-    setSidebarOpen(true);
     setPendingConfirm(null);
     void sendMessage(
-      `I want to proceed with the "${pendingConfirm.name}" template.`
+      `I want to proceed with the "${pendingConfirm.name}" template.`,
     );
   };
 
@@ -663,7 +463,6 @@ export function LegalChatbot({
     setCurrentResponse(null);
     setAccumulatedFields({});
     setConfirmedTemplateId(null);
-    setSidebarOpen(false);
     hasSentInitial.current = false;
     hasShownIntro.current = false;
   };
@@ -677,156 +476,127 @@ export function LegalChatbot({
 
   const handleContinueToTemplateForm = () => {
     if (!currentResponse?.selectedTemplateId) return;
-    const finalFields = { ...accumulatedFields, ...currentResponse.extractedFields };
+    const finalFields = {
+      ...accumulatedFields,
+      ...currentResponse.extractedFields,
+    };
     onContinueToTemplateForm(currentResponse.selectedTemplateId, finalFields);
   };
 
-  const lastAssistantMsg = [...messages].reverse().find((m) => m.role === "assistant" && m.parsed);
+  const lastAssistantMsg = [...messages]
+    .reverse()
+    .find((m) => m.role === "assistant" && m.parsed);
   const isNoMatch =
     lastAssistantMsg?.parsed?.phase === "recommending" &&
     lastAssistantMsg.parsed.recommendedTemplates.length === 0;
 
-  const showSidebar = sidebarOpen && activeTemplateId;
+  // Merged field state for the live preview
+  const mergedFields: Record<string, string> = {
+    ...accumulatedFields,
+    ...(currentResponse?.extractedFields ?? {}),
+  };
+  const companyDefaults = currentResponse?.companyDefaults ?? {};
+
+  // Active template for preview — null when nothing chosen yet
+  const previewTemplate = activeTemplateId
+    ? TEMPLATE_REGISTRY[activeTemplateId]
+    : null;
+  const previewFields = previewTemplate?.fields ?? [];
+  const requiredFields = previewFields.filter((f) => f.required);
+  const filledN = requiredFields.filter((f) => mergedFields[f.key]).length;
+  const totalN = requiredFields.length;
+  const currentField =
+    requiredFields.find((f) => !mergedFields[f.key]) ?? null;
 
   return (
-    <div className="flex h-full bg-background">
-      {/* Main chat area */}
-      <div className="flex flex-col flex-1 min-w-0">
-        {/* Header */}
-        <div className="flex-shrink-0 border-b border-border p-4">
-          <div className="max-w-3xl mx-auto flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onBack}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <ArrowLeft className="w-4 h-4 mr-1.5" />
-              Back to templates
-            </Button>
-            <div className="h-4 w-px bg-border" />
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 bg-blue-600 rounded-lg">
-                <Scale className="w-4 h-4 text-white" />
-              </div>
-              <span className="font-semibold text-foreground">
-                Legal Document Assistant
-              </span>
-            </div>
-            <div className="flex-1" />
-            {activeTemplateId && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSidebarOpen((p) => !p)}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                {sidebarOpen ? (
-                  <PanelRightClose className="w-4 h-4 mr-1.5" />
-                ) : (
-                  <PanelRightOpen className="w-4 h-4 mr-1.5" />
-                )}
-                Fields
-              </Button>
-            )}
-            {messages.length > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleStartOver}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <RotateCcw className="w-4 h-4 mr-1.5" />
-                Start over
-              </Button>
-            )}
-          </div>
+    <div className="flex h-full flex-col" style={{ minHeight: 0 }}>
+      {/* Top bar — replaces the drift sidebar with a slim breadcrumb header */}
+      <div className={s.assistTopBar}>
+        <button
+          className={`${s.btn} ${s.btnGhost} ${s.btnSm}`}
+          onClick={onBack}
+          style={{ paddingLeft: 6, paddingRight: 10 }}
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </button>
+        <span className={s.dividerVert} />
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+          <Sparkles className="h-3.5 w-3.5" style={{ color: "var(--accent)" }} />
+          <span className={s.assistTopBarMeta}>Drift Assist · Legal</span>
         </div>
+        <div className={s.assistTopBarSpacer} />
+        {messages.length > 0 && (
+          <button
+            className={`${s.btn} ${s.btnGhost} ${s.btnSm}`}
+            onClick={handleStartOver}
+          >
+            <RotateCcw className="h-4 w-4" />
+            Start over
+          </button>
+        )}
+      </div>
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="max-w-3xl mx-auto p-4 space-y-4">
-            {/* Welcome message */}
-            {messages.length === 0 && !isLoading && (
-              <div className="text-center py-12">
-                <div className="inline-flex p-3 bg-blue-100 dark:bg-blue-900/30 rounded-2xl mb-4">
-                  <Scale className="w-8 h-8 text-blue-600" />
-                </div>
-                <h2 className="text-xl font-semibold text-foreground mb-2">
-                  What legal document do you need?
-                </h2>
-                <p className="text-muted-foreground max-w-md mx-auto">
-                  Describe your situation and I&apos;ll recommend the right
-                  template and help you fill it out.
-                </p>
-                <div className="flex flex-wrap justify-center gap-2 mt-6">
-                  {[
-                    "I need an NDA for new employees",
-                    "Setting up a contractor agreement",
-                    "We're raising a seed round",
-                    "Need a privacy policy for our app",
-                  ].map((suggestion) => (
-                    <button
-                      key={suggestion}
-                      onClick={() => void sendMessage(suggestion)}
-                      className={cn(
-                        "px-3 py-1.5 rounded-full text-sm border border-border",
-                        "text-muted-foreground hover:text-foreground hover:border-ring",
-                        "transition-colors cursor-pointer"
-                      )}
-                    >
-                      {suggestion}
-                    </button>
-                  ))}
-                </div>
+      {/* Two-column split: chat | live preview */}
+      <div className={s.assist}>
+        {/* ─── Chat column ─────────────────────────────────────────────── */}
+        <section className={s.assistChat}>
+          <header className={s.assistChatHead}>
+            <div className={s.assistChatAvatar}>
+              <Sparkles />
+            </div>
+            <div className={s.assistChatTitleBlock}>
+              <div className={s.assistChatName}>Drift Assist</div>
+              <div className={s.assistChatSub}>
+                {previewTemplate
+                  ? `filling · ${previewTemplate.name.toLowerCase()}`
+                  : "ready · pick a template to begin"}
               </div>
+            </div>
+            <div className={s.assistChatMenu}>
+              <button
+                className={`${s.btn} ${s.btnGhost} ${s.btnIconSm}`}
+                title="Show all fields"
+                aria-label="Show all fields"
+              >
+                <Eye />
+              </button>
+              <button
+                className={`${s.btn} ${s.btnGhost} ${s.btnIconSm}`}
+                title="Settings"
+                aria-label="Settings"
+              >
+                <Settings />
+              </button>
+            </div>
+          </header>
+
+          <div ref={feedRef} className={`${s.assistChatFeed} ${s.scrollbar}`}>
+            {messages.length === 0 && !isLoading && (
+              <WelcomeMessage onSuggest={(q) => void sendMessage(q)} />
             )}
 
-            {/* Chat messages */}
             {messages.map((msg, i) => (
               <div
                 key={i}
-                className={cn(
-                  "flex gap-3",
-                  msg.role === "user" ? "justify-end" : "justify-start"
-                )}
+                className={`${s.assistMsg} ${
+                  msg.role === "user" ? s.assistMsgUser : s.assistMsgBot
+                }`}
               >
-                {msg.role === "assistant" && (
-                  <div className="shrink-0 mt-1">
-                    <div className={cn(
-                      "p-1.5 rounded-lg",
-                      msg.isError
-                        ? "bg-red-100 dark:bg-red-900/30"
-                        : "bg-blue-100 dark:bg-blue-900/30"
-                    )}>
-                      {msg.isError ? (
-                        <AlertCircle className="w-4 h-4 text-red-600" />
-                      ) : (
-                        <Scale className="w-4 h-4 text-blue-600" />
-                      )}
-                    </div>
-                  </div>
-                )}
-                <div
-                  className={cn(
-                    "max-w-[80%] space-y-3",
-                    msg.role === "user" ? "items-end" : "items-start"
-                  )}
-                >
-                  {msg.isError ? (
-                    <ErrorBubble
-                      content={msg.content}
-                      onRetry={() => handleRetry(i)}
-                    />
+                <div className={s.assistMsgAvatar}>
+                  {msg.role === "user" ? (
+                    <FileText />
+                  ) : msg.isError ? (
+                    <AlertCircle />
                   ) : (
-                    <div
-                      className={cn(
-                        "rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
-                        msg.role === "user"
-                          ? "bg-blue-600 text-white rounded-br-md"
-                          : "bg-muted text-foreground rounded-bl-md"
-                      )}
-                    >
+                    <Sparkles />
+                  )}
+                </div>
+                <div className={s.assistMsgBody}>
+                  {msg.isError ? (
+                    <ErrorBubble content={msg.content} onRetry={() => handleRetry(i)} />
+                  ) : (
+                    <div className={s.assistBubble}>
                       {msg.role === "assistant" ? (
                         <MarkdownMessage content={msg.content} className="text-sm" />
                       ) : (
@@ -835,14 +605,11 @@ export function LegalChatbot({
                     </div>
                   )}
 
-
-
-                  {/* Template recommendations */}
                   {msg.parsed?.phase === "recommending" &&
                     msg.parsed.recommendedTemplates.length > 0 && (
-                      <div className="space-y-2 w-full">
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                         {msg.parsed.recommendedTemplates.map((rec) => (
-                          <TemplateMiniCard
+                          <TemplateTile
                             key={rec.templateId}
                             template={rec}
                             onSelect={handleSelectTemplate}
@@ -851,45 +618,37 @@ export function LegalChatbot({
                       </div>
                     )}
 
-                  {/* Ready to generate card */}
-                  {msg.parsed?.phase === "ready" &&
-                    msg.parsed.selectedTemplateId && (
-                      <GenerateActionCard
-                        templateName={
-                          TEMPLATE_REGISTRY[msg.parsed.selectedTemplateId]?.name ??
-                          msg.parsed.selectedTemplateId
-                        }
-                        extractedFields={msg.parsed.extractedFields}
-                        onContinue={handleContinueToTemplateForm}
-                      />
-                    )}
+                  {msg.parsed?.phase === "ready" && msg.parsed.selectedTemplateId && (
+                    <GenerateActionCard
+                      templateName={
+                        TEMPLATE_REGISTRY[msg.parsed.selectedTemplateId]?.name ??
+                        msg.parsed.selectedTemplateId
+                      }
+                      extractedFields={msg.parsed.extractedFields}
+                      onContinue={handleContinueToTemplateForm}
+                    />
+                  )}
                 </div>
               </div>
             ))}
 
-            {/* No match card */}
             {isNoMatch && !isLoading && (
-              <div className="flex gap-3">
-                <div className="shrink-0 mt-1">
-                  <div className="p-1.5 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
-                    <AlertCircle className="w-4 h-4 text-amber-600" />
-                  </div>
+              <div className={`${s.assistMsg} ${s.assistMsgBot}`}>
+                <div className={s.assistMsgAvatar}>
+                  <AlertCircle />
                 </div>
-                <div className="max-w-[80%]">
+                <div className={s.assistMsgBody} style={{ width: "100%" }}>
                   <NoMatchCard onStartOver={handleStartOver} />
                 </div>
               </div>
             )}
 
-            {/* Pending confirmation card */}
             {pendingConfirm && (
-              <div className="flex gap-3">
-                <div className="shrink-0 mt-1">
-                  <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                    <Scale className="w-4 h-4 text-blue-600" />
-                  </div>
+              <div className={`${s.assistMsg} ${s.assistMsgBot}`}>
+                <div className={s.assistMsgAvatar}>
+                  <Scale />
                 </div>
-                <div className="max-w-[80%]">
+                <div className={s.assistMsgBody} style={{ width: "100%" }}>
                   <TemplateConfirmCard
                     template={pendingConfirm}
                     onConfirm={handleConfirmTemplate}
@@ -899,79 +658,289 @@ export function LegalChatbot({
               </div>
             )}
 
-            {/* Loading indicator */}
             {isLoading && (
-              <div className="flex gap-3">
-                <div className="shrink-0 mt-1">
-                  <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                    <Scale className="w-4 h-4 text-blue-600" />
-                  </div>
+              <div className={`${s.assistMsg} ${s.assistMsgBot}`}>
+                <div className={s.assistMsgAvatar}>
+                  <Sparkles />
                 </div>
-                <div className="bg-muted rounded-2xl rounded-bl-md px-4 py-3">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Thinking...
+                <div className={s.assistMsgBody}>
+                  <div className={s.assistBubble}>
+                    <span className={s.assistTyping}>
+                      <span /><span /><span />
+                    </span>
                   </div>
                 </div>
               </div>
             )}
-
-            <div ref={messagesEndRef} />
           </div>
-        </div>
 
-        {/* Input */}
-        <div className="flex-shrink-0 border-t border-border p-4">
-          <div className="max-w-3xl mx-auto">
-            <div className="flex gap-2 items-end">
-              <div className="flex-1 relative">
-                <textarea
-                  ref={inputRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Describe what you need..."
-                  rows={1}
-                  className={cn(
-                    "w-full resize-none rounded-xl border border-border bg-background px-4 py-3 pr-12",
-                    "text-sm text-foreground placeholder:text-muted-foreground",
-                    "focus:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:border-ring",
-                    "max-h-32 disabled:opacity-50"
-                  )}
-                  style={{
-                    height: "auto",
-                    minHeight: "44px",
-                  }}
-                  onInput={(e) => {
-                    const target = e.target as HTMLTextAreaElement;
-                    target.style.height = "auto";
-                    target.style.height = `${Math.min(target.scrollHeight, 128)}px`;
-                  }}
+          {/* Progress strip */}
+          {previewTemplate && totalN > 0 && (
+            <div className={s.assistProgress}>
+              <span>{filledN} / {totalN} filled</span>
+              <div className={s.assistProgressTrack}>
+                <div
+                  className={s.assistProgressFill}
+                  style={{ width: `${(filledN / totalN) * 100}%` }}
                 />
               </div>
-              <Button
-                size="icon"
-                className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl h-11 w-11 shrink-0"
-                onClick={() => void sendMessage(input)}
-                disabled={!input.trim() || isLoading}
-              >
-                <Send className="w-4 h-4" />
-              </Button>
+              <span>{currentField ? `next: ${currentField.label}` : "all filled"}</span>
+            </div>
+          )}
+
+          <div className={s.assistComposer}>
+            <textarea
+              ref={inputRef}
+              className={s.assistInput}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={
+                previewTemplate
+                  ? `Answer — or describe a change…`
+                  : "Describe what you need…"
+              }
+              rows={1}
+              onInput={(e) => {
+                const target = e.target as HTMLTextAreaElement;
+                target.style.height = "auto";
+                target.style.height = `${Math.min(target.scrollHeight, 140)}px`;
+              }}
+            />
+            <button
+              className={s.assistSend}
+              onClick={() => void sendMessage(input)}
+              disabled={!input.trim() || isLoading}
+              aria-label="Send message"
+            >
+              <Send />
+            </button>
+          </div>
+          <div className={s.assistHint}>
+            ⌘↵ to send · drift learns your defaults over time
+          </div>
+        </section>
+
+        {/* ─── Live preview column ─────────────────────────────────────── */}
+        <section className={s.assistPreview}>
+          <header className={s.assistPreviewHead}>
+            <FileText className="previewIcon" />
+            <span className={s.assistPreviewTitle}>
+              {previewTemplate ? previewTemplate.name : "Live document"}
+            </span>
+            <span className={s.assistPreviewLive}>· live preview</span>
+            <div className={s.assistPreviewPills}>
+              <span className={s.assistStatusPill}>
+                {previewTemplate ? `DRAFT · ${filledN}/${totalN}` : "AWAITING"}
+              </span>
+              {previewTemplate && filledN > 0 && (
+                <button className={`${s.btn} ${s.btnOutline} ${s.btnSm}`}>
+                  <Eye className="h-3 w-3" />
+                  Full
+                </button>
+              )}
+            </div>
+          </header>
+
+          <div className={`${s.assistPreviewBody} ${s.scrollbar}`}>
+            {previewTemplate ? (
+              <>
+                <PreviewDocument
+                  template={previewTemplate}
+                  fields={mergedFields}
+                  currentField={currentField?.key ?? null}
+                />
+                <FieldSummary
+                  template={previewTemplate}
+                  fields={mergedFields}
+                  currentField={currentField?.key ?? null}
+                  companyDefaults={companyDefaults}
+                />
+              </>
+            ) : (
+              <div className={s.assistPreviewEmpty}>
+                <div className={s.assistPreviewEmptyMark}>
+                  <Sparkles />
+                </div>
+                <div className={s.assistPreviewEmptyTitle}>
+                  Pick a template to begin
+                </div>
+                <p className={s.assistPreviewEmptySub}>
+                  Tell the assistant what you need on the left. As you answer questions, the document fills in here in real time.
+                </p>
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+// ─── Live preview document ────────────────────────────────────────────────────
+
+function PreviewDocument({
+  template,
+  fields,
+  currentField,
+}: {
+  template: { id: string; name: string; fields: { key: string; label: string }[] };
+  fields: Record<string, string>;
+  currentField: string | null;
+}) {
+  // Render a stylized preview pulling the most descriptive fields if present.
+  const Slot = ({ k }: { k: string }) => {
+    const f = template.fields.find((x) => x.key === k);
+    const value = fields[k];
+    const isCurrent = currentField === k;
+    const cls = value
+      ? `${s.assistSlot} ${s.assistSlotFilled}`
+      : isCurrent
+        ? `${s.assistSlot} ${s.assistSlotCurrent}`
+        : s.assistSlot;
+    return <span className={cls}>{value || `{${(f?.label ?? k).toLowerCase()}}`}</span>;
+  };
+
+  // Effective date if present, else first date-like field
+  const titleField = template.fields[0]?.key;
+  const partyA = template.fields.find((f) =>
+    f.key.includes("disclosing") || f.key.includes("company") || f.key.includes("party_1") || f.key.includes("founder_1"),
+  )?.key;
+  const partyB = template.fields.find((f) =>
+    f.key.includes("receiving") || f.key.includes("party_2") || f.key.includes("founder_2") || f.key.includes("employee"),
+  )?.key;
+  const dateField = template.fields.find((f) =>
+    f.key.includes("effective_date") || f.key.includes("date"),
+  )?.key;
+  const purposeField = template.fields.find((f) =>
+    f.key.includes("purpose") || f.key.includes("description") || f.key.includes("scope"),
+  )?.key;
+
+  return (
+    <div className={s.assistDoc}>
+      <h1>{template.name}</h1>
+      <div className={s.assistDocSub}>
+        {dateField ? (
+          <>Effective <Slot k={dateField} /></>
+        ) : (
+          <>Draft</>
+        )}
+      </div>
+      <p>
+        This {template.name} is entered into by and between
+        {partyA ? <> <Slot k={partyA} /></> : null}
+        {partyB ? <>, and <Slot k={partyB} /></> : null}
+        , each a "Party" and collectively the "Parties".
+      </p>
+      {purposeField && (
+        <>
+          <h2>Purpose</h2>
+          <p>
+            The Parties wish to enter into this agreement for the purpose of{" "}
+            <Slot k={purposeField} />.
+          </p>
+        </>
+      )}
+      <h2>Terms</h2>
+      <p>
+        This agreement shall be governed by the laws of{" "}
+        {template.fields.find((f) => f.key.includes("jurisdiction") || f.key.includes("governing_law"))
+          ? <Slot k={template.fields.find((f) => f.key.includes("jurisdiction") || f.key.includes("governing_law"))!.key} />
+          : "the applicable jurisdiction"}{" "}
+        and continue in effect as set forth in subsequent sections.
+      </p>
+      {titleField && titleField !== dateField && titleField !== partyA && titleField !== partyB && (
+        <p
+          style={{
+            color: "var(--ink-3)",
+            fontSize: 11,
+            fontFamily: "var(--font-jetbrains-mono, JetBrains Mono), ui-monospace, monospace",
+            letterSpacing: "0.04em",
+          }}
+        >
+          Continued field collection — {template.fields.length} total fields, asked one at a time.
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ─── Field summary (under the preview) ────────────────────────────────────────
+
+function FieldSummary({
+  template,
+  fields,
+  currentField,
+  companyDefaults,
+}: {
+  template: { fields: { key: string; label: string; required?: boolean }[] };
+  fields: Record<string, string>;
+  currentField: string | null;
+  companyDefaults: Record<string, string>;
+}) {
+  const filledN = template.fields.filter((f) => fields[f.key]).length;
+  const totalN = template.fields.length;
+
+  return (
+    <div className={s.assistFields}>
+      <div className={s.assistFieldsHead}>
+        <span>Field summary · {totalN}</span>
+        <span>{filledN} of {totalN} filled</span>
+      </div>
+      {template.fields.map((f) => {
+        const value = fields[f.key];
+        const isCurrent = currentField === f.key;
+        const tag = sourceTag(f.key, !!value, companyDefaults, isCurrent);
+        return (
+          <div key={f.key} className={s.assistField}>
+            <div className={s.assistFieldLabel}>{f.label}</div>
+            <div
+              className={
+                value ? s.assistFieldValue : s.assistFieldValueEmpty
+              }
+            >
+              {value || (isCurrent ? "asking now…" : "awaiting")}
+            </div>
+            <div
+              className={`${s.assistFieldSrc} ${tag.ai ? s.assistFieldSrcAi : ""}`}
+            >
+              {tag.ai ? <Sparkles /> : <LinkIcon />}
+              {tag.txt}
             </div>
           </div>
-        </div>
-      </div>
+        );
+      })}
+    </div>
+  );
+}
 
-      {/* Fields Sidebar */}
-      {showSidebar && activeTemplateId && (
-        <div className="hidden md:flex w-72 border-l border-border bg-background flex-shrink-0 flex-col overflow-hidden">
-          <FieldsSidebar
-            templateId={activeTemplateId}
-            accumulatedFields={accumulatedFields}
-            extractedFields={currentResponse?.extractedFields ?? {}}
-          />
-        </div>
-      )}
+// ─── Welcome (when no messages yet) ──────────────────────────────────────────
+
+function WelcomeMessage({ onSuggest }: { onSuggest: (q: string) => void }) {
+  const suggestions = [
+    "I need an NDA for new employees",
+    "Setting up a contractor agreement",
+    "We're raising a seed round",
+    "Need a privacy policy for our app",
+  ];
+  return (
+    <div className={s.assistWelcome}>
+      <div className={s.brandMark} style={{ width: 52, height: 52, borderRadius: 14 }}>
+        <Sparkles className="h-6 w-6" />
+      </div>
+      <h2 className={s.assistWelcomeTitle}>
+        What <em>legal</em> document do you need?
+      </h2>
+      <p className={s.assistWelcomeSub}>
+        Describe your situation — I&apos;ll recommend the right template and help you fill it out, with the document filling in live on the right.
+      </p>
+      <div className={s.assistWelcomeChips}>
+        {suggestions.map((q) => (
+          <button key={q} className={s.suggestPill} onClick={() => onSuggest(q)}>
+            {q}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

@@ -1,13 +1,21 @@
 "use client";
 
 import { useState } from 'react';
-import { Search, Plus, FileText, Clock, Scale, Brain, Sparkles, ArrowRight } from 'lucide-react';
-import { Input } from "~/app/employer/documents/components/ui/input";
-import { Button } from "~/app/employer/documents/components/ui/button";
-import { Card } from "~/app/employer/documents/components/ui/card";
-import { cn } from "~/lib/utils";
-import { Tabs, TabsList, TabsTrigger } from "~/app/employer/documents/components/ui/tabs";
+import {
+  Search,
+  Plus,
+  FileText,
+  Clock,
+  Scale,
+  Sparkles,
+  ArrowRight,
+  Briefcase,
+  Shield,
+  UserCheck,
+  Gavel,
+} from 'lucide-react';
 import { TEMPLATE_REGISTRY, type TemplateField } from "@launchstack/features/legal-templates";
+import { legalTheme as s } from './LegalGeneratorTheme';
 
 export interface DocumentTemplate {
   id: string;
@@ -35,22 +43,42 @@ interface DocumentGeneratorHomeProps {
 }
 
 const STAGE_MAP: Record<string, string> = {
-  nda: 'Formation & Founders',
-  founders_agreement: 'Formation & Founders',
-  ip_assignment: 'Formation & Founders',
-  service_agreement: 'Business Operations',
-  contractor_agreement: 'Business Operations',
+  nda: 'Confidentiality',
+  founders_agreement: 'Formation',
+  ip_assignment: 'Formation',
+  service_agreement: 'Commercial',
+  contractor_agreement: 'Commercial',
   safe: 'Fundraising',
   advisory_agreement: 'Fundraising',
-  employment_contract: 'Hiring & Onboarding',
-  employee_nda: 'Hiring & Onboarding',
-  invention_assignment: 'Hiring & Onboarding',
-  at_will_employment: 'Hiring & Onboarding',
-  non_compete: 'Hiring & Onboarding',
-  privacy_policy: 'Compliance',
-  terms_of_service: 'Compliance',
+  employment_contract: 'Employment',
+  employee_nda: 'Employment',
+  invention_assignment: 'Employment',
+  at_will_employment: 'Employment',
+  non_compete: 'Employment',
+  privacy_policy: 'Product',
+  terms_of_service: 'Product',
   termination_letter: 'Offboarding',
   severance_agreement: 'Offboarding',
+};
+
+const STAGE_ORDER = [
+  'Confidentiality',
+  'Formation',
+  'Commercial',
+  'Fundraising',
+  'Employment',
+  'Product',
+  'Offboarding',
+];
+
+const STAGE_ICONS: Record<string, React.ReactNode> = {
+  Confidentiality: <Shield className="h-4 w-4" />,
+  Formation: <Briefcase className="h-4 w-4" />,
+  Commercial: <Briefcase className="h-4 w-4" />,
+  Fundraising: <Briefcase className="h-4 w-4" />,
+  Employment: <UserCheck className="h-4 w-4" />,
+  Product: <Shield className="h-4 w-4" />,
+  Offboarding: <Gavel className="h-4 w-4" />,
 };
 
 const templates: DocumentTemplate[] = Object.values(TEMPLATE_REGISTRY).map((t) => ({
@@ -63,16 +91,12 @@ const templates: DocumentTemplate[] = Object.values(TEMPLATE_REGISTRY).map((t) =
   fields: t.fields,
 }));
 
-const STAGE_ORDER = [
-  'Formation & Founders',
-  'Business Operations',
-  'Fundraising',
-  'Hiring & Onboarding',
-  'Compliance',
-  'Offboarding',
-];
-
-export function DocumentGeneratorHome({ onNewDocument, onOpenDocument, onStartChat, generatedDocuments }: DocumentGeneratorHomeProps) {
+export function DocumentGeneratorHome({
+  onNewDocument,
+  onOpenDocument,
+  onStartChat,
+  generatedDocuments,
+}: DocumentGeneratorHomeProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'new' | 'existing'>('new');
@@ -80,275 +104,344 @@ export function DocumentGeneratorHome({ onNewDocument, onOpenDocument, onStartCh
 
   const categories = ['all', ...STAGE_ORDER];
 
-  const filteredTemplates = templates.filter(template => {
-    const matchesSearch = template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         template.description.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredTemplates = templates.filter((template) => {
+    const matchesSearch =
+      template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      template.description.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === 'all' || template.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
-  const filteredDocuments = generatedDocuments.filter(doc =>
-    doc.title.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredDocuments = generatedDocuments.filter((doc) =>
+    doc.title.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
-  const groupedTemplates = selectedCategory === 'all'
-    ? STAGE_ORDER.map(stage => ({
-        stage,
-        items: filteredTemplates.filter(t => t.category === stage),
-      })).filter(g => g.items.length > 0)
-    : [{ stage: selectedCategory, items: filteredTemplates }];
+  const groupedTemplates =
+    selectedCategory === 'all'
+      ? STAGE_ORDER.map((stage) => ({
+          stage,
+          items: filteredTemplates.filter((t) => t.category === stage),
+        })).filter((g) => g.items.length > 0)
+      : [{ stage: selectedCategory, items: filteredTemplates }];
+
+  const totalTemplates = templates.length;
+  const categoryCounts: Record<string, number> = {};
+  for (const tpl of templates) {
+    categoryCounts[tpl.category] = (categoryCounts[tpl.category] ?? 0) + 1;
+  }
 
   return (
-    <div className="flex flex-col h-full bg-background">
-      {/* Header */}
-      <div className="flex-shrink-0 bg-background border-b border-border p-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 bg-blue-600 rounded-xl shadow-lg shadow-blue-500/20">
-                  <Scale className="w-6 h-6 text-white" />
-                </div>
-                <h1 className="text-2xl font-bold text-foreground">Legal Document Generator</h1>
-              </div>
-              <p className="text-muted-foreground">
-                Generate legal documents from professional templates
-              </p>
-            </div>
+    <div className={s.libContent}>
+      <div className={s.libContentInner}>
+        {/* Title row + view tabs (matches `rd-content__h` spacing exactly) */}
+        <div className={s.libContentHead}>
+          <h1 className={s.libHeroHeading}>
+            Generate a <em>legal</em> document
+          </h1>
+          <div className={s.tabs} role="tablist" aria-label="Document view">
+            <button
+              role="tab"
+              aria-selected={viewMode === 'new'}
+              className={`${s.tab} ${viewMode === 'new' ? s.tabActive : ''}`}
+              onClick={() => setViewMode('new')}
+            >
+              <Plus className="h-4 w-4" />
+              <span>New document</span>
+            </button>
+            <button
+              role="tab"
+              aria-selected={viewMode === 'existing'}
+              className={`${s.tab} ${viewMode === 'existing' ? s.tabActive : ''}`}
+              onClick={() => setViewMode('existing')}
+            >
+              <Clock className="h-4 w-4" />
+              <span>My documents</span>
+              <span className={s.tabCount}>{generatedDocuments.length}</span>
+            </button>
           </div>
-
-          <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as 'new' | 'existing')}>
-            <TabsList className="bg-muted">
-              <TabsTrigger value="new" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
-                <Plus className="w-4 h-4 mr-2" />
-                New Document
-              </TabsTrigger>
-              <TabsTrigger value="existing" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
-                <Clock className="w-4 h-4 mr-2" />
-                My Documents ({generatedDocuments.length})
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
         </div>
-      </div>
+        <p className={s.libHeroSub}>
+          Pick a template — Drift fills it from your company knowledge and the
+          counterparty. Or describe what you need and the assistant will
+          recommend the right one.
+        </p>
 
-      {/* Search */}
-      <div className="flex-shrink-0 bg-background border-b border-border px-6 py-4">
-        <div className="max-w-7xl mx-auto">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-            <Input
-              placeholder={viewMode === 'new' ? "Search legal templates..." : "Search your documents..."}
+        {/* Search + filter strip — kept compact, sized like the design's chips */}
+        <div style={{ marginBottom: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div className={`${s.searchWrap} relative`}>
+            <Search
+              className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2"
+              style={{ color: 'var(--ink-3)' }}
+            />
+            <input
+              type="text"
+              className={s.input}
+              placeholder={
+                viewMode === 'new'
+                  ? 'Search legal templates…'
+                  : 'Search your documents…'
+              }
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-background border-border"
+              style={{ paddingLeft: 40 }}
             />
+            <kbd className={s.kbd}>⌘K</kbd>
           </div>
-        </div>
-      </div>
 
-      {/* Stage Filter */}
-      {viewMode === 'new' && (
-        <div className="flex-shrink-0 bg-background border-b border-border px-6 py-3">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex gap-2 overflow-x-auto pb-2">
-              {categories.map((category) => (
-                <Button
-                  key={category}
-                  variant={selectedCategory === category ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setSelectedCategory(category)}
-                  className={cn(
-                    selectedCategory === category
-                      ? "bg-blue-600 hover:bg-blue-700 text-white"
-                      : "border-border text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  {category === 'all' ? 'All Templates' : category}
-                </Button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-7xl mx-auto p-6">
-          {viewMode === 'new' ? (
-            <div className="space-y-8">
-              {/* AI Assistant Banner */}
-              <Card className="relative overflow-hidden border-2 border-blue-200 dark:border-blue-800 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30">
-                <div className="p-5">
-                  <div className="flex items-start gap-4">
-                    <div className="p-2.5 bg-blue-600 rounded-xl shadow-lg shadow-blue-500/20 shrink-0">
-                      <Sparkles className="w-5 h-5 text-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-foreground mb-1">
-                        Not sure which template you need?
-                      </h3>
-                      <p className="text-sm text-muted-foreground mb-3">
-                        Describe your situation and our AI assistant will recommend the right template and help you fill it out.
-                      </p>
-                      <div className="flex gap-2">
-                        <div className="flex-1 relative">
-                          <input
-                            type="text"
-                            value={chatInput}
-                            onChange={(e) => setChatInput(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' && chatInput.trim()) {
-                                onStartChat(chatInput.trim());
-                              }
-                            }}
-                            placeholder="e.g. I need an NDA for new employees..."
-                            className={cn(
-                              "w-full rounded-lg border border-blue-200 dark:border-blue-700 bg-background px-3 py-2",
-                              "text-sm text-foreground placeholder:text-muted-foreground",
-                              "focus:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:border-ring"
-                            )}
-                          />
-                        </div>
-                        <Button
-                          className="bg-blue-600 hover:bg-blue-700 text-white shrink-0"
-                          size="sm"
-                          onClick={() => onStartChat(chatInput.trim() || undefined)}
-                        >
-                          <Sparkles className="w-4 h-4 mr-1.5" />
-                          Ask AI
-                          <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-
-              {groupedTemplates.map(({ stage, items }) => (
-                <div key={stage}>
-                  <div className="flex items-center gap-2 mb-4">
-                    <h2 className="text-lg font-semibold text-foreground">{stage}</h2>
-                    <span className="text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full font-medium">
-                      {items.length}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    {items.map((template) => (
-                      <Card
-                        key={template.id}
-                        className="group cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02] border-2 border-border hover:border-blue-600 overflow-hidden flex flex-col bg-card"
-                        onClick={() => onNewDocument(template)}
-                      >
-                        {/* Document Preview */}
-                        <div className="bg-muted p-4 h-44 flex items-start justify-center relative overflow-hidden">
-                          <div className="w-full h-full overflow-hidden">
-                            <div className="bg-white dark:bg-gray-900 rounded shadow-lg border border-gray-200 dark:border-gray-700 relative p-3 h-full">
-                              <div className="space-y-2 mb-3">
-                                <div className="h-3 bg-gray-900 dark:bg-gray-100 rounded w-3/4" />
-                                <div className="h-0.5 bg-gray-300 dark:bg-gray-600 rounded w-full" />
-                              </div>
-                              <div className="space-y-1.5">
-                                <div className="h-2 bg-gray-400 dark:bg-gray-500 rounded w-1/3 mb-1" />
-                                <div className="h-1.5 bg-gray-200 dark:bg-gray-700 rounded w-full" />
-                                <div className="h-1.5 bg-gray-200 dark:bg-gray-700 rounded w-5/6" />
-                                <div className="h-1.5 bg-amber-200 dark:bg-amber-800/40 rounded w-2/3" />
-                                <div className="h-1.5 bg-gray-200 dark:bg-gray-700 rounded w-full" />
-                                <div className="pt-1.5">
-                                  <div className="h-2 bg-gray-400 dark:bg-gray-500 rounded w-2/5 mb-1" />
-                                  <div className="h-1.5 bg-gray-200 dark:bg-gray-700 rounded w-full" />
-                                  <div className="h-1.5 bg-amber-200 dark:bg-amber-800/40 rounded w-4/5" />
-                                  <div className="h-1.5 bg-gray-200 dark:bg-gray-700 rounded w-3/4" />
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="absolute top-2 right-2">
-                            <span className="text-[0.5rem] px-1.5 py-0.5 bg-blue-600 text-white rounded font-medium shadow-sm flex items-center gap-0.5">
-                              <Scale className="w-2.5 h-2.5" />
-                              DOCX
-                            </span>
-                          </div>
-                          <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-gray-200/50 dark:from-background/50 to-transparent" />
-                        </div>
-
-                        <div className="p-4 flex-1 flex flex-col">
-                          <h3 className="font-semibold mb-2 text-foreground">{template.name}</h3>
-                          <p className="text-sm text-muted-foreground line-clamp-2 flex-1">
-                            {template.description}
-                          </p>
-                        </div>
-
-                        <div className="px-4 pb-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button
-                            size="sm"
-                            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                          >
-                            <Scale className="w-4 h-4 mr-2" />
-                            Generate Document
-                          </Button>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div>
-              {filteredDocuments.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredDocuments.map((doc) => (
-                    <Card
-                      key={doc.id}
-                      className="group cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02] border-2 border-border hover:border-blue-600 p-5 bg-card"
-                      onClick={() => onOpenDocument(doc)}
-                    >
-                      <div className="flex items-start gap-3 mb-3">
-                        <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded">
-                          <FileText className="w-5 h-5 text-blue-600" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold truncate mb-1 text-foreground">{doc.title}</h3>
-                          <p className="text-xs text-muted-foreground">
-                            {doc.template} &middot; Last edited {doc.lastEdited}
-                          </p>
-                        </div>
-                      </div>
-                      <p className="text-sm text-muted-foreground line-clamp-3 mb-3">
-                        {doc.content.replace(/<[^>]*>/g, '').slice(0, 150)}...
-                      </p>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="w-full group-hover:bg-blue-600 group-hover:text-white border-border"
-                      >
-                        Open Document
-                      </Button>
-                    </Card>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-16">
-                  <FileText className="w-16 h-16 text-muted-foreground/30 mb-4" />
-                  <h3 className="text-xl font-semibold mb-2 text-foreground">No documents yet</h3>
-                  <p className="text-muted-foreground mb-6">
-                    Generate your first legal document to get started
-                  </p>
-                  <Button
-                    onClick={() => setViewMode('new')}
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
+          {viewMode === 'new' && (
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', overflowX: 'auto' }}>
+              {categories.map((category) => {
+                const count =
+                  category === 'all'
+                    ? totalTemplates
+                    : (categoryCounts[category] ?? 0);
+                return (
+                  <button
+                    key={category}
+                    onClick={() => setSelectedCategory(category)}
+                    className={`${s.chipBtn} ${
+                      selectedCategory === category ? s.chipBtnActive : ''
+                    }`}
                   >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create New Document
-                  </Button>
-                </div>
-              )}
+                    {category === 'all' ? 'All' : category}
+                    <span style={{ color: 'var(--ink-4)', marginLeft: 4 }}>{count}</span>
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
+
+        {/* Body */}
+        {viewMode === 'new' ? (
+          <>
+            {/* Assistant banner */}
+            <div className={s.libSection}>
+              <div className={s.banner}>
+                <div className="flex flex-col gap-4 md:flex-row md:items-center">
+                  <div className="flex items-start gap-3">
+                    <div className={s.brandMark}>
+                      <Sparkles className="h-[18px] w-[18px]" />
+                    </div>
+                    <div className="min-w-0 space-y-1">
+                      <h3
+                        style={{
+                          fontSize: 14,
+                          fontWeight: 500,
+                          letterSpacing: '-0.005em',
+                          color: 'var(--ink)',
+                        }}
+                      >
+                        Not sure which template you need?
+                      </h3>
+                      <p style={{ fontSize: 12, color: 'var(--ink-3)', lineHeight: 1.55, margin: 0 }}>
+                        Describe your situation — the assistant recommends a
+                        template and pre-fills fields from chat as you answer.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-1 items-center gap-2 md:justify-end">
+                    <div className="relative flex-1 md:min-w-[300px]">
+                      <input
+                        type="text"
+                        value={chatInput}
+                        onChange={(e) => setChatInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && chatInput.trim()) {
+                            onStartChat(chatInput.trim());
+                          }
+                        }}
+                        placeholder="e.g. NDA for new employees…"
+                        className={s.input}
+                      />
+                    </div>
+                    <button
+                      className={`${s.btn} ${s.btnAccent} ${s.btnSm}`}
+                      onClick={() => onStartChat(chatInput.trim() || undefined)}
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                      Ask AI
+                      <ArrowRight className="h-3 w-3" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Recent in workspace */}
+            {generatedDocuments.length > 0 && selectedCategory === 'all' && !searchQuery && (
+              <section className={s.libSection}>
+                <div className={s.libSectionHead}>
+                  <h2 className={s.libSectionTitle}>Recent in your workspace</h2>
+                  <span className={s.libSectionMono}>
+                    {Math.min(3, generatedDocuments.length)} of {generatedDocuments.length}
+                  </span>
+                </div>
+                <div className={s.libGrid}>
+                  {generatedDocuments.slice(0, 3).map((doc) => (
+                    <RecentTile key={doc.id} doc={doc} onOpen={onOpenDocument} />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {groupedTemplates.length === 0 && (
+              <EmptyTemplates query={searchQuery} />
+            )}
+
+            {/* Templates grouped by category */}
+            {groupedTemplates.map(({ stage, items }) => (
+              <section key={stage} className={s.libSection}>
+                <div className={s.libSectionHead}>
+                  <h2 className={s.libSectionTitle}>{stage}</h2>
+                  <span className={s.libSectionMono}>
+                    {items.length} {items.length === 1 ? 'template' : 'templates'}
+                  </span>
+                </div>
+                <div className={s.libGrid}>
+                  {items.map((template) => (
+                    <TemplateTile
+                      key={template.id}
+                      template={template}
+                      onSelect={onNewDocument}
+                    />
+                  ))}
+                </div>
+              </section>
+            ))}
+          </>
+        ) : filteredDocuments.length > 0 ? (
+          <section className={s.libSection}>
+            <div className={s.libSectionHead}>
+              <h2 className={s.libSectionTitle}>My documents</h2>
+              <span className={s.libSectionMono}>
+                {filteredDocuments.length} of {generatedDocuments.length}
+              </span>
+            </div>
+            <div className={s.libGrid}>
+              {filteredDocuments.map((doc) => (
+                <RecentTile key={doc.id} doc={doc} onOpen={onOpenDocument} />
+              ))}
+            </div>
+          </section>
+        ) : (
+          <EmptyDocuments onSwitch={() => setViewMode('new')} />
+        )}
       </div>
+    </div>
+  );
+}
+
+// ─── Template tile (Drift `rd-tile` shape) ──────────────────────────────────
+
+function TemplateTile({
+  template,
+  onSelect,
+}: {
+  template: DocumentTemplate;
+  onSelect: (t: DocumentTemplate) => void;
+}) {
+  const fieldCount = template.fields?.length ?? 0;
+  const requiredCount = template.fields?.filter((f) => f.required).length ?? 0;
+  const icon = STAGE_ICONS[template.category] ?? <FileText className="h-4 w-4" />;
+  const fieldText =
+    fieldCount > 0
+      ? `${fieldCount} field${fieldCount === 1 ? '' : 's'}`
+      : '';
+  return (
+    <button type="button" className={s.libTile} onClick={() => onSelect(template)}>
+      <div className={s.libTileIcon}>{icon}</div>
+      <div className={s.libTileTitle}>{template.name}</div>
+      <p className={s.libTileSub}>
+        {template.category}
+        {fieldText ? ` · ${fieldText}` : ''}
+        {requiredCount > 0 && requiredCount < fieldCount ? ` · ${requiredCount} required` : ''}
+      </p>
+      <div className={s.libTileMeta}>
+        <span>DOCX</span>
+        <span>Open →</span>
+      </div>
+    </button>
+  );
+}
+
+// ─── Recent doc tile (same `rd-tile` shape) ─────────────────────────────────
+
+function RecentTile({
+  doc,
+  onOpen,
+}: {
+  doc: GeneratedDocument;
+  onOpen: (doc: GeneratedDocument) => void;
+}) {
+  return (
+    <button type="button" className={s.libTile} onClick={() => onOpen(doc)}>
+      <div className={s.libTileIcon}>
+        <FileText className="h-4 w-4" />
+      </div>
+      <div
+        className={s.libTileTitle}
+        style={{
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {doc.title}
+      </div>
+      <p className={s.libTileSub}>
+        {doc.template} · edited {doc.lastEdited}
+      </p>
+      <div className={s.libTileMeta}>
+        <span>DRAFT</span>
+        <span>Open →</span>
+      </div>
+    </button>
+  );
+}
+
+// ─── Empty states ────────────────────────────────────────────────────────────
+
+function EmptyTemplates({ query }: { query: string }) {
+  return (
+    <div
+      className={`${s.panel} flex flex-col items-center gap-3 py-16 text-center`}
+      style={{ borderStyle: 'dashed' }}
+    >
+      <FileText className="h-10 w-10" style={{ color: 'var(--ink-4)' }} />
+      <h3 style={{ margin: 0, fontSize: 14, fontWeight: 500, color: 'var(--ink)' }}>
+        No templates match
+      </h3>
+      <p style={{ margin: 0, fontSize: 12, color: 'var(--ink-3)', maxWidth: 360 }}>
+        {query
+          ? `Nothing matched "${query}". Try a different keyword or clear the filter.`
+          : 'Try a different filter.'}
+      </p>
+    </div>
+  );
+}
+
+function EmptyDocuments({ onSwitch }: { onSwitch: () => void }) {
+  return (
+    <div
+      className={`${s.panel} mx-auto flex max-w-md flex-col items-center gap-3 py-16 text-center`}
+      style={{ borderStyle: 'dashed' }}
+    >
+      <FileText className="h-12 w-12" style={{ color: 'var(--ink-4)' }} />
+      <h3 style={{ margin: 0, fontSize: 16, fontWeight: 500, color: 'var(--ink)' }}>
+        No documents yet
+      </h3>
+      <p style={{ margin: 0, fontSize: 13, color: 'var(--ink-3)', maxWidth: 340 }}>
+        Generate your first legal document from a template to see it here.
+      </p>
+      <button
+        className={`${s.btn} ${s.btnAccent} ${s.btnSm}`}
+        onClick={onSwitch}
+        style={{ marginTop: 8 }}
+      >
+        <Plus className="h-3.5 w-3.5" />
+        Create new document
+      </button>
     </div>
   );
 }

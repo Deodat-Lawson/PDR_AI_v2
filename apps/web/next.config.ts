@@ -18,6 +18,13 @@ const config: NextConfig = {
     ? path.join(__dirname, "../../")
     : undefined,
 
+  // Pin the Turbopack workspace root to the monorepo root. Without this Next
+  // walks up looking for a lockfile and can land on a stray ~/package-lock.json,
+  // which breaks module resolution under `next dev --turbo`.
+  turbopack: {
+    root: path.join(__dirname, "../../"),
+  },
+
   experimental: {
     middlewareClientMaxBodySize: "128mb",
   },
@@ -33,6 +40,12 @@ const config: NextConfig = {
       {
         protocol: "https",
         hostname: "iiazjw8b8a.ufs.sh",
+        port: "",
+        pathname: "/f/**",
+      },
+      {
+        protocol: "https",
+        hostname: "h0xotvuawi.ufs.sh",
         port: "",
         pathname: "/f/**",
       },
@@ -123,6 +136,15 @@ const config: NextConfig = {
     // Structured logging
     "pino",
     "pino-pretty",
+    // Pure-CJS fuzzy match library used by note-anchor rehydration; webpack
+    // tracing against its minimal package.json confuses Next's route manifest
+    // in certain builds — bypass by externalizing.
+    "diff-match-patch",
+    // react-pdf + its pdfjs peer use native `new URL('...', import.meta.url)`
+    // worker resolution and ship multiple entry points that trip up Next's
+    // route-manifest tracing; same remedy as pdfjs-serverless above.
+    "react-pdf",
+    "pdfjs-dist",
   ],
 };
 

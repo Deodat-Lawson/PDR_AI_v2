@@ -1,101 +1,116 @@
 "use client";
 
 import React from "react";
-import { FileText, Clock, Cpu, Hash } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardContent } from "~/app/employer/documents/components/ui/card";
+import { FileText, Clock, Pencil } from "lucide-react";
+import m from "./metadata.module.css";
 import type { ProvenanceInfo } from "@launchstack/features/company-metadata";
 
 interface ProvenanceCardProps {
-    provenance: ProvenanceInfo;
-    updatedAt?: string;
+  provenance: ProvenanceInfo;
+  updatedAt?: string;
+  manualEditCount?: number;
+  totalChunks?: number;
 }
 
-export function ProvenanceCard({ provenance, updatedAt }: ProvenanceCardProps) {
-    const formatDate = (dateStr: string | undefined) => {
-        if (!dateStr) return "Unknown";
-        try {
-            return new Date(dateStr).toLocaleString();
-        } catch {
-            return dateStr;
-        }
-    };
+function formatRelative(dateStr: string | undefined): {
+  short: string;
+  detail: string;
+} {
+  if (!dateStr) return { short: "Never", detail: "No extraction yet" };
+  let d: Date;
+  try {
+    d = new Date(dateStr);
+  } catch {
+    return { short: dateStr, detail: "" };
+  }
+  if (Number.isNaN(d.getTime())) return { short: dateStr, detail: "" };
 
-    return (
-        <Card className="border-none shadow-sm bg-muted/30">
-            <CardHeader className="border-b border-border pb-4">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-gray-600 rounded-lg">
-                        <Cpu className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                        <CardTitle className="text-lg font-bold">Extraction Details</CardTitle>
-                        <p className="text-sm text-muted-foreground">
-                            Information about how this metadata was extracted
-                        </p>
-                    </div>
-                </div>
-            </CardHeader>
-            <CardContent className="pt-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <ProvenanceItem
-                        icon={FileText}
-                        label="Documents Processed"
-                        value={provenance.total_documents_processed.toString()}
-                    />
-                    <ProvenanceItem
-                        icon={Hash}
-                        label="Extraction Version"
-                        value={provenance.extraction_version || "1.0.0"}
-                    />
-                    <ProvenanceItem
-                        icon={Clock}
-                        label="Last Updated"
-                        value={formatDate(updatedAt)}
-                    />
-                    {provenance.last_document_processed && (
-                        <ProvenanceItem
-                            icon={FileText}
-                            label="Last Document"
-                            value={provenance.last_document_processed.doc_name}
-                        />
-                    )}
-                </div>
+  const now = Date.now();
+  const diffMs = now - d.getTime();
+  const minute = 60_000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
 
-                {provenance.extraction_model && (
-                    <div className="mt-4 p-3 rounded-lg bg-muted/50">
-                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                            Extraction Model
-                        </span>
-                        <p className="text-sm text-foreground font-mono mt-1">
-                            {provenance.extraction_model}
-                        </p>
-                    </div>
-                )}
-            </CardContent>
-        </Card>
-    );
+  let short: string;
+  if (diffMs < minute) short = "just now";
+  else if (diffMs < hour) short = `${Math.round(diffMs / minute)}m ago`;
+  else if (diffMs < day) short = `${Math.round(diffMs / hour)}h ago`;
+  else if (diffMs < 30 * day) short = `${Math.round(diffMs / day)}d ago`;
+  else short = d.toLocaleDateString();
+
+  const detail = d.toLocaleString();
+  return { short, detail };
 }
 
-interface ProvenanceItemProps {
-    icon: React.ComponentType<{ className?: string }>;
-    label: string;
-    value: string;
-}
+export function ProvenanceCard({
+  provenance,
+  updatedAt,
+  manualEditCount = 0,
+  totalChunks,
+}: ProvenanceCardProps) {
+  const { short, detail } = formatRelative(updatedAt);
+  const docCount = provenance.total_documents_processed;
+  const chunksLabel =
+    totalChunks && totalChunks > 0 ? `· ${totalChunks} chunks` : "";
 
-function ProvenanceItem({ icon: Icon, label, value }: ProvenanceItemProps) {
-    return (
-        <div className="flex items-start gap-3">
-            <div className="p-2 bg-muted rounded-lg">
-                <Icon className="w-4 h-4 text-muted-foreground" />
-            </div>
-            <div>
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block">
-                    {label}
-                </span>
-                <p className="text-sm text-foreground font-medium mt-0.5 truncate max-w-[150px]" title={value}>
-                    {value}
-                </p>
-            </div>
+  return (
+    <div className={m.prov}>
+      <div>
+        <div className={m.provLabel}>
+          <FileText width={12} height={12} />
+          Documents processed
         </div>
-    );
+        <div className={`${m.provValue} ${m.provValueMono}`}>
+          {docCount} {docCount === 1 ? "source" : "sources"}
+          {chunksLabel && (
+            <span style={{ color: "var(--ink-3)", fontWeight: 400 }}>
+              {" "}
+              {chunksLabel}
+            </span>
+          )}
+        </div>
+        <div className={m.provDetail}>
+          {provenance.last_document_processed?.doc_name
+            ? `Most recent: ${provenance.last_document_processed.doc_name}`
+            : "PDFs, recordings, repo READMEs and more"}
+        </div>
+      </div>
+      <div>
+        <div className={m.provLabel}>
+          <Clock width={12} height={12} />
+          Last extraction
+        </div>
+        <div className={m.provValue}>
+          <span className={m.liveDot} aria-hidden />
+          {short}
+        </div>
+        <div className={m.provDetail}>
+          {detail ? `${detail} · ` : ""}
+          {provenance.extraction_version
+            ? `v${provenance.extraction_version}`
+            : ""}
+          {provenance.extraction_model && (
+            <>
+              {provenance.extraction_version ? " · " : ""}
+              <span style={{ fontFamily: "JetBrains Mono, ui-monospace, monospace" }}>
+                {provenance.extraction_model}
+              </span>
+            </>
+          )}
+        </div>
+      </div>
+      <div>
+        <div className={m.provLabel}>
+          <Pencil width={12} height={12} />
+          Manual edits
+        </div>
+        <div className={m.provValue}>
+          {manualEditCount} {manualEditCount === 1 ? "field" : "fields"}
+        </div>
+        <div className={m.provDetail}>
+          Manual edits override AI on re-extract.
+        </div>
+      </div>
+    </div>
+  );
 }

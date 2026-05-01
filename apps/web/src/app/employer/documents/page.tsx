@@ -1,12 +1,16 @@
 "use client";
 
 import { Suspense } from "react";
-import { DocumentViewerShell } from "./components/DocumentViewerShell";
+import { useSetBreadcrumbs } from "../_chrome/BreadcrumbContext";
+import { WorkspaceShell } from "./_workspace/WorkspaceShell";
 
-export default function DocumentViewerPage() {
+const DOCUMENTS_CRUMBS = ["Drift", "Documents"];
+
+export default function DocumentsPage() {
+  useSetBreadcrumbs(DOCUMENTS_CRUMBS);
   return (
     <Suspense>
-      <DocumentViewerShell userRole="employer" />
+      <WorkspaceShell />
     </Suspense>
   );
 }

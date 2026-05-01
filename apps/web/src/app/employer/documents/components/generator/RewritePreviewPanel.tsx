@@ -1,13 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import { diffWords } from "diff";
-import { Button } from "../ui/button";
-import { Check, X, RotateCw, Eye, EyeOff, ArrowLeftRight } from "lucide-react";
-import { cn } from "~/lib/utils";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "../ui/tabs";
-import { Card } from "../ui/card";
-import MarkdownMessage from "~/app/_components/MarkdownMessage";
+import { Check, X, RotateCw, Sparkles } from "lucide-react";
+import { legalTheme as s } from "../LegalGeneratorTheme";
 
 export interface RewritePreviewProps {
   originalText: string;
@@ -18,6 +14,19 @@ export interface RewritePreviewProps {
   isRetrying?: boolean;
 }
 
+/* Drift redesign palette — matches `redesign-rewrite.jsx` byte-for-byte. */
+const REMOVAL_BG = "oklch(0.94 0.06 25 / 0.45)";
+const REMOVAL_DECORATION = "oklch(0.55 0.16 25 / 0.7)";
+const ADDITION_BG = "oklch(0.92 0.10 145 / 0.4)";
+const PROPOSED_PANE_TINT =
+  "color-mix(in oklch, oklch(0.78 0.10 145) 4%, transparent)";
+
+interface DiffPart {
+  value: string;
+  added?: boolean;
+  removed?: boolean;
+}
+
 export function RewritePreviewPanel({
   originalText,
   proposedText,
@@ -26,172 +35,306 @@ export function RewritePreviewPanel({
   onTryAgain,
   isRetrying = false,
 }: RewritePreviewProps) {
-  const [viewMode, setViewMode] = useState<"diff" | "sidebyside" | "clean">("sidebyside");
   const safeOriginal = typeof originalText === "string" ? originalText : "";
   const safeProposed = typeof proposedText === "string" ? proposedText : "";
-  const changes = diffWords(safeOriginal, safeProposed);
-  
-  const stats = {
-    wordsOriginal: safeOriginal.trim() ? safeOriginal.split(/\s+/).length : 0,
-    wordsRewritten: safeProposed.trim() ? safeProposed.split(/\s+/).length : 0,
-    charactersOriginal: safeOriginal.length,
-    charactersRewritten: safeProposed.length,
-    changes: changes.filter(part => part.added || part.removed).length
-  };
+  const parts: DiffPart[] = diffWords(safeOriginal, safeProposed);
 
-  const renderDiffView = () => (
-    <div className="p-4 rounded-lg bg-muted/50 border border-border font-mono text-sm leading-relaxed max-h-96 overflow-y-auto">
-      {changes.map((part, i) => (
-        <span
-          key={i}
-          className={cn(
-            part.added && "bg-green-500/20 text-green-800 dark:text-green-200 font-medium",
-            part.removed && "bg-red-500/20 text-red-800 dark:text-red-200 line-through",
-            !part.added && !part.removed && "text-foreground"
-          )}
-        >
-          {part.value}
-        </span>
-      ))}
-    </div>
-  );
-
-  const renderSideBySideView = () => (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      <Card className="p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-          <p className="text-sm font-semibold text-foreground">Original</p>
-          <span className="text-xs text-muted-foreground">
-            ({stats.wordsOriginal} words, {stats.charactersOriginal} chars)
-          </span>
-        </div>
-        <div className="p-3 bg-red-50 dark:bg-red-900/10 rounded-lg border border-red-200/50 dark:border-red-900/50 text-sm leading-relaxed max-h-80 overflow-y-auto">
-          <MarkdownMessage content={safeOriginal} className="prose prose-sm dark:prose-invert max-w-none" />
-        </div>
-      </Card>
-      
-      <Card className="p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-          <p className="text-sm font-semibold text-foreground">Rewritten</p>
-          <span className="text-xs text-muted-foreground">
-            ({stats.wordsRewritten} words, {stats.charactersRewritten} chars)
-          </span>
-        </div>
-        <div className="p-3 bg-green-50 dark:bg-green-900/10 rounded-lg border border-green-200/50 dark:border-green-900/50 text-sm leading-relaxed max-h-80 overflow-y-auto">
-          <MarkdownMessage content={safeProposed} className="prose prose-sm dark:prose-invert max-w-none" />
-        </div>
-      </Card>
-    </div>
-  );
-
-  const renderCleanView = () => (
-    <div className="p-4 rounded-lg bg-background border border-border text-sm leading-relaxed max-h-96 overflow-y-auto">
-      <MarkdownMessage content={safeProposed} className="prose prose-sm dark:prose-invert max-w-none" />
-    </div>
-  );
+  const changeCount = parts.filter((p) => p.added === true || p.removed === true).length;
+  const subtitle =
+    changeCount === 0
+      ? "no edits · matches source"
+      : `${changeCount} change${changeCount === 1 ? "" : "s"} · pending review`;
 
   return (
-    <div className="flex flex-col gap-6 p-6 border border-border rounded-xl bg-card shadow-lg">
-      <div className="flex items-center justify-between">
-        <div>
-          <h4 className="text-lg font-semibold text-foreground">Rewrite Preview</h4>
-          <p className="text-sm text-muted-foreground">
-            {stats.changes} changes • 
-            {stats.wordsRewritten > stats.wordsOriginal 
-              ? `+${stats.wordsRewritten - stats.wordsOriginal}` 
-              : `${stats.wordsRewritten - stats.wordsOriginal}`
-            } words
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        minHeight: 0,
+        borderRadius: 14,
+        border: "1px solid var(--line-2)",
+        background: "color-mix(in oklch, var(--panel) 30%, transparent)",
+        backdropFilter: "blur(8px)",
+        WebkitBackdropFilter: "blur(8px)",
+        overflow: "hidden",
+      }}
+    >
+      {/* Header — matches redesign `.rd-pipe__head` */}
+      <div
+        style={{
+          padding: "18px 28px 14px",
+          borderBottom: "1px solid var(--line-2)",
+          display: "flex",
+          alignItems: "baseline",
+          justifyContent: "space-between",
+          gap: 16,
+          flexWrap: "wrap",
+        }}
+      >
+        <div style={{ minWidth: 0 }}>
+          <h1
+            style={{
+              margin: 0,
+              fontSize: 18,
+              fontWeight: 500,
+              color: "var(--ink)",
+              letterSpacing: "-0.015em",
+            }}
+          >
+            Rewrite{" "}
+            <em
+              className={s.serif}
+              style={{ fontSize: 20, fontWeight: 400 }}
+            >
+              preview
+            </em>
+          </h1>
+          <p
+            style={{
+              margin: "4px 0 0",
+              fontSize: 12,
+              color: "var(--ink-3)",
+            }}
+          >
+            {subtitle}
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            flexWrap: "wrap",
+          }}
+        >
+          <button
+            type="button"
+            className={`${s.btn} ${s.btnGhost} ${s.btnSm}`}
+            onClick={onTryAgain}
+            disabled={isRetrying}
+          >
+            <RotateCw
+              className={`h-3.5 w-3.5${isRetrying ? " animate-spin" : ""}`}
+            />
+            Regenerate
+          </button>
+          <span
+            aria-hidden
+            style={{
+              width: 1,
+              height: 20,
+              background: "var(--line-2)",
+              margin: "0 2px",
+            }}
+          />
+          <button
+            type="button"
+            className={`${s.btn} ${s.btnOutline} ${s.btnSm}`}
             onClick={onReject}
             disabled={isRetrying}
-            className="border-destructive/50 text-destructive hover:bg-destructive/10"
           >
-            <X className="w-3 h-3 mr-1.5" />
-            Reject
-          </Button>
-          <Button variant="outline" size="sm" onClick={onTryAgain} disabled={isRetrying}>
-            <RotateCw className={cn("w-3 h-3 mr-1.5", isRetrying && "animate-spin")} />
-            Regenerate
-          </Button>
-          <Button
-            size="sm"
+            <X className="h-3.5 w-3.5" />
+            Reject section
+          </button>
+          <button
+            type="button"
+            className={`${s.btn} ${s.btnAccent} ${s.btnSm}`}
             onClick={onAccept}
             disabled={isRetrying}
-            className="bg-green-600 hover:bg-green-700 text-white"
           >
-            <Check className="w-3 h-3 mr-1.5" />
-            Push to Rewrite
-          </Button>
+            <Check className="h-3.5 w-3.5" />
+            Accept section
+          </button>
         </div>
       </div>
 
-      <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as typeof viewMode)} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="sidebyside" className="data-[state=active]:bg-amber-600 data-[state=active]:text-white">
-            <ArrowLeftRight className="w-4 h-4 mr-2" />
-            Side by Side
-          </TabsTrigger>
-          <TabsTrigger value="diff" className="data-[state=active]:bg-amber-600 data-[state=active]:text-white">
-            <Eye className="w-4 h-4 mr-2" />
-            Show Changes
-          </TabsTrigger>
-          <TabsTrigger value="clean" className="data-[state=active]:bg-amber-600 data-[state=active]:text-white">
-            <EyeOff className="w-4 h-4 mr-2" />
-            Clean View
-          </TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="sidebyside" className="mt-4">
-          {renderSideBySideView()}
-        </TabsContent>
-        
-        <TabsContent value="diff" className="mt-4">
-          <div>
-            <p className="text-sm font-medium mb-2 text-muted-foreground">Changes highlighted</p>
-            {renderDiffView()}
+      {/* Body — 50/50 split, flat panes, vertical hairline divider */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          minHeight: 280,
+          maxHeight: 520,
+        }}
+      >
+        {/* Original · v-prev */}
+        <div
+          style={{
+            borderRight: "1px solid var(--line-2)",
+            overflow: "auto",
+            padding: "20px 28px 32px",
+          }}
+        >
+          <div className={s.eyebrow} style={{ marginBottom: 14 }}>
+            Original
           </div>
-        </TabsContent>
-        
-        <TabsContent value="clean" className="mt-4">
-          <div>
-            <p className="text-sm font-medium mb-2 text-muted-foreground">Final result</p>
-            {renderCleanView()}
-          </div>
-        </TabsContent>
-      </Tabs>
+          <DiffProse
+            parts={parts}
+            mode="original"
+            emptyHint="No source text to compare."
+          />
+        </div>
 
-      {/* Statistics */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted/30 rounded-lg">
-        <div className="text-center">
-          <div className="text-lg font-semibold text-foreground">{stats.wordsOriginal}</div>
-          <div className="text-xs text-muted-foreground">Original Words</div>
-        </div>
-        <div className="text-center">
-          <div className="text-lg font-semibold text-foreground">{stats.wordsRewritten}</div>
-          <div className="text-xs text-muted-foreground">New Words</div>
-        </div>
-        <div className="text-center">
-          <div className={cn(
-            "text-lg font-semibold",
-            stats.wordsRewritten > stats.wordsOriginal ? "text-green-600" : 
-            stats.wordsRewritten < stats.wordsOriginal ? "text-red-600" : "text-foreground"
-          )}>
-            {stats.wordsRewritten > stats.wordsOriginal ? '+' : ''}{stats.wordsRewritten - stats.wordsOriginal}
+        {/* Proposed · v-next */}
+        <div
+          style={{
+            overflow: "auto",
+            padding: "20px 28px 32px",
+            background: PROPOSED_PANE_TINT,
+          }}
+        >
+          <div
+            className={s.eyebrow}
+            style={{
+              marginBottom: 14,
+              color: "var(--success)",
+            }}
+          >
+            <span aria-hidden style={{ background: "var(--success)" }} />
+            Proposed
           </div>
-          <div className="text-xs text-muted-foreground">Word Difference</div>
-        </div>
-        <div className="text-center">
-          <div className="text-lg font-semibold text-amber-600">{stats.changes}</div>
-          <div className="text-xs text-muted-foreground">Changes Made</div>
+          <DiffProse
+            parts={parts}
+            mode="proposed"
+            emptyHint="The rewrite is empty."
+          />
+
+          {/* "Why this change" card — exact redesign treatment */}
+          {changeCount > 0 && (
+            <div
+              style={{
+                marginTop: 16,
+                padding: 12,
+                borderRadius: 10,
+                background:
+                  "color-mix(in oklch, var(--panel) 90%, transparent)",
+                border: "1px solid var(--line-2)",
+                fontSize: 12,
+                color: "var(--ink-3)",
+                lineHeight: 1.55,
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  color: "var(--accent)",
+                  marginBottom: 6,
+                  fontWeight: 500,
+                  fontSize: 11,
+                }}
+              >
+                <Sparkles className="h-3 w-3" />
+                <span>Why this change</span>
+              </div>
+              {summarizeRewrite(parts)}
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
+}
+
+/* Renders one side of the diff as inline-highlighted prose. The redesign
+   keeps line-throughs on the original side and green-wash highlights on
+   the proposed side; unchanged text stays in body color. */
+function DiffProse({
+  parts,
+  mode,
+  emptyHint,
+}: {
+  parts: DiffPart[];
+  mode: "original" | "proposed";
+  emptyHint: string;
+}) {
+  const isOriginal = mode === "original";
+  const visibleParts = parts.filter((p) =>
+    isOriginal ? !p.added : !p.removed,
+  );
+
+  const hasContent = visibleParts.some((p) => p.value.length > 0);
+  if (!hasContent) {
+    return (
+      <p
+        style={{
+          margin: 0,
+          fontSize: 13,
+          color: "var(--ink-4)",
+          fontStyle: "italic",
+        }}
+      >
+        {emptyHint}
+      </p>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        fontSize: 14,
+        lineHeight: 1.7,
+        color: isOriginal ? "var(--ink-2)" : "var(--ink)",
+        whiteSpace: "pre-wrap",
+        wordBreak: "break-word",
+      }}
+    >
+      {visibleParts.map((part, i) => {
+        if (isOriginal && part.removed) {
+          return (
+            <span
+              key={i}
+              style={{
+                background: REMOVAL_BG,
+                textDecoration: "line-through",
+                textDecorationColor: REMOVAL_DECORATION,
+                padding: "0 2px",
+              }}
+            >
+              {part.value}
+            </span>
+          );
+        }
+        if (!isOriginal && part.added) {
+          return (
+            <span
+              key={i}
+              style={{
+                background: ADDITION_BG,
+                borderRadius: 4,
+                padding: "0 3px",
+              }}
+            >
+              {part.value}
+            </span>
+          );
+        }
+        return <span key={i}>{part.value}</span>;
+      })}
+    </div>
+  );
+}
+
+function summarizeRewrite(parts: DiffPart[]): string {
+  let added = 0;
+  let removed = 0;
+  for (const part of parts) {
+    const words = part.value.trim() ? part.value.trim().split(/\s+/).length : 0;
+    if (part.added) added += words;
+    else if (part.removed) removed += words;
+  }
+  const delta = added - removed;
+  const editCount = parts.filter((p) => p.added === true || p.removed === true).length;
+
+  if (editCount === 0) {
+    return "No edits proposed — the rewrite matches the source word-for-word.";
+  }
+  if (delta > 0) {
+    return `Expanded by ${delta} word${delta === 1 ? "" : "s"} across ${editCount} edit${editCount === 1 ? "" : "s"}. Review the highlighted spans before accepting.`;
+  }
+  if (delta < 0) {
+    return `Tightened by ${Math.abs(delta)} word${Math.abs(delta) === 1 ? "" : "s"} across ${editCount} edit${editCount === 1 ? "" : "s"}. Review the highlighted spans before accepting.`;
+  }
+  return `${editCount} edit${editCount === 1 ? "" : "s"} proposed without changing the overall length. Review the highlighted spans before accepting.`;
 }

@@ -17,16 +17,23 @@ import { document, users } from "@launchstack/core/db/schema";
 import { validateRequestBody } from "~/lib/validation";
 import { withRateLimit } from "~/lib/rate-limit-middleware";
 import { RateLimitPresets } from "~/lib/rate-limiter";
+import { resolveActiveCompanyForUser } from "~/lib/active-workspace";
 
 const AUTHORIZED_ROLES = new Set(["employer", "owner"]);
 
-// `title` column is varchar(256) — match the schema constraint.
+// `title` and `category` columns are both varchar(256) — match schema.
 const PatchDocumentSchema = z.object({
   title: z
     .string()
     .trim()
     .min(1, "Title cannot be empty")
     .max(256, "Title is too long (max 256 characters)")
+    .optional(),
+  category: z
+    .string()
+    .trim()
+    .min(1, "Category cannot be empty")
+    .max(256, "Category is too long (max 256 characters)")
     .optional(),
 });
 
@@ -82,7 +89,7 @@ export async function PATCH(
         .from(document)
         .where(eq(document.id, parsed.documentId));
 
-      if (!doc || doc.companyId !== userInfo.companyId) {
+      if (!doc || doc.companyId !== (await resolveActiveCompanyForUser(userInfo.id, userInfo.companyId))) {
         // Don't leak existence to cross-company requests.
         return NextResponse.json(
           { error: "Document not found" },
@@ -93,10 +100,11 @@ export async function PATCH(
       const validation = await validateRequestBody(request, PatchDocumentSchema);
       if (!validation.success) return validation.response;
 
-      const { title } = validation.data;
+      const { title, category } = validation.data;
 
       const patch: Record<string, string> = {};
       if (title !== undefined) patch.title = title;
+      if (category !== undefined) patch.category = category;
 
       if (Object.keys(patch).length === 0) {
         return NextResponse.json(
@@ -111,9 +119,21 @@ export async function PATCH(
         .where(eq(document.id, parsed.documentId))
         .returning();
 
+      // `companyId` and `currentVersionId` are bigint columns; JSON.stringify
+      // can't serialize bigints, so coerce them to JSON-safe shapes before
+      // sending. Matches the convention used by /api/documents/[id]/versions.
+      const serialized = updated && {
+        ...updated,
+        companyId: updated.companyId.toString(),
+        currentVersionId:
+          updated.currentVersionId !== null
+            ? Number(updated.currentVersionId)
+            : null,
+      };
+
       return NextResponse.json({
         success: true,
-        document: updated,
+        document: serialized,
       });
     } catch (error) {
       console.error("[PATCH /api/documents/[id]] error:", error);

@@ -1,240 +1,322 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Briefcase, CheckCircle, Clock, XCircle } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardContent } from "~/app/employer/documents/components/ui/card";
-import { ConfidenceBadge } from "./ConfidenceBadge";
-import { VisibilityBadge } from "./VisibilityBadge";
-import { PriorityBadge } from "./PriorityBadge";
-import type { ServiceEntry, MetadataFact } from "@launchstack/features/company-metadata";
+import React, { useEffect, useState } from "react";
+import {
+  CheckCircle,
+  Clock,
+  XCircle,
+  Pencil,
+  FileText,
+} from "lucide-react";
+import { legalTheme as s } from "~/app/employer/documents/components/LegalGeneratorTheme";
+import m from "./metadata.module.css";
+import type {
+  ServiceEntry,
+  MetadataFact,
+} from "@launchstack/features/company-metadata";
 
 interface ServicesSectionProps {
-    services: ServiceEntry[];
-    isEditMode?: boolean;
-    onFieldSave?: (path: string, value: string) => Promise<void>;
+  services: ServiceEntry[];
+  onFieldSave?: (path: string, value: string) => Promise<void>;
 }
 
-export function ServicesSection({ services, isEditMode, onFieldSave }: ServicesSectionProps) {
-    return (
-        <Card className="border-none shadow-sm">
-            <CardHeader className="border-b border-border pb-4">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-green-600 rounded-lg">
-                        <Briefcase className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                        <CardTitle className="text-lg font-bold">Services & Products</CardTitle>
-                        <p className="text-sm text-muted-foreground">
-                            {services.length} {services.length === 1 ? "service" : "services"} identified
-                        </p>
-                    </div>
-                </div>
-            </CardHeader>
-            <CardContent className="pt-6">
-                <div className="space-y-4">
-                    {services.map((service, index) => (
-                        <ServiceCard
-                            key={index}
-                            service={service}
-                            index={index}
-                            isEditMode={isEditMode}
-                            onFieldSave={onFieldSave}
-                        />
-                    ))}
-                </div>
-            </CardContent>
-        </Card>
-    );
+type StatusKey = "active" | "upcoming" | "deprecated";
+
+function statusFor(value: string | undefined): StatusKey {
+  const v = (value ?? "").toLowerCase();
+  if (v.includes("deprecat") || v.includes("retired") || v.includes("sunset")) {
+    return "deprecated";
+  }
+  if (
+    v.includes("upcoming") ||
+    v.includes("planned") ||
+    v.includes("beta") ||
+    v.includes("alpha") ||
+    v.includes("preview") ||
+    v.includes("soon")
+  ) {
+    return "upcoming";
+  }
+  return "active";
 }
 
-function ServiceFieldEditor({
-    path,
-    initialValue,
-    multiline,
-    onSave,
-}: {
-    path: string;
-    initialValue: string;
-    multiline?: boolean;
-    onSave: (path: string, value: string) => Promise<void>;
-}) {
-    const [value, setValue] = useState(initialValue);
-    const [saving, setSaving] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+function statusLabel(key: StatusKey, original?: string) {
+  if (original && original.trim()) {
+    const trimmed = original.trim();
+    return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+  }
+  if (key === "deprecated") return "Deprecated";
+  if (key === "upcoming") return "Upcoming";
+  return "Active";
+}
 
-    useEffect(() => {
-        setValue(initialValue);
-        setError(null);
-    }, [initialValue]);
+function confBucket(confidence: number): "high" | "med" | "low" {
+  if (confidence >= 0.75) return "high";
+  if (confidence >= 0.45) return "med";
+  return "low";
+}
 
-    const handleSave = async () => {
-        if (value.trim() === initialValue) return;
-        setSaving(true);
-        setError(null);
-        try {
-            await onSave(path, value.trim());
-        } catch {
-            setError("Failed to save.");
-        } finally {
-            setSaving(false);
-        }
-    };
+function ConfBar({ confidence }: { confidence: number }) {
+  const bucket = confBucket(confidence);
+  const filled = bucket === "high" ? 4 : bucket === "med" ? 3 : 2;
+  const cls =
+    bucket === "high" ? m.confBarHigh : bucket === "med" ? m.confBarMed : m.confBarLow;
+  return (
+    <span className={`${m.confBar} ${cls}`}>
+      {[0, 1, 2, 3].map((i) => (
+        <i key={i} className={i < filled ? "on" : undefined} />
+      ))}
+    </span>
+  );
+}
 
-    return (
-        <div className="space-y-1">
-            {multiline ? (
-                <textarea
-                    className="w-full px-2 py-1 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
-                    rows={2}
-                    value={value}
-                    onChange={(e) => setValue(e.target.value)}
-                    disabled={saving}
-                />
-            ) : (
-                <input
-                    className="w-full px-2 py-1 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-green-500"
-                    value={value}
-                    onChange={(e) => setValue(e.target.value)}
-                    disabled={saving}
-                />
+function getServiceSource(service: ServiceEntry): {
+  docName: string;
+  hasManualEdit: boolean;
+} {
+  const all: (MetadataFact<unknown> | undefined)[] = [
+    service.name,
+    service.description,
+    service.status,
+  ];
+  const hasManualEdit = all.some((f) => f?.priority === "manual_override");
+  if (hasManualEdit) return { docName: "Edited by you", hasManualEdit: true };
+  const firstSource = service.name.sources[0]?.doc_name ?? "document";
+  return { docName: firstSource, hasManualEdit: false };
+}
+
+export function ServicesSection({ services, onFieldSave }: ServicesSectionProps) {
+  if (services.length === 0) return null;
+  return (
+    <div className={m.servicesList}>
+      {services.map((service, index) => (
+        <ServiceRow
+          key={index}
+          service={service}
+          index={index}
+          onFieldSave={onFieldSave}
+        />
+      ))}
+    </div>
+  );
+}
+
+interface ServiceRowProps {
+  service: ServiceEntry;
+  index: number;
+  onFieldSave?: (path: string, value: string) => Promise<void>;
+}
+
+function ServiceRow({ service, index, onFieldSave }: ServiceRowProps) {
+  const [editingField, setEditingField] = useState<
+    "name" | "description" | null
+  >(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const name = String(service.name.value);
+  const description = service.description ? String(service.description.value) : "";
+  const rawStatus = service.status ? String(service.status.value) : undefined;
+  const statusKey = statusFor(rawStatus);
+  const label = statusLabel(statusKey, rawStatus);
+
+  const StatusIcon =
+    statusKey === "active"
+      ? CheckCircle
+      : statusKey === "deprecated"
+      ? XCircle
+      : Clock;
+
+  const statusBoxClass =
+    statusKey === "active"
+      ? m.serviceStatusActive
+      : statusKey === "deprecated"
+      ? m.serviceStatusDeprecated
+      : m.serviceStatusUpcoming;
+
+  const pillClass =
+    statusKey === "active"
+      ? m.sPillActive
+      : statusKey === "deprecated"
+      ? m.sPillDeprecated
+      : m.sPillUpcoming;
+
+  const source = getServiceSource(service);
+
+  const startEdit = (field: "name" | "description") => {
+    if (!onFieldSave) return;
+    setEditingField(field);
+    setError(null);
+  };
+  const cancelEdit = () => {
+    setEditingField(null);
+    setError(null);
+  };
+  const save = async (field: "name" | "description", current: string, next: string) => {
+    if (!onFieldSave) return;
+    if (next === current) {
+      setEditingField(null);
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      await onFieldSave(`services.${index}.${field}`, next);
+      setEditingField(null);
+    } catch {
+      setError("Failed to save.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className={m.service}>
+      <div className={`${m.serviceStatus} ${statusBoxClass}`}>
+        <StatusIcon width={15} height={15} />
+      </div>
+      <div style={{ minWidth: 0 }}>
+        {editingField === "name" ? (
+          <ServiceInlineInput
+            initialValue={name}
+            placeholder="Service or product name"
+            saving={saving}
+            error={error}
+            onCancel={cancelEdit}
+            onSave={(next) => void save("name", name, next)}
+          />
+        ) : (
+          <div className={m.sName}>
+            <span>{name}</span>
+            <span className={`${m.sPill} ${pillClass}`}>{label}</span>
+            {service.name.priority === "manual_override" && (
+              <span className={`${m.badge} ${m.badgeManual}`}>
+                <span className="dot" />
+                Manual
+              </span>
             )}
-            {error && <p className="text-xs text-destructive">{error}</p>}
-            <div className="flex gap-2">
-                <button
-                    onClick={() => void handleSave()}
-                    disabled={saving || value.trim() === initialValue}
-                    className="px-2 py-0.5 text-xs font-semibold bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 transition-colors"
-                >
-                    {saving ? "Saving..." : "Save"}
-                </button>
-                <button
-                    onClick={() => { setValue(initialValue); setError(null); }}
-                    disabled={saving}
-                    className="px-2 py-0.5 text-xs font-semibold border border-border rounded hover:bg-muted transition-colors"
-                >
-                    Reset
-                </button>
-            </div>
+          </div>
+        )}
+
+        {editingField === "description" ? (
+          <ServiceInlineInput
+            initialValue={description}
+            multiline
+            placeholder="What this service does"
+            saving={saving}
+            error={error}
+            onCancel={cancelEdit}
+            onSave={(next) => void save("description", description, next)}
+          />
+        ) : description ? (
+          <p className={m.sDesc}>{description}</p>
+        ) : null}
+
+        <div className={m.sMeta}>
+          <ConfBar confidence={service.name.confidence} />
+          {source.hasManualEdit ? (
+            <span className={`${m.src} ${m.srcManual}`}>
+              <Pencil width={10} height={10} />
+              Edited by you
+            </span>
+          ) : (
+            <span className={m.src} title={source.docName}>
+              <FileText width={10} height={10} />
+              {source.docName}
+            </span>
+          )}
         </div>
-    );
+      </div>
+      {onFieldSave && editingField === null && (
+        <button
+          type="button"
+          className={m.fieldEdit}
+          style={{ opacity: 1 }}
+          onClick={() => startEdit("description")}
+          title="Edit description"
+          aria-label="Edit service"
+        >
+          <Pencil width={12} height={12} />
+        </button>
+      )}
+    </div>
+  );
 }
 
-/** Check all fields on a service for the best source to display */
-function getServiceSource(service: ServiceEntry): { docName: string; hasManualEdit: boolean } {
-    const allFacts: (MetadataFact<unknown> | undefined)[] = [
-        service.name, service.description, service.status,
-    ];
-    const hasManualEdit = allFacts.some((f) => f?.priority === "manual_override");
-    if (hasManualEdit) {
-        return { docName: "Manual edit", hasManualEdit: true };
-    }
-    const firstSource = service.name.sources[0]?.doc_name ?? "document";
-    return { docName: firstSource, hasManualEdit: false };
+interface ServiceInlineInputProps {
+  initialValue: string;
+  multiline?: boolean;
+  placeholder?: string;
+  saving: boolean;
+  error: string | null;
+  onCancel: () => void;
+  onSave: (next: string) => void;
 }
 
-function ServiceCard({
-    service,
-    index,
-    isEditMode,
-    onFieldSave,
-}: {
-    service: ServiceEntry;
-    index: number;
-    isEditMode?: boolean;
-    onFieldSave?: (path: string, value: string) => Promise<void>;
-}) {
-    const status = service.status ? String(service.status.value).toLowerCase() : "active";
+function ServiceInlineInput({
+  initialValue,
+  multiline,
+  placeholder,
+  saving,
+  error,
+  onCancel,
+  onSave,
+}: ServiceInlineInputProps) {
+  const [value, setValue] = useState(initialValue);
 
-    const StatusIcon = status === "active"
-        ? CheckCircle
-        : status === "deprecated"
-            ? XCircle
-            : Clock;
+  useEffect(() => {
+    setValue(initialValue);
+  }, [initialValue]);
 
-    const statusColor = status === "active"
-        ? "text-green-600 bg-green-100 dark:bg-green-900/30"
-        : status === "deprecated"
-            ? "text-red-600 bg-red-100 dark:bg-red-900/30"
-            : "text-amber-600 bg-amber-100 dark:bg-amber-900/30";
-
-    if (isEditMode && onFieldSave) {
-        return (
-            <div className="p-4 rounded-lg bg-muted/50 space-y-3">
-                <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${statusColor}`}>
-                        <StatusIcon className="w-3 h-3" />
-                        {status.charAt(0).toUpperCase() + status.slice(1)}
-                    </span>
-                    <PriorityBadge priority={service.name.priority} />
-                </div>
-                <div>
-                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Name</span>
-                    <ServiceFieldEditor
-                        path={`services.${index}.name`}
-                        initialValue={String(service.name.value)}
-                        onSave={onFieldSave}
-                    />
-                </div>
-                <div>
-                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Description</span>
-                    <ServiceFieldEditor
-                        path={`services.${index}.description`}
-                        initialValue={service.description ? String(service.description.value) : ""}
-                        multiline
-                        onSave={onFieldSave}
-                    />
-                </div>
-                <div>
-                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</span>
-                    <ServiceFieldEditor
-                        path={`services.${index}.status`}
-                        initialValue={service.status ? String(service.status.value) : "active"}
-                        onSave={onFieldSave}
-                    />
-                </div>
-            </div>
-        );
-    }
-
-    return (
-        <div className="p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-            <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap mb-2">
-                        <h4 className="font-semibold text-foreground">
-                            {String(service.name.value)}
-                        </h4>
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${statusColor}`}>
-                            <StatusIcon className="w-3 h-3" />
-                            {status.charAt(0).toUpperCase() + status.slice(1)}
-                        </span>
-                        <VisibilityBadge visibility={service.name.visibility} />
-                        <PriorityBadge priority={service.name.priority} />
-                    </div>
-
-                    {service.description && (
-                        <p className="text-sm text-muted-foreground leading-relaxed">
-                            {String(service.description.value)}
-                        </p>
-                    )}
-
-                    <div className="flex items-center gap-2 mt-3">
-                        <ConfidenceBadge confidence={service.name.confidence} />
-                        {(() => {
-                            const { docName, hasManualEdit } = getServiceSource(service);
-                            return hasManualEdit ? (
-                                <span className="text-[10px] text-violet-600 dark:text-violet-400 font-semibold">
-                                    Manual edit
-                                </span>
-                            ) : (
-                                <span className="text-[10px] text-muted-foreground">
-                                    from {docName}
-                                </span>
-                            );
-                        })()}
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
+  return (
+    <div className={m.editor} style={{ marginTop: 6 }}>
+      {multiline ? (
+        <textarea
+          autoFocus
+          className={s.textarea}
+          rows={2}
+          value={value}
+          placeholder={placeholder}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") onCancel();
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) onSave(value.trim());
+          }}
+          disabled={saving}
+        />
+      ) : (
+        <input
+          autoFocus
+          className={s.input}
+          value={value}
+          placeholder={placeholder}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") onCancel();
+            if (e.key === "Enter") onSave(value.trim());
+          }}
+          disabled={saving}
+        />
+      )}
+      {error && <p className={m.editorError}>{error}</p>}
+      <div className={m.editorRow}>
+        <button
+          type="button"
+          className={`${s.btn} ${s.btnOutline} ${s.btnSm}`}
+          onClick={onCancel}
+          disabled={saving}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          className={`${s.btn} ${s.btnAccent} ${s.btnSm}`}
+          onClick={() => onSave(value.trim())}
+          disabled={saving || value.trim() === initialValue.trim()}
+        >
+          {saving ? "Saving…" : "Save"}
+        </button>
+      </div>
+    </div>
+  );
 }

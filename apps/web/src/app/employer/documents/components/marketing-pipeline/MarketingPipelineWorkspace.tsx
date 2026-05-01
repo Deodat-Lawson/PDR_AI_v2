@@ -10,7 +10,6 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
-  Circle,
   Copy,
   FileText,
   Hash,
@@ -23,7 +22,6 @@ import {
   Sparkles,
   Target,
   X,
-  Zap,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "~/app/employer/documents/components/ui/sheet";
 import { RewriteWorkflow } from "~/app/employer/documents/components/generator/RewriteWorkflow";
@@ -47,6 +45,8 @@ import { useMarketingPipelineController } from "./useMarketingPipelineController
 export interface MarketingPipelineWorkspaceProps {
   debug?: boolean;
   showDnaDebugSection?: boolean;
+  /** When true, render without the standalone page header (used inside the Studio drawer). */
+  embedded?: boolean;
 }
 
 function usePlatformLogoClassNames() {
@@ -89,15 +89,15 @@ function HowItWorks() {
 function StepIcon({ status }: { status: PipelineStepState["status"] }) {
   switch (status) {
     case "completed":
-      return <Check size={14} />;
+      return <Check size={11} strokeWidth={2.5} />;
     case "active":
-      return <Loader2 size={14} className={styles.spinIcon} />;
+      return <Loader2 size={11} className={styles.spinIcon} />;
     case "skipped":
-      return <SkipForward size={12} />;
+      return <SkipForward size={11} />;
     case "failed":
-      return <AlertTriangle size={13} />;
+      return <AlertTriangle size={11} />;
     default:
-      return <Circle size={10} />;
+      return null;
   }
 }
 
@@ -117,17 +117,7 @@ function StepDataPreview({ data }: { data: Record<string, unknown> }) {
   if (entries.length === 0) return null;
 
   return (
-    <div
-      style={{
-        marginTop: "0.375rem",
-        padding: "0.375rem 0.5rem",
-        borderRadius: "0.25rem",
-        background: "var(--bg-secondary, #f9fafb)",
-        fontSize: "0.6875rem",
-        lineHeight: 1.5,
-        color: "var(--text-muted, #6b7280)",
-      }}
-    >
+    <div className={styles.stepperData}>
       {entries.map(([key, value]) => {
         const displayValue = Array.isArray(value)
           ? value.length <= 4
@@ -138,11 +128,11 @@ function StepDataPreview({ data }: { data: Record<string, unknown> }) {
             : String(value);
 
         return (
-          <div key={key} style={{ display: "flex", gap: "0.375rem" }}>
-            <span style={{ fontWeight: 600, minWidth: "5rem", flexShrink: 0 }}>
-              {key.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase())}:
+          <div key={key} className={styles.stepperDataRow}>
+            <span className={styles.stepperDataKey}>
+              {key.replace(/([A-Z])/g, "_$1").toLowerCase().replace(/^_/, "")}
             </span>
-            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <span className={styles.stepperDataValue} title={displayValue}>
               {displayValue}
             </span>
           </div>
@@ -200,32 +190,21 @@ function PipelineStepper({
           {isComplete
             ? `Completed in ${(totalDurationMs / 1000).toFixed(1)}s`
             : activeCount > 1
-              ? `${activeCount} steps running (${finishedCount}/${totalSteps} done)`
+              ? `${activeCount} steps running · ${finishedCount}/${totalSteps} done`
               : `Step ${Math.min(finishedCount + 1, totalSteps)} of ${totalSteps}`}
         </span>
         {!isComplete && (
-          <span className={styles.stepperElapsed}>{elapsed}s elapsed</span>
+          <span className={styles.stepperElapsed}>{elapsed}s elapsed · {progressPct}%</span>
+        )}
+        {isComplete && (
+          <span className={styles.stepperElapsed}>{progressPct}%</span>
         )}
       </div>
 
-      {/* Progress bar */}
-      <div
-        style={{
-          height: "3px",
-          borderRadius: "2px",
-          background: "var(--border-color, #e5e7eb)",
-          marginBottom: "0.5rem",
-          overflow: "hidden",
-        }}
-      >
+      <div className={styles.stepperProgressBar}>
         <div
-          style={{
-            height: "100%",
-            width: `${progressPct}%`,
-            borderRadius: "2px",
-            background: isComplete ? "var(--success-color, #22c55e)" : "var(--accent-color, #6366f1)",
-            transition: "width 0.3s ease",
-          }}
+          className={`${styles.stepperProgressFill} ${isComplete ? styles.stepperProgressFillComplete : ""}`}
+          style={{ width: `${progressPct}%` }}
         />
       </div>
 
@@ -235,59 +214,48 @@ function PipelineStepper({
         const isExpanded = expandedSteps.has(step.id);
         const isClickable = hasData && step.status !== "pending" && step.status !== "active";
 
+        const timeLabel =
+          step.status === "completed" || step.status === "skipped" || step.status === "failed"
+            ? step.durationMs != null
+              ? `${(step.durationMs / 1000).toFixed(1)}s`
+              : "—"
+            : step.status === "active"
+              ? null
+              : "—";
+
         return (
-          <div key={step.id}>
-            <div
-              className={`${styles.stepperItem} ${stepStatusClass(step.status)}`}
-              onClick={isClickable ? () => toggleExpand(step.id) : undefined}
-              onKeyDown={isClickable ? (e) => e.key === "Enter" && toggleExpand(step.id) : undefined}
-              role={isClickable ? "button" : undefined}
-              tabIndex={isClickable ? 0 : undefined}
-              style={{ cursor: isClickable ? "pointer" : "default" }}
-            >
-              <div className={styles.stepperIndicator}>
-                <StepIcon status={step.status} />
-              </div>
-              <div className={styles.stepperContent} style={{ flex: 1 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.375rem" }}>
-                  <span className={styles.stepperLabel}>{step.label}</span>
-                  {isParallel && step.status === "active" && (
-                    <Zap size={10} style={{ color: "var(--accent-color, #6366f1)", flexShrink: 0 }} />
-                  )}
-                  {isClickable && (
-                    <span style={{ marginLeft: "auto", color: "var(--text-muted, #9ca3af)", flexShrink: 0 }}>
-                      {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                    </span>
-                  )}
-                </div>
-                <div className={styles.stepperMeta}>
-                  {(step.status === "completed" || step.status === "skipped" || step.status === "failed") && step.durationMs != null && (
-                    <span className={styles.stepperDuration}>
-                      {(step.durationMs / 1000).toFixed(1)}s
-                    </span>
-                  )}
-                  {step.detail && (
-                    <span
-                      className={styles.stepperDetail}
-                      style={
-                        step.status === "failed"
-                          ? { color: "var(--error-color, #ef4444)" }
-                          : step.status === "skipped"
-                            ? { color: "var(--text-muted, #9ca3af)", fontStyle: "italic" }
-                            : undefined
-                      }
-                    >
-                      {step.detail}
-                    </span>
-                  )}
-                </div>
-              </div>
+          <div
+            key={step.id}
+            className={`${styles.stepperItem} ${stepStatusClass(step.status)}`}
+            onClick={isClickable ? () => toggleExpand(step.id) : undefined}
+            onKeyDown={isClickable ? (e) => e.key === "Enter" && toggleExpand(step.id) : undefined}
+            role={isClickable ? "button" : undefined}
+            tabIndex={isClickable ? 0 : undefined}
+            style={{ cursor: isClickable ? "pointer" : "default" }}
+          >
+            <div className={styles.stepperIndicator}>
+              <StepIcon status={step.status} />
             </div>
-            {isExpanded && step.stepData && (
-              <div style={{ marginLeft: "1.75rem", marginBottom: "0.25rem" }}>
-                <StepDataPreview data={step.stepData} />
+            <div className={styles.stepperContent}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <span className={styles.stepperLabel}>{step.label}</span>
+                {isParallel && (
+                  <span className={styles.stepperParallelTag}>∥ parallel</span>
+                )}
+                {isClickable && (
+                  <span style={{ marginLeft: "auto", color: "var(--ink-3)", flexShrink: 0, display: "inline-flex" }}>
+                    {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                  </span>
+                )}
               </div>
-            )}
+              {step.detail && (
+                <div className={styles.stepperDetail}>{step.detail}</div>
+              )}
+              {isExpanded && step.stepData && (
+                <StepDataPreview data={step.stepData} />
+              )}
+            </div>
+            {timeLabel != null && <div className={styles.stepperTime}>{timeLabel}</div>}
           </div>
         );
       })}
@@ -1051,6 +1019,7 @@ function VariantStack({
 export function MarketingPipelineWorkspace({
   debug = false,
   showDnaDebugSection = false,
+  embedded = false,
 }: MarketingPipelineWorkspaceProps) {
   const [debugOpen, setDebugOpen] = useState(false);
   const [confirmNewCampaign, setConfirmNewCampaign] = useState(false);
@@ -1117,19 +1086,24 @@ export function MarketingPipelineWorkspace({
   };
 
   return (
-    <>
-      <div className={styles.pageHeaderRow}>
-        <div className={styles.pageTitleIcon}>
-          <Megaphone className={styles.pageTitleIconInner} />
+    <div
+      className={embedded ? styles.embeddedRoot : undefined}
+      style={embedded ? undefined : { display: "contents" }}
+    >
+      {!embedded && (
+        <div className={styles.pageHeaderRow}>
+          <div className={styles.pageTitleIcon}>
+            <Megaphone className={styles.pageTitleIconInner} />
+          </div>
+          <div>
+            <h1 className={styles.pageTitle}>Marketing Pipeline</h1>
+            <p className={styles.pageSubtitle}>
+              Create campaign-ready posts for Reddit, X, LinkedIn & Bluesky from your company
+              knowledge base
+            </p>
+          </div>
         </div>
-        <div>
-          <h1 className={styles.pageTitle}>Marketing Pipeline</h1>
-          <p className={styles.pageSubtitle}>
-            Create campaign-ready posts for Reddit, X, LinkedIn & Bluesky from your company
-            knowledge base
-          </p>
-        </div>
-      </div>
+      )}
 
       {!platform ? (
         <section className={styles.mainContent}>
@@ -1222,10 +1196,12 @@ export function MarketingPipelineWorkspace({
 
             <section className={styles.workspaceShell}>
               <div className={`${styles.workspaceMain} ${styles.workspaceMainSingle}`}>
-                <div className={styles.workspaceMainHeader}>
-                  <MessageSquareText size={18} className={styles.assistantIcon} />
-                  <h2 className={styles.assistantTitle}>AI Assistant</h2>
-                </div>
+                {!embedded && (
+                  <div className={styles.workspaceMainHeader}>
+                    <MessageSquareText size={18} className={styles.assistantIcon} />
+                    <h2 className={styles.workspaceMainTitle}>AI Assistant</h2>
+                  </div>
+                )}
                 <div className={styles.workspaceLeft}>
                   <header className={styles.workspaceLeftHeader}>
                     <div className={styles.selectedPlatformPill}>
@@ -1640,6 +1616,6 @@ export function MarketingPipelineWorkspace({
           </div>
         </section>
       )}
-    </>
+    </div>
   );
 }
